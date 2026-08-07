@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { prisma } from "../../config/database.js";
 import { AuthRequest } from "../../middleware/auth.js";
 import { logger } from "../../utils/logger.js";
+import { SepaXmlService } from "../../services/SepaXmlService.js";
 
 export const getContracts = async (req: AuthRequest, res: Response) => {
   try {
@@ -129,88 +130,20 @@ export const exportSepa = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ success: false, error: "No pending reimbursements found" });
     }
 
-    // Generate actual SEPA pain.001.001.03 XML
-    const messageId = `MSG-${Date.now()}`;
-    const creationDtTm = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+    const items = pendingLedgers.map((ledger) => ({
+      id: ledger.id,
+      totalAmount: ledger.totalAmount,
+      month: ledger.month,
+      year: ledger.year,
+      userName: ledger.contract.user.name,
+      iban: ledger.contract.iban,
+    }));
 
-    let totalSepsAmount = 0;
-    let transactionsXml = '';
-
-    pendingLedgers.forEach((ledger, index) => {
-      totalSepsAmount += ledger.totalAmount;
-      const txId = `TX-${ledger.id}-${Date.now()}`;
-      const e2eId = `E2E-${ledger.id}-${Date.now()}`;
-      const desc = `Reimbursement for ${ledger.month}/${ledger.year}`;
-
-      transactionsXml += `
-        <CdtTrfTxInf>
-          <PmtId>
-            <InstrId>${txId}</InstrId>
-            <EndToEndId>${e2eId}</EndToEndId>
-          </PmtId>
-          <Amt>
-            <InstdAmt Ccy="EUR">${ledger.totalAmount.toFixed(2)}</InstdAmt>
-          </Amt>
-          <Cdtr>
-            <Nm>${(ledger.contract.user.name || 'Unknown User').substring(0, 70)}</Nm>
-          </Cdtr>
-          <CdtrAcct>
-            <Id>
-              <IBAN>${ledger.contract.iban}</IBAN>
-            </Id>
-          </CdtrAcct>
-          <RmtInf>
-            <Ustrd>${desc.substring(0, 140)}</Ustrd>
-          </RmtInf>
-        </CdtTrfTxInf>`;
-    });
-
-    const numberOfTxs = pendingLedgers.length;
-
-    const sepaXml = `<?xml version="1.0" encoding="UTF-8"?>
-<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03">
-  <CstmrCdtTrfInitn>
-    <GrpHdr>
-      <MsgId>${messageId}</MsgId>
-      <CreDtTm>${creationDtTm}</CreDtTm>
-      <NbOfTxs>${numberOfTxs}</NbOfTxs>
-      <CtrlSum>${totalSepsAmount.toFixed(2)}</CtrlSum>
-      <InitgPty>
-        <Nm>Company Fleet Manager</Nm>
-      </InitgPty>
-    </GrpHdr>
-    <PmtInf>
-      <PmtInfId>PMT-${messageId}</PmtInfId>
-      <PmtMtd>TRF</PmtMtd>
-      <NbOfTxs>${numberOfTxs}</NbOfTxs>
-      <CtrlSum>${totalSepsAmount.toFixed(2)}</CtrlSum>
-      <PmtTpInf>
-        <SvcLvl>
-          <Cd>SEPA</Cd>
-        </SvcLvl>
-      </PmtTpInf>
-      <ReqdExctnDt>${new Date().toISOString().split('T')[0]}</ReqdExctnDt>
-      <Dbtr>
-        <Nm>${process.env.COMPANY_NAME || 'Company Name'}</Nm>
-      </Dbtr>
-      <DbtrAcct>
-        <Id>
-          <IBAN>${process.env.COMPANY_IBAN || 'NL99BANK0123456789'}</IBAN>
-        </Id>
-      </DbtrAcct>
-      <DbtrAgt>
-        <FinInstnId>
-          <BIC>${process.env.COMPANY_BIC || 'BANKNL2A'}</BIC>
-        </FinInstnId>
-      </DbtrAgt>
-${transactionsXml}
-    </PmtInf>
-  </CstmrCdtTrfInitn>
-</Document>`;
+    const sepaXml = SepaXmlService.generatePain001003(items);
 
     res.header('Content-Type', 'application/xml');
     res.attachment('sepa-export.xml');
-    return res.send(sepaXml.trim());
+    return res.send(sepaXml);
 
   } catch (error) {
     logger.error("Error exporting SEPA:", error);

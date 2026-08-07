@@ -1,1 +1,0 @@
-cat Backend/src/app.ts | grep vehicles

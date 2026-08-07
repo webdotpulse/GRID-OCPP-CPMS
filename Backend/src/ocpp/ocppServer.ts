@@ -10,6 +10,20 @@ import { redisPublisher } from "../config/redis.js";
 import { pendingRequests } from "./remoteControl.js";
 import { proxyRouter } from "./proxyRouter.js";
 
+const ipConnectionCounts = new Map<string, { count: number; resetAt: number }>();
+const MAX_UPGRADES_PER_MINUTE = 60;
+
+function isIpRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = ipConnectionCounts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    ipConnectionCounts.set(ip, { count: 1, resetAt: now + 60000 });
+    return false;
+  }
+  entry.count++;
+  return entry.count > MAX_UPGRADES_PER_MINUTE;
+}
+
 class OcppServer {
   private wss: WebSocketServer | null = null;
   private httpServer: http.Server | null = null;
@@ -19,6 +33,7 @@ class OcppServer {
     this.httpServer = http.createServer();
     this.wss = new WebSocketServer({
       noServer: true,
+      maxPayload: 1024 * 1024, // 1MB maximum payload per frame for security
       handleProtocols: (protocols, request) => {
         if (protocols.has("ocpp2.1")) return "ocpp2.1";
         if (protocols.has("ocpp2.0.1")) return "ocpp2.0.1";
@@ -31,6 +46,14 @@ class OcppServer {
     // Handle the upgrade event to implement optional authentication
     this.httpServer.on("upgrade", async (request, socket, head) => {
       try {
+        const clientIp = request.socket.remoteAddress || "unknown";
+        if (isIpRateLimited(clientIp)) {
+          logger.warn(`Rate limiting WebSocket connection attempt from IP: ${clientIp}`);
+          socket.write('HTTP/1.1 429 Too Many Requests\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+
         const pathParts = request.url?.split("?")[0].split("/").filter(Boolean);
         const chargerIdStr = pathParts?.[pathParts.length - 1];
 
