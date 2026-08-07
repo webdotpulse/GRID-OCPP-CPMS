@@ -1,25 +1,17 @@
 import { Router } from "express";
 import {
-  getLocations,
-  getTariffs,
-  getEndpoints,
-  createEndpoint,
-  updateEndpoint,
-  deleteEndpoint,
-  testEndpoint
+  getOcpiLocations,
+  getOcpiTariffs,
+  getOcpiSessions,
+  getOcpiCdrs,
 } from "./ocpi.controller.js";
 
 const router = Router();
 
-// Endpoint management
-router.get("/endpoints", getEndpoints);
-router.post("/endpoints", createEndpoint);
-router.put("/endpoints/:id", updateEndpoint);
-router.delete("/endpoints/:id", deleteEndpoint);
-router.post("/endpoints/:id/test", testEndpoint);
-
-// Placeholder routes for OCPI integration
-router.get("/locations", getLocations);
-router.get("/tariffs", getTariffs);
+// Standard OCPI 2.2.1 CPO Endpoints
+router.get("/2.2.1/locations", getOcpiLocations);
+router.get("/2.2.1/tariffs", getOcpiTariffs);
+router.get("/2.2.1/sessions", getOcpiSessions);
+router.get("/2.2.1/cdrs", getOcpiCdrs);
 
 export default router;

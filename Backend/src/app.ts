@@ -37,6 +37,8 @@ import settingsPaymentsRoutes from "./api/settings/payments/payments.routes.js";
 import diagnosticsRoutes from "./routes/diagnostics.js";
 import mediaCampaignsRoutes from "./api/media-campaigns/media-campaigns.routes.js";
 import vehiclesRoutes from "./api/vehicles/vehicles.routes.js";
+import vccRoutes from "./api/vcc/vcc.routes.js";
+import analyticsRoutes from "./api/analytics/analytics.routes.js";
 
 // Import OCPP servers
 import { ocppServer } from "./ocpp/ocppServer.js";
@@ -120,6 +122,8 @@ export function createApp(): Application {
   app.use("/api/diagnostics", diagnosticsRoutes);
   app.use("/api/media-campaigns", authenticateToken, mediaCampaignsRoutes);
   app.use("/api/vehicles", authenticateToken, vehiclesRoutes);
+  app.use("/api/vcc", vccRoutes);
+  app.use("/api/analytics", analyticsRoutes);
 
   // Error handling
   app.use(notFoundHandler);

@@ -94,6 +94,22 @@ export function requireSuperAdmin(
 }
 
 /**
+ * Middleware to check if user has one of the required roles
+ */
+export function requireRole(...allowedRoles: string[]) {
+  return (req: AuthRequest, res: Response, next: NextFunction): void | Response => {
+    const role = req.userRole || "user";
+    if (role === "superadmin" || allowedRoles.includes(role)) {
+      return next();
+    }
+    return res.status(403).json({
+      success: false,
+      error: `Insufficient permissions. Required role(s): ${allowedRoles.join(", ")}`,
+    });
+  };
+}
+
+/**
  * Generate JWT token
  */
 export function generateToken(userId: number, email: string, role: string): string {
