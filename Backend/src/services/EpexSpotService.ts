@@ -259,7 +259,11 @@ export class EpexSpotService {
       });
 
       if (priceRecord) {
-        await redisClient.set(cacheKey, priceRecord.pricePerMwh.toString(), "EX", 86400); // 24h
+        try {
+          await redisClient.set(cacheKey, priceRecord.pricePerMwh.toString(), "EX", 86400); // 24h
+        } catch (cacheErr) {
+          logger.warn(`Could not cache EPEX price: ${cacheErr}`);
+        }
         return priceRecord.pricePerMwh;
       }
 
@@ -271,7 +275,11 @@ export class EpexSpotService {
 
       if (latestPrice) {
         logger.warn(`Exact EPEX price not found for ${provider} ${country} at ${targetTime.toISOString()}. Using latest available price.`);
-        await redisClient.set(cacheKey, latestPrice.pricePerMwh.toString(), "EX", 3600); // 1h
+        try {
+          await redisClient.set(cacheKey, latestPrice.pricePerMwh.toString(), "EX", 3600); // 1h
+        } catch (cacheErr) {
+          logger.warn(`Could not cache EPEX fallback price: ${cacheErr}`);
+        }
         return latestPrice.pricePerMwh;
       }
 

@@ -39,6 +39,7 @@ import mediaCampaignsRoutes from "./api/media-campaigns/media-campaigns.routes.j
 import vehiclesRoutes from "./api/vehicles/vehicles.routes.js";
 import vccRoutes from "./api/vcc/vcc.routes.js";
 import analyticsRoutes from "./api/analytics/analytics.routes.js";
+import reimbursementsRoutes from "./api/reimbursements/reimbursements.routes.js";
 
 // Import OCPP servers
 import { ocppServer } from "./ocpp/ocppServer.js";
@@ -46,6 +47,7 @@ import { ocppLogsServer } from "./ocpp/logsWebSocket.js";
 import { setupRealtimeSocket } from "./ocpp/realtime.socket.js";
 import { startTelemetrySyncCron } from "./cron/telemetrySyncCron.js";
 import { startAutoHealCron } from "./cron/autoHealCron.js";
+import { startReimbursementCron } from "./cron/reimbursementCron.js";
 import "./cron/predictiveBalancingCron.js";
 
 /**
@@ -124,6 +126,7 @@ export function createApp(): Application {
   app.use("/api/vehicles", authenticateToken, vehiclesRoutes);
   app.use("/api/vcc", vccRoutes);
   app.use("/api/analytics", analyticsRoutes);
+  app.use("/api/reimbursements", reimbursementsRoutes);
 
   // Error handling
   app.use(notFoundHandler);
@@ -157,6 +160,7 @@ export function startServers(): void {
   // Start background crons
   startTelemetrySyncCron();
   startAutoHealCron();
+  startReimbursementCron();
 
   // Graceful shutdown
   const shutdown = (signal: string) => {

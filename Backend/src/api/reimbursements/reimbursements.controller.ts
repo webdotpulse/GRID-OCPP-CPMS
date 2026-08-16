@@ -3,14 +3,17 @@ import { prisma } from "../../config/database.js";
 import { AuthRequest } from "../../middleware/auth.js";
 import { logger } from "../../utils/logger.js";
 import { SepaXmlService } from "../../services/SepaXmlService.js";
+import { calculateMonthlyReimbursements } from "../../cron/reimbursementCron.js";
+
+const isAdminOrSuperAdmin = (role?: string) => role === "admin" || role === "superadmin";
 
 export const getContracts = async (req: AuthRequest, res: Response) => {
   try {
     const { userId, userRole } = req;
 
     let whereClause = {};
-    if (userRole !== 'admin') {
-       whereClause = { userId: userId };
+    if (!isAdminOrSuperAdmin(userRole)) {
+      whereClause = { userId: userId };
     }
 
     const contracts = await prisma.reimbursementContract.findMany({
@@ -20,7 +23,7 @@ export const getContracts = async (req: AuthRequest, res: Response) => {
         rfidUser: { select: { rfid_user_id: true, rfid_tag: true, name: true } },
         station: { select: { id: true, station_name: true } },
         tariff: { select: { tariff_id: true, tariff_name: true, electricity_rate: true, tariffType: true } },
-      }
+      },
     });
 
     res.json({ success: true, data: contracts });
@@ -37,8 +40,8 @@ export const createOrUpdateContract = async (req: AuthRequest, res: Response) =>
 
     let targetUserId = userId;
     // Allow admin to specify userId in body, otherwise default to self
-    if (userRole === 'admin' && req.body.userId) {
-       targetUserId = req.body.userId;
+    if (isAdminOrSuperAdmin(userRole) && req.body.userId) {
+      targetUserId = Number(req.body.userId);
     }
 
     if (!targetUserId || !rfidUserId || !stationId || !tariffId || !iban) {
@@ -51,19 +54,19 @@ export const createOrUpdateContract = async (req: AuthRequest, res: Response) =>
           userId: targetUserId as number,
           rfidUserId: Number(rfidUserId),
           stationId: Number(stationId),
-        }
+        },
       },
       update: {
         tariffId: Number(tariffId),
-        iban,
+        iban: String(iban).trim(),
       },
       create: {
         userId: targetUserId as number,
         rfidUserId: Number(rfidUserId),
         stationId: Number(stationId),
         tariffId: Number(tariffId),
-        iban,
-      }
+        iban: String(iban).trim(),
+      },
     });
 
     res.json({ success: true, data: contract });
@@ -78,8 +81,8 @@ export const getLedgers = async (req: AuthRequest, res: Response) => {
     const { userId, userRole } = req;
 
     let whereClause = {};
-    if (userRole !== 'admin') {
-       whereClause = { contract: { userId: userId } };
+    if (!isAdminOrSuperAdmin(userRole)) {
+      whereClause = { contract: { userId: userId } };
     }
 
     const ledgers = await prisma.reimbursementLedger.findMany({
@@ -91,13 +94,13 @@ export const getLedgers = async (req: AuthRequest, res: Response) => {
             rfidUser: { select: { rfid_tag: true } },
             station: { select: { station_name: true } },
             tariff: { select: { tariff_name: true } },
-          }
-        }
+          },
+        },
       },
       orderBy: [
-        { year: 'desc' },
-        { month: 'desc' },
-      ]
+        { year: "desc" },
+        { month: "desc" },
+      ],
     });
 
     res.json({ success: true, data: ledgers });
@@ -111,42 +114,119 @@ export const exportSepa = async (req: AuthRequest, res: Response) => {
   try {
     const { userRole } = req;
 
-    if (userRole !== 'admin') {
-        return res.status(403).json({ success: false, error: "Forbidden" });
+    if (!isAdminOrSuperAdmin(userRole)) {
+      return res.status(403).json({ success: false, error: "Forbidden" });
     }
 
-    const pendingLedgers = await prisma.reimbursementLedger.findMany({
-      where: { status: 'pending' },
+    const includeExported = req.query.includeExported === "true";
+    const statusFilter = includeExported
+      ? { in: ["pending", "exported"] }
+      : "pending";
+
+    const ledgersToExport = await prisma.reimbursementLedger.findMany({
+      where: { status: statusFilter },
       include: {
         contract: {
           include: {
-            user: { select: { name: true } },
-          }
-        }
-      }
+            user: { select: { name: true, email: true } },
+          },
+        },
+      },
     });
 
-    if (pendingLedgers.length === 0) {
+    if (ledgersToExport.length === 0) {
       return res.status(404).json({ success: false, error: "No pending reimbursements found" });
     }
 
-    const items = pendingLedgers.map((ledger) => ({
+    const ledgerIds = ledgersToExport.map((l) => l.id);
+
+    // Update exported records atomically in a transaction
+    await prisma.$transaction(
+      ledgerIds.map((id) =>
+        prisma.reimbursementLedger.update({
+          where: { id },
+          data: {
+            status: "exported",
+            exportedAt: new Date(),
+          },
+        })
+      )
+    );
+
+    const items = ledgersToExport.map((ledger) => ({
       id: ledger.id,
       totalAmount: ledger.totalAmount,
       month: ledger.month,
       year: ledger.year,
-      userName: ledger.contract.user.name,
+      userName: ledger.contract.user.name || ledger.contract.user.email,
       iban: ledger.contract.iban,
     }));
 
     const sepaXml = SepaXmlService.generatePain001003(items);
 
-    res.header('Content-Type', 'application/xml');
-    res.attachment('sepa-export.xml');
+    res.header("Content-Type", "application/xml");
+    res.attachment("sepa-export.xml");
     return res.send(sepaXml);
-
   } catch (error) {
     logger.error("Error exporting SEPA:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};
+
+export const markLedgerPaid = async (req: AuthRequest, res: Response) => {
+  try {
+    const { userRole } = req;
+    const ledgerId = parseInt(req.params.id, 10);
+
+    if (!isAdminOrSuperAdmin(userRole)) {
+      return res.status(403).json({ success: false, error: "Forbidden" });
+    }
+
+    if (isNaN(ledgerId)) {
+      return res.status(400).json({ success: false, error: "Invalid ledger ID" });
+    }
+
+    const ledger = await prisma.reimbursementLedger.findUnique({
+      where: { id: ledgerId },
+    });
+
+    if (!ledger) {
+      return res.status(404).json({ success: false, error: "Reimbursement ledger not found" });
+    }
+
+    const updated = await prisma.reimbursementLedger.update({
+      where: { id: ledgerId },
+      data: { status: "paid" },
+    });
+
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    logger.error("Error marking ledger as paid:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};
+
+export const calculateReimbursementsManual = async (req: AuthRequest, res: Response) => {
+  try {
+    const { userRole } = req;
+
+    if (!isAdminOrSuperAdmin(userRole)) {
+      return res.status(403).json({ success: false, error: "Forbidden" });
+    }
+
+    const { targetDate, month, year } = req.body;
+    let calculationDate: Date | undefined;
+
+    if (month && year) {
+      calculationDate = new Date(Date.UTC(Number(year), Number(month) - 1, 15, 0, 0, 0, 0));
+    } else if (targetDate) {
+      calculationDate = new Date(targetDate);
+    }
+
+    const result = await calculateMonthlyReimbursements(calculationDate);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error("Error manually calculating reimbursements:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };

@@ -2,10 +2,15 @@ import { Redis } from "ioredis";
 import { config } from "./index.js";
 import { logger } from "../utils/logger.js";
 
+const isTestEnv = process.env.NODE_ENV === "test";
+
 // Main Redis client for standard commands (caching, rate limiting)
 export const redisClient = new Redis(config.redisUrl, {
-  maxRetriesPerRequest: null,
+  lazyConnect: isTestEnv,
+  enableOfflineQueue: !isTestEnv,
+  maxRetriesPerRequest: isTestEnv ? 1 : null,
   retryStrategy(times) {
+    if (isTestEnv) return null;
     logger.warn(`Redis connection retry attempt ${times}`);
     return Math.min(times * 50, 2000);
   },
@@ -13,12 +18,24 @@ export const redisClient = new Redis(config.redisUrl, {
 
 // Redis client dedicated to Pub/Sub (Publishing)
 export const redisPublisher = new Redis(config.redisUrl, {
-  maxRetriesPerRequest: null,
+  lazyConnect: isTestEnv,
+  enableOfflineQueue: !isTestEnv,
+  maxRetriesPerRequest: isTestEnv ? 1 : null,
+  retryStrategy(times) {
+    if (isTestEnv) return null;
+    return Math.min(times * 50, 2000);
+  },
 });
 
 // Redis client dedicated to Pub/Sub (Subscribing)
 export const redisSubscriber = new Redis(config.redisUrl, {
-  maxRetriesPerRequest: null,
+  lazyConnect: isTestEnv,
+  enableOfflineQueue: !isTestEnv,
+  maxRetriesPerRequest: isTestEnv ? 1 : null,
+  retryStrategy(times) {
+    if (isTestEnv) return null;
+    return Math.min(times * 50, 2000);
+  },
 });
 
 redisClient.on("connect", () => logger.info("Redis main client connected"));

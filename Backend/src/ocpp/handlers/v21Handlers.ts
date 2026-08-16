@@ -7,6 +7,7 @@ import { loadManagementService } from "../../services/LoadManagementService.js";
 import { logOcppMessage } from "../messageHandlers.js";
 import { OcppError } from "../errors/OcppError.js";
 import { getTariffForTransaction } from "../../utils/tariffHelpers.js";
+import { DynamicTariffService } from "../../services/DynamicTariffService.js";
 import {
   handleGetVariables,
   handleSetVariables,
@@ -548,45 +549,24 @@ export async function handleTransactionEvent(
             energyConsumed = -energyConsumed;
         }
 
-        const stopTime = new Date(timestamp);
-        const startTimeMs = transaction.startTime.getTime();
-        const endTimeMs = stopTime.getTime();
-        const totalDurationMinutes = Math.max(0, (endTimeMs - startTimeMs) / (1000 * 60));
+        const stopTime = new Date(timestamp || new Date());
 
-        const lastActiveMeterValue = await prisma.meterValue.findFirst({
-          where: { transactionId: String(transactionId), power: { gt: 0 } },
-          orderBy: { timestamp: 'desc' },
+        const costResult = await DynamicTariffService.calculateSessionCost({
+          transactionId: String(transactionId),
+          initialMeterValue: transaction.initialMeterValue || 0,
+          meterStop,
+          startTime: transaction.startTime,
+          endTime: stopTime,
+          tariff,
         });
 
-        const idleDurationMinutes = lastActiveMeterValue
-          ? Math.max(0, (endTimeMs - lastActiveMeterValue.timestamp.getTime()) / (1000 * 60))
-          : 0;
-
-        const connectionFee = (tariff?.charge || 0) * 100; // in cents
-        const timeFee = (tariff?.time_fee || 0) * totalDurationMinutes * 100; // in cents
-        const idleFee = (tariff?.idle_fee || 0) * idleDurationMinutes * 100; // in cents
-
-        let energyFee = 0;
-
-        if (tariff?.tariffType === "DYNAMIC_EPEX" && tariff.country) {
-          const { EpexSpotService } = await import("../../services/EpexSpotService.js");
-          const spotPriceMwh = await EpexSpotService.getPriceForTimestamp(tariff.country, transaction.startTime, tariff.dynamicProvider || "EnergyZero");
-          const spotPriceKwh = spotPriceMwh ? (spotPriceMwh / 1000) : 0;
-          const markup = tariff.markupPerKwh || 0;
-          const taxRate = tariff.taxPercentage ? (tariff.taxPercentage / 100) : 0;
-          const hourlyCostKwh = (spotPriceKwh + markup) * (1 + taxRate);
-          energyFee = (energyConsumed / 1000) * hourlyCostKwh * 100;
-        } else {
-          energyFee = (energyConsumed / 1000) * tariffRate * 100;
-        }
-
-        const totalCost = connectionFee + timeFee + idleFee + energyFee;
+        const totalCost = costResult.totalCost;
 
         const updatedTransaction = await prisma.transaction.update({
           where: { id: transaction.id },
           data: {
             finalMeterValue: meterStop,
-            endTime: new Date(timestamp),
+            endTime: stopTime,
             status: "completed",
             energyConsumed: energyConsumed,
             totalCost: totalCost,
@@ -632,31 +612,23 @@ export async function handleTransactionEvent(
             energyConsumed = -energyConsumed;
         }
 
-        let amountDue = 0;
+        const stopTime = new Date(timestamp || new Date());
+        const rfidCostResult = await DynamicTariffService.calculateSessionCost({
+          transactionId: String(transactionId),
+          initialMeterValue: rfidSession.initialMeterValue || 0,
+          meterStop,
+          startTime: rfidSession.startTime,
+          endTime: stopTime,
+          tariff,
+        });
 
-        if (tariff?.tariffType === "DYNAMIC_EPEX" && tariff.country) {
-          const { EpexSpotService } = await import("../../services/EpexSpotService.js");
-          const spotPriceMwh = await EpexSpotService.getPriceForTimestamp(tariff.country, rfidSession.startTime, tariff.dynamicProvider || "EnergyZero");
-
-          // Convert MWh to kWh
-          const spotPriceKwh = spotPriceMwh ? (spotPriceMwh / 1000) : 0;
-
-          // Formula: Hourly Cost = (EPEX_Spot_Price_Per_kWh + markupPerKwh) * (1 + taxPercentage)
-          const markup = tariff.markupPerKwh || 0;
-          const taxRate = tariff.taxPercentage ? (tariff.taxPercentage / 100) : 0;
-
-          const hourlyCostKwh = (spotPriceKwh + markup) * (1 + taxRate);
-
-          amountDue = (energyConsumed / 1000) * hourlyCostKwh * 100; // Convert to paise/cents
-        } else {
-          amountDue = (energyConsumed / 1000) * tariffRate * 100;
-        }
+        const amountDue = rfidCostResult.totalCost;
 
         await prisma.rfidSession.update({
           where: { id: rfidSession.id },
           data: {
             finalMeterValue: meterStop,
-            endTime: new Date(timestamp),
+            endTime: stopTime,
             energyConsumed,
             tariffRate,
             amountDue,

@@ -45,4 +45,38 @@ describe("SepaXmlService", () => {
     expect(xml).toContain('<IBAN>BE68539007547034</IBAN>');
     expect(xml).toContain('<Cd>SEPA</Cd>');
   });
+
+  it("should properly escape XML special characters to prevent XML injection (FIN-02)", () => {
+    const mockItems: SepaTransactionItem[] = [
+      {
+        id: 103,
+        totalAmount: 120.00,
+        month: 8,
+        year: 2026,
+        userName: "Smith & Sons <Tech> \"Ltd\"",
+        iban: "nl 91 abna 0417 1643 00", // Unformatted lowercase with spaces
+      },
+    ];
+
+    const xml = SepaXmlService.generatePain001003(mockItems, {
+      initiatingPartyName: "Admin & Partner <HQ>",
+      companyName: "AT&T Europe 'Holdings'",
+      companyIban: "nl 99 bank 0123 4567 89",
+      companyBic: "bank nl 2a",
+    });
+
+    // Special characters should be escaped
+    expect(xml).toContain('<Nm>Smith &amp; Sons &lt;Tech&gt; &quot;Ltd&quot;</Nm>');
+    expect(xml).toContain('<Nm>Admin &amp; Partner &lt;HQ&gt;</Nm>');
+    expect(xml).toContain('<Nm>AT&amp;T Europe &apos;Holdings&apos;</Nm>');
+
+    // IBAN & BIC should be sanitized (no spaces, uppercase)
+    expect(xml).toContain('<IBAN>NL91ABNA0417164300</IBAN>');
+    expect(xml).toContain('<IBAN>NL99BANK0123456789</IBAN>');
+    expect(xml).toContain('<BIC>BANKNL2A</BIC>');
+
+    // No unescaped dangerous characters in content
+    expect(xml).not.toContain('<Nm>Smith & Sons');
+    expect(xml).not.toContain('<Nm>AT&T');
+  });
 });
