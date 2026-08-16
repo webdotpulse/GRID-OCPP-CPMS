@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { prisma } from "../../config/database.js";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { config } from "../../config/index.js";
 import { generateToken, AuthRequest } from "../../middleware/auth.js";
 import { logger } from "../../utils/logger.js";
 import { sendEmail } from "../../utils/mailer.js";
@@ -38,6 +40,8 @@ export const register = async (req: Request, res: Response) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    const isEmailVerificationRequired = config.requireEmailVerification;
+
     // Create user
     const user = await prisma.user.create({
       data: {
@@ -45,34 +49,55 @@ export const register = async (req: Request, res: Response) => {
         password: hashedPassword,
         name,
         role: "user",
+        emailVerified: !isEmailVerificationRequired,
       },
     });
 
-    // Send confirmation email
+    let verificationToken = "";
+    if (isEmailVerificationRequired) {
+      verificationToken = jwt.sign(
+        { userId: user.id, email: user.email, type: "email-verification" },
+        config.jwtSecret,
+        { expiresIn: "24h" }
+      );
+    }
+
+    // Send confirmation or verification email
     try {
-      const loginUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      const verificationUrl = isEmailVerificationRequired
+        ? `${frontendUrl}/verify-email?token=${verificationToken}`
+        : `${frontendUrl}/login`;
+
       await sendEmail(
         user.email,
-        "Welcome to OCPP CMS",
-        "Your account has been successfully registered.",
-        "<p>Your account has been successfully registered.</p>",
+        isEmailVerificationRequired ? "Verify your email - OCPP CMS" : "Welcome to OCPP CMS",
+        isEmailVerificationRequired
+          ? `Please verify your email: ${verificationUrl}`
+          : "Your account has been successfully registered.",
+        isEmailVerificationRequired
+          ? `<p>Please verify your email by clicking the link below:</p><p><a href="${verificationUrl}">${verificationUrl}</a></p>`
+          : "<p>Your account has been successfully registered.</p>",
         "registration",
         user.language,
-        { userEmail: user.email, loginUrl }
+        { userEmail: user.email, loginUrl: frontendUrl, verificationUrl }
       );
     } catch (emailError) {
       logger.error(`Error sending registration email to ${user.email}: ${emailError}`);
       // Proceed even if email fails
     }
 
-    logger.info(`New user registered: ${email}`);
+    logger.info(`New user registered: ${email} (emailVerified: ${user.emailVerified})`);
     res.status(201).json({
       success: true,
       data: {
         id: user.id,
         email: user.email,
         role: user.role,
-        message: "Registration successful. Please verify your email before logging in."
+        requiresVerification: isEmailVerificationRequired,
+        message: isEmailVerificationRequired
+          ? "Registration successful. Please verify your email before logging in."
+          : "Registration successful. You can now log in.",
       },
     });
   } catch (error) {
@@ -83,6 +108,7 @@ export const register = async (req: Request, res: Response) => {
     });
   }
 };
+
 
 export const getMe = async (req: AuthRequest, res: Response) => {
   try {
@@ -228,10 +254,20 @@ export const login = async (req: Request, res: Response) => {
     }
 
     if (!user.emailVerified) {
-      return res.status(403).json({
-        success: false,
-        error: "Email verification required",
-      });
+      if (config.requireEmailVerification) {
+        return res.status(403).json({
+          success: false,
+          error: "Email verification required. Please verify your email before logging in.",
+          requiresVerification: true,
+          email: user.email,
+        });
+      } else {
+        // Auto-verify if verification is not strictly required
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerified: true },
+        });
+      }
     }
 
     // Verify password
@@ -699,3 +735,131 @@ export const refresh = async (req: Request, res: Response) => {
     });
   }
 };
+
+/**
+ * GET/POST /api/auth/verify-email - Verify email address with signed JWT token
+ */
+export const verifyEmail = async (req: Request, res: Response) => {
+  try {
+    const token = ((req.query.token as string) || req.body?.token)?.trim();
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        error: "Verification token is required",
+      });
+    }
+
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, config.jwtSecret);
+    } catch (jwtErr) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid or expired verification token",
+      });
+    }
+
+    if (!decoded || decoded.type !== "email-verification" || !decoded.userId) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid verification token payload",
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found",
+      });
+    }
+
+    if (user.emailVerified) {
+      return res.json({
+        success: true,
+        message: "Email is already verified. You may log in.",
+        alreadyVerified: true,
+      });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: true },
+    });
+
+    logger.info(`Email verified for user ${user.email} (ID: ${user.id})`);
+
+    res.json({
+      success: true,
+      message: "Email verified successfully. You can now log in.",
+    });
+  } catch (error: any) {
+    logger.error(`Error verifying email: ${error}`);
+    res.status(500).json({
+      success: false,
+      error: "Failed to verify email",
+    });
+  }
+};
+
+/**
+ * POST /api/auth/resend-verification - Resend email verification link
+ */
+export const resendVerification = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({
+        success: false,
+        error: "Email is required",
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
+
+    if (user && !user.emailVerified) {
+      const verificationToken = jwt.sign(
+        { userId: user.id, email: user.email, type: "email-verification" },
+        config.jwtSecret,
+        { expiresIn: "24h" }
+      );
+
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      const verificationUrl = `${frontendUrl}/verify-email?token=${verificationToken}`;
+
+      try {
+        await sendEmail(
+          user.email,
+          "Verify your OCPP CMS account",
+          `Please verify your email by clicking the link: ${verificationUrl}`,
+          `<p>Please verify your email by clicking the link below:</p><p><a href="${verificationUrl}">${verificationUrl}</a></p>`,
+          "verification",
+          user.language,
+          { userEmail: user.email, verificationUrl }
+        );
+      } catch (emailError) {
+        logger.error(`Error sending verification email to ${user.email}: ${emailError}`);
+      }
+    }
+
+    // Always return a success response to prevent email enumeration
+    res.json({
+      success: true,
+      message: "If an unverified account exists with that email, a verification link has been sent.",
+    });
+  } catch (error: any) {
+    logger.error(`Error resending verification email: ${error}`);
+    res.status(500).json({
+      success: false,
+      error: "Failed to resend verification email",
+    });
+  }
+};
+

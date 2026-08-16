@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { logger } from "../../utils/logger.js";
 import { prisma } from "../../config/database.js";
+import { AuthRequest } from "../../middleware/auth.js";
 import {
   remoteStartTransaction,
   remoteStopTransaction,
@@ -20,6 +21,44 @@ import {
 import type { RemoteStartRequest, RemoteStopRequest, SetChargingProfileRequest, ClearChargingProfileRequest } from "../../types/index.js";
 
 /**
+ * Verifies if the caller has permission to perform remote operations on a charger.
+ * - Superadmin has access to all existing chargers.
+ * - Admin and regular users have access only to chargers they own.
+ */
+export async function verifyChargerOwnership(
+  chargerId: number,
+  userId?: number,
+  userRole?: string
+): Promise<{ authorized: boolean; exists: boolean }> {
+  if (isNaN(chargerId)) {
+    return { authorized: false, exists: false };
+  }
+
+  const charger = await prisma.charger.findUnique({
+    where: { charger_id: chargerId },
+    select: { charger_id: true, owner_id: true },
+  });
+
+  if (!charger) {
+    return { authorized: false, exists: false };
+  }
+
+  if (userRole === "superadmin") {
+    return { authorized: true, exists: true };
+  }
+
+  if (!userId) {
+    return { authorized: false, exists: true };
+  }
+
+  if (charger.owner_id === userId) {
+    return { authorized: true, exists: true };
+  }
+
+  return { authorized: false, exists: true };
+}
+
+/**
  * POST /api/ocpp/set-charging-profile - Set charging profile on charger
  */
 export const setChargingProfileController = async (req: Request, res: Response) => {
@@ -33,7 +72,16 @@ export const setChargingProfileController = async (req: Request, res: Response) 
       });
     }
 
-    const result = await setChargingProfile({ chargerId, connectorId, csChargingProfiles });
+    const authReq = req as AuthRequest;
+    const authCheck = await verifyChargerOwnership(Number(chargerId), authReq.userId, authReq.userRole);
+    if (!authCheck.exists) {
+      return res.status(404).json({ success: false, error: "Charger not found" });
+    }
+    if (!authCheck.authorized) {
+      return res.status(403).json({ success: false, error: "Forbidden: You do not have permission to control this charger" });
+    }
+
+    const result = await setChargingProfile({ chargerId: Number(chargerId), connectorId: Number(connectorId), csChargingProfiles });
 
     if (result.status === "Rejected") {
       return res.status(400).json({
@@ -64,6 +112,15 @@ export const clearChargingProfileController = async (req: Request, res: Response
         success: false,
         error: "Missing required field: chargerId",
       });
+    }
+
+    const authReq = req as AuthRequest;
+    const authCheck = await verifyChargerOwnership(Number(request.chargerId), authReq.userId, authReq.userRole);
+    if (!authCheck.exists) {
+      return res.status(404).json({ success: false, error: "Charger not found" });
+    }
+    if (!authCheck.authorized) {
+      return res.status(403).json({ success: false, error: "Forbidden: You do not have permission to control this charger" });
     }
 
     const result = await clearChargingProfile(request);
@@ -111,9 +168,18 @@ export const remoteStart = async (req: Request, res: Response) => {
       });
     }
 
+    const authReq = req as AuthRequest;
+    const authCheck = await verifyChargerOwnership(Number(chargerId), authReq.userId, authReq.userRole);
+    if (!authCheck.exists) {
+      return res.status(404).json({ success: false, error: "Charger not found" });
+    }
+    if (!authCheck.authorized) {
+      return res.status(403).json({ success: false, error: "Forbidden: You do not have permission to control this charger" });
+    }
+
     const result = await remoteStartTransaction({
-      chargerId,
-      connectorId,
+      chargerId: Number(chargerId),
+      connectorId: Number(connectorId),
       idTag,
     });
 
@@ -151,7 +217,16 @@ export const remoteStop = async (req: Request, res: Response) => {
       });
     }
 
-    const result = await remoteStopTransaction({ chargerId, transactionId });
+    const authReq = req as AuthRequest;
+    const authCheck = await verifyChargerOwnership(Number(chargerId), authReq.userId, authReq.userRole);
+    if (!authCheck.exists) {
+      return res.status(404).json({ success: false, error: "Charger not found" });
+    }
+    if (!authCheck.authorized) {
+      return res.status(403).json({ success: false, error: "Forbidden: You do not have permission to control this charger" });
+    }
+
+    const result = await remoteStopTransaction({ chargerId: Number(chargerId), transactionId });
 
     if (result.status === "Rejected") {
       return res.status(400).json({
@@ -187,7 +262,16 @@ export const getChargerConfiguration = async (req: Request, res: Response) => {
       });
     }
 
-    const result = await getConfiguration(chargerId, key);
+    const authReq = req as AuthRequest;
+    const authCheck = await verifyChargerOwnership(Number(chargerId), authReq.userId, authReq.userRole);
+    if (!authCheck.exists) {
+      return res.status(404).json({ success: false, error: "Charger not found" });
+    }
+    if (!authCheck.authorized) {
+      return res.status(403).json({ success: false, error: "Forbidden: You do not have permission to view configuration on this charger" });
+    }
+
+    const result = await getConfiguration(Number(chargerId), key);
 
     if (result.configurationKey) {
       for (const config of result.configurationKey) {
@@ -237,6 +321,15 @@ export const deleteChargerConfigurations = async (req: Request, res: Response) =
       });
     }
 
+    const authReq = req as AuthRequest;
+    const authCheck = await verifyChargerOwnership(chargerId, authReq.userId, authReq.userRole);
+    if (!authCheck.exists) {
+      return res.status(404).json({ success: false, error: "Charger not found" });
+    }
+    if (!authCheck.authorized) {
+      return res.status(403).json({ success: false, error: "Forbidden: You do not have permission to delete configurations on this charger" });
+    }
+
     await prisma.chargerConfiguration.deleteMany({
       where: { chargerId },
     });
@@ -265,7 +358,16 @@ export const setChargerConfiguration = async (req: Request, res: Response) => {
       });
     }
 
-    const result = await changeConfiguration(chargerId, configurationKey);
+    const authReq = req as AuthRequest;
+    const authCheck = await verifyChargerOwnership(Number(chargerId), authReq.userId, authReq.userRole);
+    if (!authCheck.exists) {
+      return res.status(404).json({ success: false, error: "Charger not found" });
+    }
+    if (!authCheck.authorized) {
+      return res.status(403).json({ success: false, error: "Forbidden: You do not have permission to set configuration on this charger" });
+    }
+
+    const result = await changeConfiguration(Number(chargerId), configurationKey);
 
     res.json({ success: true, ...result });
   } catch (error) {
@@ -298,7 +400,16 @@ export const changeAvailabilityController = async (req: Request, res: Response) 
       });
     }
 
-    const result = await changeAvailability(chargerId, connectorId, type);
+    const authReq = req as AuthRequest;
+    const authCheck = await verifyChargerOwnership(Number(chargerId), authReq.userId, authReq.userRole);
+    if (!authCheck.exists) {
+      return res.status(404).json({ success: false, error: "Charger not found" });
+    }
+    if (!authCheck.authorized) {
+      return res.status(403).json({ success: false, error: "Forbidden: You do not have permission to change availability on this charger" });
+    }
+
+    const result = await changeAvailability(Number(chargerId), Number(connectorId), type);
 
     logger.info(`ChangeAvailability sent to charger ${chargerId}, channel: ${connectorId}, type: ${type}`);
     res.json({ success: true, ...result });
@@ -332,7 +443,16 @@ export const resetChargerController = async (req: Request, res: Response) => {
       });
     }
 
-    const result = await resetCharger(chargerId, type);
+    const authReq = req as AuthRequest;
+    const authCheck = await verifyChargerOwnership(Number(chargerId), authReq.userId, authReq.userRole);
+    if (!authCheck.exists) {
+      return res.status(404).json({ success: false, error: "Charger not found" });
+    }
+    if (!authCheck.authorized) {
+      return res.status(403).json({ success: false, error: "Forbidden: You do not have permission to reset this charger" });
+    }
+
+    const result = await resetCharger(Number(chargerId), type);
 
     logger.info(`Reset sent to charger ${chargerId}: ${type}`);
     res.json({ success: true, ...result });
@@ -359,7 +479,16 @@ export const unlockConnectorController = async (req: Request, res: Response) => 
       });
     }
 
-    const result = await unlockConnector(chargerId, connectorId);
+    const authReq = req as AuthRequest;
+    const authCheck = await verifyChargerOwnership(Number(chargerId), authReq.userId, authReq.userRole);
+    if (!authCheck.exists) {
+      return res.status(404).json({ success: false, error: "Charger not found" });
+    }
+    if (!authCheck.authorized) {
+      return res.status(403).json({ success: false, error: "Forbidden: You do not have permission to unlock this connector" });
+    }
+
+    const result = await unlockConnector(Number(chargerId), Number(connectorId));
 
     logger.info(
       `Unlock sent to charger ${chargerId}, channel ${connectorId}`
@@ -476,7 +605,16 @@ export const getDiagnosticsController = async (req: Request, res: Response) => {
       });
     }
 
-    const result = await getDiagnostics(chargerId, location, retries, retryInterval, startTime, stopTime);
+    const authReq = req as AuthRequest;
+    const authCheck = await verifyChargerOwnership(Number(chargerId), authReq.userId, authReq.userRole);
+    if (!authCheck.exists) {
+      return res.status(404).json({ success: false, error: "Charger not found" });
+    }
+    if (!authCheck.authorized) {
+      return res.status(403).json({ success: false, error: "Forbidden: You do not have permission to get diagnostics from this charger" });
+    }
+
+    const result = await getDiagnostics(Number(chargerId), location, retries, retryInterval, startTime, stopTime);
 
     logger.info(
       `GetDiagnostics triggered for charger ${chargerId} with location: ${location}`
@@ -505,7 +643,16 @@ export const updateFirmwareController = async (req: Request, res: Response) => {
       });
     }
 
-    const result = await updateFirmware(chargerId, location, retries, retryInterval);
+    const authReq = req as AuthRequest;
+    const authCheck = await verifyChargerOwnership(Number(chargerId), authReq.userId, authReq.userRole);
+    if (!authCheck.exists) {
+      return res.status(404).json({ success: false, error: "Charger not found" });
+    }
+    if (!authCheck.authorized) {
+      return res.status(403).json({ success: false, error: "Forbidden: You do not have permission to update firmware on this charger" });
+    }
+
+    const result = await updateFirmware(Number(chargerId), location, retries, retryInterval);
 
     logger.info(
       `UpdateFirmware triggered for charger ${chargerId} with location: ${location}`
@@ -531,7 +678,16 @@ export const dataTransferController = async (req: Request, res: Response) => {
       });
     }
 
-    const result = await dataTransfer(chargerId, vendorId, messageId, data);
+    const authReq = req as AuthRequest;
+    const authCheck = await verifyChargerOwnership(Number(chargerId), authReq.userId, authReq.userRole);
+    if (!authCheck.exists) {
+      return res.status(404).json({ success: false, error: "Charger not found" });
+    }
+    if (!authCheck.authorized) {
+      return res.status(403).json({ success: false, error: "Forbidden: You do not have permission to send data transfer to this charger" });
+    }
+
+    const result = await dataTransfer(Number(chargerId), vendorId, messageId, data);
 
     logger.info(
       `DataTransfer sent to charger ${chargerId}, vendorId: ${vendorId}`
@@ -557,7 +713,16 @@ export const triggerMessageController = async (req: Request, res: Response) => {
       });
     }
 
-    const result = await triggerMessage(chargerId, requestedMessage, connectorId);
+    const authReq = req as AuthRequest;
+    const authCheck = await verifyChargerOwnership(Number(chargerId), authReq.userId, authReq.userRole);
+    if (!authCheck.exists) {
+      return res.status(404).json({ success: false, error: "Charger not found" });
+    }
+    if (!authCheck.authorized) {
+      return res.status(403).json({ success: false, error: "Forbidden: You do not have permission to trigger messages on this charger" });
+    }
+
+    const result = await triggerMessage(Number(chargerId), requestedMessage, connectorId !== undefined ? Number(connectorId) : undefined);
 
     logger.info(
       `Trigger message sent to charger ${chargerId}: ${requestedMessage}`
@@ -571,3 +736,4 @@ export const triggerMessageController = async (req: Request, res: Response) => {
     });
   }
 };
+

@@ -132,7 +132,13 @@ export function OcppLogViewer() {
     } else if (!wsUrl) {
       wsUrl = 'ws://localhost:3000/api/ocpp-logs';
     }
-    
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (token) {
+      const delimiter = wsUrl.includes('?') ? '&' : '?';
+      wsUrl = `${wsUrl}${delimiter}token=${encodeURIComponent(token)}`;
+    }
+
     const socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {

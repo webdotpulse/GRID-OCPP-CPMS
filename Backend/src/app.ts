@@ -108,9 +108,9 @@ export function createApp(): Application {
   app.use("/api/companies", authenticateToken, companiesRoutes);
   app.use("/api/charge-groups", authenticateToken, chargeGroupsRoutes);
   app.use("/api/ems-gateways", emsGatewaysRoutes);
-  app.use("/api/payments", paymentsRoutes); // Removed auth for webhook/initial testing
+  app.use("/api/payments", paymentsRoutes); // Auth handled within router to permit public webhooks
   app.use("/api/ocpi", ocpiRoutes); // Removed auth for initial testing
-  app.use("/api/oicp", oicpRoutes); // Removed auth for initial testing
+  app.use("/api/oicp", authenticateToken, oicpRoutes);
   app.use("/api/roaming", authenticateToken, roamingRoutes);
   app.use("/api/config-profiles", authenticateToken, configProfilesRoutes);
   app.use("/api/quirk-profiles", authenticateToken, quirkProfilesRoutes);

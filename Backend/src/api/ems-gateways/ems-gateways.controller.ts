@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { AuthRequest } from "../../middleware/auth.js";
 import { EmsGatewayService } from "../../services/EmsGatewayService.js";
 import { setChargingProfile } from "../../ocpp/remoteControl.js";
+import { prisma } from "../../config/database.js";
 import { logger } from "../../utils/logger.js";
 import type { SetChargingProfileRequest } from "../../types/index.js";
 
@@ -174,6 +175,30 @@ export const throttleChargerFromEms = async (req: Request, res: Response): Promi
       return;
     }
 
+    // Verify charger exists and belongs to the owner of this EMS gateway
+    const charger = await prisma.charger.findUnique({
+      where: { charger_id: Number(charger_id) },
+    });
+
+    if (!charger) {
+      res.status(404).json({
+        success: false,
+        error: "Charger not found",
+      });
+      return;
+    }
+
+    if (charger.owner_id !== gateway.client_id) {
+      logger.warn(
+        `Cross-tenant EMS authorization violation: Gateway client ${gateway.client_id} attempted to throttle charger ${charger_id} owned by client ${charger.owner_id}`
+      );
+      res.status(403).json({
+        success: false,
+        error: "Forbidden: You do not have permission to control this charger",
+      });
+      return;
+    }
+
     const csChargingProfiles: SetChargingProfileRequest["csChargingProfiles"] = {
       chargingProfileId: Math.floor(Math.random() * 1000000),
       stackLevel: 0,
@@ -228,7 +253,7 @@ export const setChargingProfileFromEms = async (req: Request, res: Response): Pr
     }
 
     // Authenticate the EMS gateway using its hardware token
-    await EmsGatewayService.validateGatewayToken(token);
+    const gateway = await EmsGatewayService.validateGatewayToken(token);
 
     const { chargerId, connectorId, csChargingProfiles } = req.body as SetChargingProfileRequest;
 
@@ -240,8 +265,32 @@ export const setChargingProfileFromEms = async (req: Request, res: Response): Pr
       return;
     }
 
+    // Verify charger exists and belongs to the owner of this EMS gateway
+    const charger = await prisma.charger.findUnique({
+      where: { charger_id: Number(chargerId) },
+    });
+
+    if (!charger) {
+      res.status(404).json({
+        success: false,
+        error: "Charger not found",
+      });
+      return;
+    }
+
+    if (charger.owner_id !== gateway.client_id) {
+      logger.warn(
+        `Cross-tenant EMS authorization violation: Gateway client ${gateway.client_id} attempted to set profile on charger ${chargerId} owned by client ${charger.owner_id}`
+      );
+      res.status(403).json({
+        success: false,
+        error: "Forbidden: You do not have permission to control this charger",
+      });
+      return;
+    }
+
     // Forward the SetChargingProfile command to the target charger via OCPP
-    const result = await setChargingProfile({ chargerId, connectorId, csChargingProfiles });
+    const result = await setChargingProfile({ chargerId: Number(chargerId), connectorId: Number(connectorId), csChargingProfiles });
 
     if (result.status === "Rejected") {
       res.status(400).json({
@@ -261,3 +310,4 @@ export const setChargingProfileFromEms = async (req: Request, res: Response): Pr
     }
   }
 };
+

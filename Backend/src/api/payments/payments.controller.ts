@@ -3,12 +3,13 @@ import { prisma } from "../../config/database.js";
 import { logger } from "../../utils/logger.js";
 import { MollieService } from "../../services/MollieService.js";
 import { PaymentStatus } from "@mollie/api-client";
+import { AuthRequest } from "../../middleware/auth.js";
 
 /**
  * Creates a Mollie payment and initiates a PaymentTransaction record.
  */
-export const createPaymentIntent = async (req: Request, res: Response) => {
-  const companyId = req.body.companyId || null;
+export const createPaymentIntent = async (req: AuthRequest, res: Response) => {
+  const companyId = req.body.companyId ? parseInt(req.body.companyId, 10) : (req.userRole !== "superadmin" ? (await prisma.user.findUnique({ where: { id: req.userId }, select: { companyId: true } }))?.companyId || null : null);
 
   try {
     const isConfigured = await MollieService.isConfigured(companyId);
@@ -28,8 +29,16 @@ export const createPaymentIntent = async (req: Request, res: Response) => {
        });
     }
 
+    const parsedAmount = typeof amount === "number" ? amount : parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "amount must be a positive number",
+      });
+    }
+
     // Amount must be a string with 2 decimal places for Mollie
-    const amountStr = parseFloat(amount).toFixed(2);
+    const amountStr = parsedAmount.toFixed(2);
 
     const client = await MollieService.getClient(companyId);
 
@@ -53,7 +62,7 @@ export const createPaymentIntent = async (req: Request, res: Response) => {
         transactionId: transactionId,
         provider: "mollie",
         paymentIntentId: payment.id,
-        amount: parseFloat(amount),
+        amount: parsedAmount,
         currency: currency.toUpperCase(),
         status: "pending",
       }
@@ -123,18 +132,55 @@ export const handleWebhook = async (req: Request, res: Response) => {
 /**
  * Handles generating a refund for a payment.
  */
-export const handleRefund = async (req: Request, res: Response) => {
+export const handleRefund = async (req: AuthRequest, res: Response) => {
   const { paymentId, amount, companyId } = req.body;
 
-  if (!paymentId || !amount) {
+  if (!paymentId || typeof paymentId !== "string" || !paymentId.trim()) {
     return res.status(400).json({
       success: false,
-      message: "paymentId and amount are required",
+      message: "paymentId is required and must be a valid string",
+    });
+  }
+
+  if (amount === undefined || amount === null) {
+    return res.status(400).json({
+      success: false,
+      message: "amount is required",
+    });
+  }
+
+  const parsedAmount = typeof amount === "number" ? amount : parseFloat(amount);
+  if (isNaN(parsedAmount) || parsedAmount <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "amount must be a positive number",
     });
   }
 
   try {
-    const isConfigured = await MollieService.isConfigured(companyId);
+    let resolvedCompanyId = companyId ? parseInt(companyId, 10) : null;
+
+    if (req.userRole !== "superadmin") {
+      const user = await prisma.user.findUnique({
+        where: { id: req.userId },
+        select: { companyId: true },
+      });
+
+      if (!user) {
+        return res.status(401).json({ success: false, message: "User not found" });
+      }
+
+      if (resolvedCompanyId && user.companyId && resolvedCompanyId !== user.companyId) {
+        return res.status(403).json({
+          success: false,
+          message: "Forbidden: You cannot issue refunds for another company",
+        });
+      }
+
+      resolvedCompanyId = resolvedCompanyId || user.companyId;
+    }
+
+    const isConfigured = await MollieService.isConfigured(resolvedCompanyId);
     if (!isConfigured) {
       return res.status(501).json({
         success: false,
@@ -142,9 +188,10 @@ export const handleRefund = async (req: Request, res: Response) => {
       });
     }
 
-    const amountStr = parseFloat(amount).toFixed(2);
-    const refund = await MollieService.generateRefund(paymentId, amountStr, companyId);
+    const amountStr = parsedAmount.toFixed(2);
+    const refund = await MollieService.generateRefund(paymentId.trim(), amountStr, resolvedCompanyId);
 
+    logger.info(`Refund generated for payment ${paymentId} by user ${req.userId}: ${amountStr} EUR`);
     res.json({
       success: true,
       data: refund
@@ -158,3 +205,4 @@ export const handleRefund = async (req: Request, res: Response) => {
     });
   }
 };
+

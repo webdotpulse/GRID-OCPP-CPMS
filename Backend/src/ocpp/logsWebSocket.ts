@@ -1,4 +1,5 @@
 import { WebSocket, WebSocketServer } from "ws";
+import jwt from "jsonwebtoken";
 import { config } from "../config/index.js";
 import { logger } from "../utils/logger.js";
 import { prisma } from "../config/database.js";
@@ -14,10 +15,57 @@ class OcppLogsServer {
     this.wss = new WebSocketServer({ noServer: true });
 
     server.on("upgrade", (request, socket, head) => {
-      if (request.url === "/api/ocpp-logs") {
-        this.wss?.handleUpgrade(request, socket, head, (ws) => {
-          this.wss?.emit("connection", ws, request);
-        });
+      const urlStr = request.url || "";
+      if (urlStr.startsWith("/api/ocpp-logs")) {
+        try {
+          const parsedUrl = new URL(urlStr, `http://${request.headers.host || "localhost"}`);
+          let token = parsedUrl.searchParams.get("token");
+
+          if (!token && request.headers.authorization) {
+            const authHeader = request.headers.authorization;
+            if (authHeader.startsWith("Bearer ")) {
+              token = authHeader.substring(7).trim();
+            }
+          }
+
+          if (!token && request.headers["sec-websocket-protocol"]) {
+            const protocols = request.headers["sec-websocket-protocol"].split(",").map((p: string) => p.trim());
+            const tokenProtocol = protocols.find((p: string) => p.startsWith("token."));
+            if (tokenProtocol) {
+              token = tokenProtocol.substring(6);
+            }
+          }
+
+          if (!token) {
+            logger.warn("Rejected unauthenticated WebSocket connection to /api/ocpp-logs: Missing token");
+            socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
+            socket.destroy();
+            return;
+          }
+
+          const decoded = jwt.verify(token, config.jwtSecret) as {
+            userId: number;
+            email: string;
+            role: string;
+          };
+
+          if (decoded.role !== "admin" && decoded.role !== "superadmin") {
+            logger.warn(`Rejected WebSocket connection to /api/ocpp-logs for user ${decoded.userId}: Insufficient role (${decoded.role})`);
+            socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
+            socket.destroy();
+            return;
+          }
+
+          this.wss?.handleUpgrade(request, socket, head, (ws) => {
+            (ws as any).user = decoded;
+            this.wss?.emit("connection", ws, request);
+          });
+        } catch (authErr: any) {
+          logger.warn(`Failed WebSocket authentication for /api/ocpp-logs: ${authErr.message}`);
+          socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
+          socket.destroy();
+          return;
+        }
       }
     });
 

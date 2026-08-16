@@ -184,7 +184,11 @@ export function ChannelLogs({ chargerId, connectorId }: ChannelLogsProps) {
 
     // Set up WebSocket connection for live logs
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//${window.location.host}/api/ocpp-logs`;
+    let wsUrl = `${wsProtocol}//${window.location.host}/api/ocpp-logs`;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (token) {
+      wsUrl += `?token=${encodeURIComponent(token)}`;
+    }
     let ws: WebSocket | null = null;
 
     try {

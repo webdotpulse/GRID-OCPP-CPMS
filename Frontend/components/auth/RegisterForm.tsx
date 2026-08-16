@@ -28,6 +28,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 export function RegisterForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string>("You can now sign in with your email and password.");
   const [isLoading, setIsLoading] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<RegisterFormValues>({
@@ -38,11 +39,15 @@ export function RegisterForm() {
     setIsLoading(true);
     setError(null);
     try {
-      await api.post('/auth/register', {
+      const response = await api.post('/auth/register', {
         email: data.email,
         password: data.password,
         role: 'user' // Fixed default role
       });
+      const resData = response.data?.data || response.data;
+      if (resData?.message) {
+        setSuccessMessage(resData.message);
+      }
       setSuccess(true);
     } catch (err: any) {
       logger.error('Registration error', err);
@@ -64,7 +69,7 @@ export function RegisterForm() {
         <CardContent className="flex flex-col items-center py-6">
           <CheckCircle2 className="h-16 w-16 text-green-500 mb-4" />
           <p className="text-center text-muted-foreground mb-6">
-            You can now sign in with your email and password.
+            {successMessage}
           </p>
           <Button asChild className="w-full">
             <Link href="/login">Go to Login</Link>

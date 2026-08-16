@@ -6,8 +6,12 @@ import {
   deleteEndpoint,
   testEndpoint
 } from "./oicp.controller.js";
+import { authenticateToken, requireAdmin } from "../../middleware/auth.js";
 
 const router = Router();
+
+// Apply auth & admin checks to all OICP routes
+router.use(authenticateToken, requireAdmin);
 
 // Endpoint management
 router.get("/endpoints", getEndpoints);
@@ -17,3 +21,4 @@ router.delete("/endpoints/:id", deleteEndpoint);
 router.post("/endpoints/:id/test", testEndpoint);
 
 export default router;
+

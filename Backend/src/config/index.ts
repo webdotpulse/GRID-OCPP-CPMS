@@ -32,6 +32,9 @@ export const config = {
   // Dynamic Tariffs
   defaultDynamicProvider: process.env.DEFAULT_DYNAMIC_PROVIDER || "EnergyZero",
   defaultDynamicCountry: process.env.DEFAULT_DYNAMIC_COUNTRY || "BE",
+
+  // Email Verification
+  requireEmailVerification: process.env.REQUIRE_EMAIL_VERIFICATION === "true",
 };
 
 export const logLevels = ["error", "warn", "info", "debug"] as const;

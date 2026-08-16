@@ -1,5 +1,21 @@
 import { Router } from "express";
-import { register, login, verify2FALogin, refresh, getMe, updateMe, updatePassword, forgotPassword, resetPassword, generate2FASecret, enable2FA, disable2FA, send2FAEmailCode } from "./auth.controller.js";
+import {
+  register,
+  login,
+  verify2FALogin,
+  refresh,
+  getMe,
+  updateMe,
+  updatePassword,
+  forgotPassword,
+  resetPassword,
+  generate2FASecret,
+  enable2FA,
+  disable2FA,
+  send2FAEmailCode,
+  verifyEmail,
+  resendVerification,
+} from "./auth.controller.js";
 import { authenticateToken } from "../../middleware/auth.js";
 
 const router = Router();
@@ -8,6 +24,11 @@ router.post("/register", register);
 router.post("/login", login);
 router.post("/verify-2fa-login", verify2FALogin);
 router.post("/refresh", refresh);
+
+// Email verification routes
+router.get("/verify-email", verifyEmail);
+router.post("/verify-email", verifyEmail);
+router.post("/resend-verification", resendVerification);
 
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
@@ -23,3 +44,4 @@ router.post("/2fa/disable", authenticateToken, disable2FA as any);
 router.post("/2fa/send-email-code", authenticateToken, send2FAEmailCode as any);
 
 export default router;
+

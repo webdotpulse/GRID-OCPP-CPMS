@@ -33,13 +33,20 @@ export function LoginForm() {
   const [partialToken, setPartialToken] = useState<string | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState("");
 
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
+  // Email verification state
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+  const [resendStatus, setResendStatus] = useState<string | null>(null);
+  const [isResending, setIsResending] = useState(false);
+
+  const { register, handleSubmit, getValues, formState: { errors } } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
   });
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     setError(null);
+    setUnverifiedEmail(null);
+    setResendStatus(null);
     try {
       const response = await api.post('/auth/login', data);
       const resData = response.data?.data || response.data;
@@ -54,9 +61,27 @@ export function LoginForm() {
       }
     } catch (err: any) {
       logger.error('Login error', err);
-      setError(err.response?.data?.error || 'Invalid email or password');
+      const errorMsg = err.response?.data?.error || 'Invalid email or password';
+      setError(errorMsg);
+      if (err.response?.data?.requiresVerification || errorMsg.toLowerCase().includes('verification required')) {
+        setUnverifiedEmail(err.response?.data?.email || data.email);
+      }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const onResendVerification = async () => {
+    const targetEmail = unverifiedEmail || getValues('email');
+    if (!targetEmail) return;
+    setIsResending(true);
+    try {
+      await api.post('/auth/resend-verification', { email: targetEmail });
+      setResendStatus('Verification link has been resent. Please check your inbox.');
+    } catch (err: any) {
+      setResendStatus(err.response?.data?.error || 'Failed to resend verification link.');
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -136,7 +161,27 @@ export function LoginForm() {
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription className="flex flex-col gap-2">
+                <span>{error}</span>
+                {unverifiedEmail && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="self-start mt-1 text-xs"
+                    onClick={onResendVerification}
+                    disabled={isResending}
+                  >
+                    {isResending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                    Resend Verification Email
+                  </Button>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+          {resendStatus && (
+            <Alert variant="default" className="border-green-500 bg-green-50/10 text-green-700 dark:text-green-300">
+              <AlertDescription>{resendStatus}</AlertDescription>
             </Alert>
           )}
           <div className="space-y-2">
