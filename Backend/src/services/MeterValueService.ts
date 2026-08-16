@@ -68,6 +68,10 @@ export class MeterValueService {
     }
   }
 
+  public static async processMeterValuesBatch(): Promise<void> {
+    return this.runWorkerTask();
+  }
+
   private static async runWorkerTask(): Promise<void> {
     if (this.isProcessing) {
       return;
@@ -185,8 +189,17 @@ export class MeterValueService {
 
           // Update Transactions and RfidSessions
           for (const [transactionId, latest] of latestValuesByTx.entries()) {
+            let sessionEnergy: number | undefined = undefined;
+            if (latest.energyValue !== undefined) {
+              const tx = await prisma.transaction.findFirst({
+                where: { transactionId },
+                select: { initialMeterValue: true }
+              });
+              sessionEnergy = Math.max(0, latest.energyValue - (tx?.initialMeterValue || 0));
+            }
+
             const txUpdateData = {
-              ...(latest.energyValue !== undefined && { energyConsumed: latest.energyValue }),
+              ...(sessionEnergy !== undefined && { energyConsumed: sessionEnergy }),
               ...(latest.powerValue !== undefined && { currentPower: latest.powerValue }),
               ...(latest.socValue !== null && { soc: latest.socValue }),
               ...(latest.currentValue !== null && { current: latest.currentValue }),

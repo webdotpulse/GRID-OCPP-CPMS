@@ -60,7 +60,7 @@ export const exportAnalyticsCsv = async (req: AuthRequest, res: Response) => {
       const energy = (tx.energyConsumed || 0).toFixed(2);
       const power = (tx.currentPower || 0).toFixed(2);
       const startTime = tx.startTime ? tx.startTime.toISOString() : "";
-      const endTime = tx.stopTime ? tx.stopTime.toISOString() : "";
+      const endTime = tx.endTime ? tx.endTime.toISOString() : "";
 
       csvContent += `${tx.transactionId},${chargerName},${chargerModel},${tx.status},${energy},${power},${startTime},${endTime}\n`;
     });

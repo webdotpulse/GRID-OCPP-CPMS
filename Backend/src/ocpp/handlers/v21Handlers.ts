@@ -378,6 +378,7 @@ export async function handleTransactionEvent(
           transactionId: String(transactionId),
           charger_id: chargerId,
           connectorName,
+          rfidUserId: rfidUserId || null,
           startTime: new Date(timestamp || new Date()),
           initialMeterValue: meterStart,
           status: "charging",

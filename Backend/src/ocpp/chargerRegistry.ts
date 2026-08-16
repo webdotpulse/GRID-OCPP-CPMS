@@ -291,8 +291,20 @@ class ChargerRegistry {
    */
   async getConnectedChargers(): Promise<number[]> {
     try {
-      const keys = await redisClient.keys('charger:*:session');
-      return keys.map(key => parseInt(key.split(':')[1], 10)).filter(id => !isNaN(id));
+      let cursor = "0";
+      const chargerIds: number[] = [];
+      do {
+        const [nextCursor, keys] = await redisClient.scan(cursor, "MATCH", "charger:*:session", "COUNT", 100);
+        cursor = nextCursor;
+        for (const key of keys) {
+          const parts = key.split(":");
+          const id = parseInt(parts[1], 10);
+          if (!isNaN(id)) {
+            chargerIds.push(id);
+          }
+        }
+      } while (cursor !== "0");
+      return Array.from(new Set(chargerIds));
     } catch (error) {
       logger.error(`Error getting connected chargers from Redis: ${error}`);
       // Fallback to local connections if Redis fails

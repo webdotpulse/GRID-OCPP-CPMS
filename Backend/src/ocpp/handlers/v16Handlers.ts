@@ -248,7 +248,12 @@ export async function handleStartTransaction(
   payload: any,
   protocol?: string
 ): Promise<any> {
-  const { connectorId, idTag, meterStart, timestamp } = payload;
+  const { idTag, meterStart, timestamp } = payload;
+  const rawConnectorId = payload.connectorId;
+  const parsedConnectorId = typeof rawConnectorId === 'number'
+    ? rawConnectorId
+    : (typeof rawConnectorId === 'string' ? (parseInt(rawConnectorId.replace(/\D/g, ""), 10) || 1) : 1);
+  const connectorId = isNaN(parsedConnectorId) || parsedConnectorId < 1 ? 1 : parsedConnectorId;
 
   try {
     // Use transaction ID from payload if provided (OCPP 2.1), else generate (OCPP 1.6)
@@ -317,6 +322,7 @@ export async function handleStartTransaction(
         transactionId: String(transactionId),
         charger_id: chargerId,
         connectorName,
+        rfidUserId: rfidUserId || null,
         startTime: new Date(timestamp || new Date()),
         initialMeterValue: meterStart,
         status: "charging",
@@ -406,7 +412,9 @@ export async function handleStopTransaction(
       const tempTransaction = await prisma.transaction.findFirst({
         where: { transactionId: String(transactionId) },
       });
-      const connectorId = tempTransaction && tempTransaction.connectorName ? parseInt(tempTransaction.connectorName, 10) : 1;
+      const match = tempTransaction?.connectorName?.match(/\d+/);
+      const parsedId = match ? parseInt(match[0], 10) : 1;
+      const connectorId = isNaN(parsedId) || parsedId < 1 ? 1 : parsedId;
 
       await handleMeterValues(chargerId, {
         connectorId: connectorId,
@@ -650,7 +658,12 @@ export async function handleMeterValues(
   chargerId: number,
   payload: any
 ): Promise<void> {
-  const { connectorId, meterValue, transactionId } = payload;
+  const { meterValue, transactionId } = payload;
+  const rawConnectorId = payload.connectorId;
+  const parsedConnectorId = typeof rawConnectorId === 'number'
+    ? rawConnectorId
+    : (typeof rawConnectorId === 'string' ? (parseInt(rawConnectorId.replace(/\D/g, ""), 10) || 1) : 1);
+  const connectorId = isNaN(parsedConnectorId) || parsedConnectorId < 1 ? 1 : parsedConnectorId;
 
   try {
     if (!transactionId) return;
@@ -756,7 +769,11 @@ export async function handleStatusNotification(
   chargerId: number,
   payload: any
 ): Promise<any> {
-  const connectorId = payload.evseId ?? payload.connectorId;
+  const rawConnector = payload.evseId ?? payload.connectorId;
+  const parsedConnectorId = typeof rawConnector === 'number'
+    ? rawConnector
+    : (typeof rawConnector === 'string' ? (parseInt(rawConnector.replace(/\D/g, ""), 10) || 0) : 0);
+  const connectorId = isNaN(parsedConnectorId) || parsedConnectorId < 0 ? 0 : parsedConnectorId;
   let rawStatus = payload.connectorStatus ?? payload.status;
   const status = rawStatus ? validateAndCoerceEnum(rawStatus, ocpp16ChargePointStatuses, 'ChargePointStatus') : rawStatus;
   const errorCode = payload.errorCode;

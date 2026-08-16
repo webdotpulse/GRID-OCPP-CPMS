@@ -20,12 +20,15 @@ jest.unstable_mockModule('../../config/redis.js', () => ({
   },
 }));
 
+const mockPrismaTxFindFirst = jest.fn() as any;
+
 jest.unstable_mockModule('../../config/database.js', () => ({
   prisma: {
     meterValue: {
       createMany: mockPrismaMeterValueCreateMany,
     },
     transaction: {
+      findFirst: mockPrismaTxFindFirst,
       updateMany: mockPrismaTxUpdateMany,
     },
     rfidSession: {
@@ -72,6 +75,51 @@ describe("MeterValueService", () => {
         expect.stringContaining("TX-100")
       );
       expect(mockRedisLtrim).toHaveBeenCalledWith("meter_values_list", -100000, -1);
+    });
+  });
+
+  describe("processMeterValuesBatch (OCPP-02)", () => {
+    it("should calculate net session energy consumed by subtracting initialMeterValue", async () => {
+      mockRedisExists.mockResolvedValue(1);
+      mockRedisRename.mockResolvedValue("OK");
+      mockRedisLrange.mockResolvedValue([
+        JSON.stringify({
+          transactionId: "TX-999",
+          chargerId: 1,
+          connectorId: 1,
+          energyValue: 2455000, // Absolute cumulative meter reading in Wh
+          powerValue: 11000,
+          socValue: 75,
+          timestamp: new Date().toISOString(),
+        }),
+      ]);
+      mockRedisDel.mockResolvedValue(1);
+      mockPrismaMeterValueCreateMany.mockResolvedValue({ count: 1 });
+      mockPrismaTxFindFirst.mockResolvedValue({
+        initialMeterValue: 2450000, // Initial meter reading at session start
+      });
+      mockPrismaTxUpdateMany.mockResolvedValue({ count: 1 });
+
+      await MeterValueService.processMeterValuesBatch();
+
+      expect(mockPrismaTxFindFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { transactionId: "TX-999" },
+          select: { initialMeterValue: true },
+        })
+      );
+      // Net session energy = 2455000 - 2450000 = 5000 Wh (5 kWh)
+      expect(mockPrismaTxUpdateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { transactionId: "TX-999", status: { not: "completed" } },
+          data: expect.objectContaining({
+            energyConsumed: 5000,
+            currentPower: 11000,
+            soc: 75,
+            status: "charging",
+          }),
+        })
+      );
     });
   });
 });

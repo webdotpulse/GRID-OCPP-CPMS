@@ -45,31 +45,23 @@ export const getAllTransactions = async (req: Request, res: Response) => {
         skip,
         take,
         where,
-        include: { charger: true },
+        include: { charger: true, rfidUser: true },
         orderBy: { createdAt: "desc" },
       }),
       prisma.transaction.count({ where }),
     ]);
 
-    const rfidSessions = await prisma.rfidSession.findMany({
-      skip,
-      take,
-      where,
-      include: { charger: true, rfidUser: true },
-      orderBy: { createdAt: "desc" },
-    });
-
     res.json({
       success: true,
       data: {
         transactions,
-        rfidSessions,
+        rfidSessions: [],
       },
       pagination: {
         page: Number(page),
         limit: take,
-        total: total + (await prisma.rfidSession.count({ where })),
-        totalPages: Math.ceil((total + (await prisma.rfidSession.count({ where }))) / take),
+        total,
+        totalPages: Math.ceil(total / take),
       },
     });
   } catch (error) {
@@ -105,7 +97,7 @@ export const getRfidSessionsByUser = async (req: Request, res: Response) => {
       where.charger = { owner_id: userId };
     }
 
-    const rfidSessions = await prisma.rfidSession.findMany({
+    const transactions = await prisma.transaction.findMany({
       where,
       include: {
         charger: { include: { chargingStation: true } },
@@ -114,7 +106,7 @@ export const getRfidSessionsByUser = async (req: Request, res: Response) => {
       orderBy: { startTime: "desc" },
     });
 
-    res.json({ success: true, data: rfidSessions });
+    res.json({ success: true, data: transactions });
   } catch (error) {
     logger.error(`Error getting RFID sessions for user: ${error}`);
     res.status(500).json({
@@ -134,41 +126,27 @@ export const getActiveTransactions = async (req: Request, res: Response) => {
     // @ts-expect-error userId is attached by authenticateToken middleware
     const userId = req.userId;
 
-    const where: any = { status: "charging" };
+    const where: any = { status: { in: ["initiated", "charging"] } };
     if (userRole !== "admin" && userRole !== "superadmin") {
       where.charger = { owner_id: userId };
     }
 
-    const [activeTransactions, activeRfidSessions] = await Promise.all([
-      prisma.transaction.findMany({
-        where,
-        include: { charger: { include: { chargingStation: true } } },
-        orderBy: { startTime: "desc" },
-      }),
-      prisma.rfidSession.findMany({
-        where,
-        include: { charger: { include: { chargingStation: true } }, rfidUser: true },
-        orderBy: { startTime: "desc" },
-      }),
-    ]);
+    const activeTransactions = await prisma.transaction.findMany({
+      where,
+      include: {
+        charger: { include: { chargingStation: true } },
+        rfidUser: true,
+      },
+      orderBy: { startTime: "desc" },
+    });
 
-    const allActiveSessions = [
-      ...activeTransactions.map((t: any) => ({ ...t, type: "basic" })),
-      ...activeRfidSessions.map((s: any) => ({ ...s, type: "rfid" })),
-    ];
-
-    // Deduplicate by transactionId
-    const uniqueSessionsMap = new Map();
-    for (const session of allActiveSessions) {
-      if (uniqueSessionsMap.has(session.transactionId)) {
-        if (session.type === "rfid") {
-          uniqueSessionsMap.set(session.transactionId, session);
-        }
-      } else {
-        uniqueSessionsMap.set(session.transactionId, session);
-      }
-    }
-    const uniqueSessions = Array.from(uniqueSessionsMap.values());
+    const uniqueSessions = activeTransactions.map((t: any) => ({
+      ...t,
+      type: t.rfidUserId ? "rfid" : "basic",
+      userName: t.rfidUser?.name,
+      userTag: t.rfidUser?.rfid_tag || t.idTag,
+      durationMinutes: Math.floor((Date.now() - new Date(t.startTime).getTime()) / 60000),
+    }));
 
     res.json({ success: true, data: uniqueSessions, count: uniqueSessions.length });
   } catch (error) {
@@ -204,25 +182,18 @@ export const getChargerTransactions = async (req: Request, res: Response) => {
       where.charger = { owner_id: userId };
     }
 
-    const [transactions, rfidSessions] = await Promise.all([
-      prisma.transaction.findMany({
-        where,
-        include: { charger: true },
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.rfidSession.findMany({
-        where,
-        include: { charger: true, rfidUser: true },
-        orderBy: { createdAt: "desc" },
-      }),
-    ]);
+    const transactions = await prisma.transaction.findMany({
+      where,
+      include: { charger: true, rfidUser: true },
+      orderBy: { createdAt: "desc" },
+    });
 
     res.json({
       success: true,
       data: {
         transactions,
-        rfidSessions,
-        total: transactions.length + rfidSessions.length,
+        rfidSessions: [],
+        total: transactions.length,
       },
     });
   } catch (error) {
@@ -245,49 +216,46 @@ export const getTransactionStats = async (req: Request, res: Response) => {
     const userId = req.userId;
 
     const baseWhereTx: any = {};
-    const baseWhereRfid: any = {};
     if (userRole !== "admin" && userRole !== "superadmin") {
       baseWhereTx.charger = { owner_id: userId };
-      baseWhereRfid.charger = { owner_id: userId };
     }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     const [
       totalTransactions,
       completedTransactions,
+      todayTransactions,
       totalEnergy,
-      totalRfidSessions,
-      completedRfidSessions,
-      totalAmountDue,
+      totalCost,
+      totalRfidTransactions,
+      completedRfidTransactions,
+      todayRfidTransactions,
     ] = await Promise.all([
       prisma.transaction.count({ where: baseWhereTx }),
       prisma.transaction.count({ where: { ...baseWhereTx, status: "completed" } }),
+      prisma.transaction.count({
+        where: {
+          ...baseWhereTx,
+          createdAt: { gte: today },
+        },
+      }),
       prisma.transaction.aggregate({
         where: baseWhereTx,
         _sum: { energyConsumed: true },
       }),
-      prisma.rfidSession.count({ where: baseWhereRfid }),
-      prisma.rfidSession.count({ where: { ...baseWhereRfid, status: "completed" } }),
-      prisma.rfidSession.aggregate({
-        where: baseWhereRfid,
-        _sum: { amountDue: true },
+      prisma.transaction.aggregate({
+        where: baseWhereTx,
+        _sum: { totalCost: true },
       }),
-    ]);
-
-    const [todayTransactions, todayRfidSessions] = await Promise.all([
+      prisma.transaction.count({ where: { ...baseWhereTx, rfidUserId: { not: null } } }),
+      prisma.transaction.count({ where: { ...baseWhereTx, rfidUserId: { not: null }, status: "completed" } }),
       prisma.transaction.count({
         where: {
           ...baseWhereTx,
-          createdAt: {
-            gte: new Date(new Date().setHours(0, 0, 0, 0)),
-          },
-        },
-      }),
-      prisma.rfidSession.count({
-        where: {
-          ...baseWhereRfid,
-          createdAt: {
-            gte: new Date(new Date().setHours(0, 0, 0, 0)),
-          },
+          rfidUserId: { not: null },
+          createdAt: { gte: today },
         },
       }),
     ]);
@@ -302,10 +270,10 @@ export const getTransactionStats = async (req: Request, res: Response) => {
           totalEnergyWh: totalEnergy._sum.energyConsumed || 0,
         },
         rfidSessions: {
-          total: totalRfidSessions,
-          completed: completedRfidSessions,
-          today: todayRfidSessions,
-          totalAmountDuePaise: totalAmountDue._sum.amountDue || 0,
+          total: totalRfidTransactions,
+          completed: completedRfidTransactions,
+          today: todayRfidTransactions,
+          totalAmountDuePaise: totalCost._sum.totalCost || 0,
         },
       },
     });

@@ -48,15 +48,15 @@ export const getOcpiLocations = async (req: Request, res: Response) => {
         charger.evses.map((evse) => ({
           uid: String(evse.evse_id),
           evse_id: `${station.country || "NL"}-CPO-E${evse.evse_id}`,
-          status: evse.status.toUpperCase(),
+          status: (evse.connectors[0]?.status || "AVAILABLE").toUpperCase(),
           connectors: evse.connectors.map((c) => ({
             id: String(c.connector_id),
-            standard: c.connector_type.toUpperCase(),
-            format: "SOCKET",
-            power_type: c.max_power_kw > 22 ? "DC" : "AC_3_PHASE",
-            max_voltage: 400,
-            max_amperage: 32,
-            max_electric_power: Math.round(c.max_power_kw * 1000),
+            standard: c.current_type === "DC" ? "IEC_62196_T2_COMBO" : "IEC_62196_T2",
+            format: c.format || "SOCKET",
+            power_type: c.current_type === "DC" ? "DC" : "AC_3_PHASE",
+            max_voltage: Math.round(c.max_voltage || 400),
+            max_amperage: Math.round(c.max_current || 32),
+            max_electric_power: Math.round((c.max_power || 22) * 1000),
           })),
         }))
       ),

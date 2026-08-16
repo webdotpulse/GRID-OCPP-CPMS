@@ -350,9 +350,6 @@ export const login = async (req: Request, res: Response) => {
 /**
  * POST /api/auth/verify-2fa-login - Verify 2FA code during login
  */
-import jwt from "jsonwebtoken";
-import { config } from "../../config/index.js";
-
 export const verify2FALogin = async (req: Request, res: Response) => {
   try {
     const { partialToken, code } = req.body;

@@ -22,18 +22,14 @@ export default function TransactionsPage() {
     try {
       const response = await api.get('/transactions', { params: { search: searchQuery || undefined } });
       const payload = response.data;
-      if (payload) {
-        // Merge both basic transactions and RFID sessions, deduplicating by transactionId
-        const basicTxns = Array.isArray(payload.transactions) ? payload.transactions.map((t: any) => ({ ...t, type: 'basic' })) : [];
-        const rfidTxns = Array.isArray(payload.rfidSessions) ? payload.rfidSessions.map((s: any) => ({ ...s, type: 'rfid', idTag: s.rfidUser?.rfid_tag || s.idTag })) : [];
-        
-        // Deduplicate: if a Transaction and RfidSession share the same transactionId, keep only the Transaction (it has more data)
-        const basicTxnIds = new Set(basicTxns.map((t: any) => t.transactionId));
-        const uniqueRfidTxns = rfidTxns.filter((s: any) => !basicTxnIds.has(s.transactionId));
-        
-        const allTxns = [...basicTxns, ...uniqueRfidTxns];
-        allTxns.sort((a, b) => new Date(b.startTime || b.createdAt).getTime() - new Date(a.startTime || a.createdAt).getTime());
-        setTransactions(allTxns);
+      if (payload && Array.isArray(payload.transactions)) {
+        const txns = payload.transactions.map((t: any) => ({
+          ...t,
+          type: t.rfidUserId ? 'rfid' : 'basic',
+          idTag: t.rfidUser?.rfid_tag || t.idTag,
+        }));
+        txns.sort((a: any, b: any) => new Date(b.startTime || b.createdAt).getTime() - new Date(a.startTime || a.createdAt).getTime());
+        setTransactions(txns);
       } else if (Array.isArray(payload)) {
         setTransactions(payload);
       } else {

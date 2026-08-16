@@ -74,7 +74,7 @@ describe("Analytics Controller", () => {
           energyConsumed: 45.2,
           currentPower: 0,
           startTime: new Date("2026-08-01T10:00:00Z"),
-          stopTime: new Date("2026-08-01T10:45:00Z"),
+          endTime: new Date("2026-08-01T10:45:00Z"),
         },
       ]);
 

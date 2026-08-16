@@ -1,3 +1,4 @@
+import { jest } from "@jest/globals";
 import { isSafeExternalUrl } from "../../api/oicp/oicp.controller.js";
 import { verifyChargerOwnership } from "../../api/ocpp/ocpp.controller.js";
 import { prisma } from "../../config/database.js";

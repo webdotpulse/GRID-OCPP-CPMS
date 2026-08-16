@@ -5,6 +5,17 @@ const mockPrismaChargerFindUnique = jest.fn() as any;
 const mockPrismaRfidFindUnique = jest.fn() as any;
 const mockPrismaTxCreate = jest.fn() as any;
 const mockPrismaTxUpdate = jest.fn() as any;
+const mockPrismaTxFindFirst = jest.fn() as any;
+const mockPrismaTxUpdateMany = jest.fn() as any;
+const mockPrismaRfidSessionCreate = jest.fn() as any;
+const mockPrismaRfidSessionFindFirst = jest.fn() as any;
+const mockPrismaRfidSessionUpdate = jest.fn() as any;
+const mockPrismaConnectorFindFirst = jest.fn() as any;
+const mockPrismaConnectorUpdate = jest.fn() as any;
+const mockPrismaConnectorCreate = jest.fn() as any;
+const mockPrismaMeterValueFindFirst = jest.fn() as any;
+const mockPrismaMeterValueFindMany = jest.fn() as any;
+const mockPrismaTariffFindFirst = jest.fn() as any;
 
 jest.unstable_mockModule('../../config/database.js', () => ({
   prisma: {
@@ -18,15 +29,56 @@ jest.unstable_mockModule('../../config/database.js', () => ({
     transaction: {
       create: mockPrismaTxCreate,
       update: mockPrismaTxUpdate,
+      findFirst: mockPrismaTxFindFirst,
+      updateMany: mockPrismaTxUpdateMany,
+    },
+    rfidSession: {
+      create: mockPrismaRfidSessionCreate,
+      findFirst: mockPrismaRfidSessionFindFirst,
+      update: mockPrismaRfidSessionUpdate,
+    },
+    connector: {
+      findFirst: mockPrismaConnectorFindFirst,
+      update: mockPrismaConnectorUpdate,
+      create: mockPrismaConnectorCreate,
+    },
+    ocppLog: {
+      create: jest.fn().mockResolvedValue({} as never),
+    },
+    chargeGroupUser: {
+      findUnique: jest.fn().mockResolvedValue(null as never),
+    },
+    meterValue: {
+      createMany: jest.fn().mockResolvedValue({} as never),
+      findFirst: mockPrismaMeterValueFindFirst,
+      findMany: mockPrismaMeterValueFindMany,
+    },
+    tariff: {
+      findFirst: mockPrismaTariffFindFirst,
     },
   },
 }));
 
 jest.unstable_mockModule('../../config/redis.js', () => ({
   redisClient: {
-    get: jest.fn(),
-    set: jest.fn(),
-    publish: jest.fn(),
+    get: jest.fn().mockResolvedValue(null as never),
+    set: jest.fn().mockResolvedValue("OK" as never),
+    del: jest.fn().mockResolvedValue(1 as never),
+    scan: jest.fn().mockResolvedValue(["0", []] as never),
+    keys: jest.fn().mockResolvedValue([] as never),
+    hset: jest.fn().mockResolvedValue(1 as never),
+    hgetall: jest.fn().mockResolvedValue({} as never),
+    expire: jest.fn().mockResolvedValue(1 as never),
+    publish: jest.fn().mockResolvedValue(1 as never),
+    rpush: jest.fn().mockResolvedValue(1 as never),
+    ltrim: jest.fn().mockResolvedValue("OK" as never),
+  },
+  redisSubscriber: {
+    subscribe: jest.fn(),
+    on: jest.fn(),
+  },
+  redisPublisher: {
+    publish: jest.fn().mockResolvedValue(1 as never),
   },
 }));
 
@@ -45,6 +97,7 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
 
   describe("handleBootNotification", () => {
     it("should accept boot notification and update charger status", async () => {
+      mockPrismaChargerFindUnique.mockResolvedValue({ charger_id: 1, name: "CP-001" });
       mockPrismaChargerUpdate.mockResolvedValue({ charger_id: 1, name: "CP-001" });
 
       const response = await v16Handlers.handleBootNotification(1, {
@@ -54,13 +107,14 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
       });
 
       expect(response.status).toBe("Accepted");
-      expect(response.heartbeatInterval).toBeGreaterThan(0);
+      expect(response.interval || response.heartbeatInterval).toBeGreaterThan(0);
       expect(mockPrismaChargerUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { charger_id: 1 },
           data: expect.objectContaining({
-            status: "Available",
-            consecutiveErrors: 0,
+            status: "active",
+            manufacturer: "TestVendor",
+            model: "TestModel",
           }),
         })
       );
@@ -69,10 +123,11 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
 
   describe("handleAuthorize", () => {
     it("should return Accepted for a valid RFID tag", async () => {
+      mockPrismaChargerFindUnique.mockResolvedValue({ charger_id: 1, chargeGroupId: null });
       mockPrismaRfidFindUnique.mockResolvedValue({
         rfid_tag: "TAG123456",
-        status: "active",
-        expiry_date: new Date(Date.now() + 86400000),
+        active: true,
+        name: "Test User",
       });
 
       const response = await v16Handlers.handleAuthorize(1, {
@@ -83,6 +138,7 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
     });
 
     it("should return Invalid for an unknown RFID tag", async () => {
+      mockPrismaChargerFindUnique.mockResolvedValue({ charger_id: 1, chargeGroupId: null });
       mockPrismaRfidFindUnique.mockResolvedValue(null);
 
       const response = await v16Handlers.handleAuthorize(1, {
@@ -90,6 +146,132 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
       });
 
       expect(response.idTagInfo.status).toBe("Invalid");
+    });
+  });
+
+  describe("handleStartTransaction", () => {
+    it("should start transaction and link rfidUserId and parsed connectorId", async () => {
+      mockPrismaChargerFindUnique.mockResolvedValue({ charger_id: 1 });
+      mockPrismaRfidFindUnique.mockResolvedValue({
+        rfid_user_id: 42,
+        rfid_tag: "TAG123",
+        active: true,
+      });
+      mockPrismaTxCreate.mockResolvedValue({
+        id: 10,
+        transactionId: "12345",
+        charger: { charger_id: 1 },
+      });
+      mockPrismaConnectorFindFirst.mockResolvedValue({ connector_id: 1 });
+      mockPrismaConnectorUpdate.mockResolvedValue({});
+
+      const response = await v16Handlers.handleStartTransaction(1, {
+        connectorId: 1,
+        idTag: "TAG123",
+        meterStart: 1000,
+        timestamp: new Date().toISOString(),
+      });
+
+      expect(response.idTagInfo.status).toBe("Accepted");
+      expect(mockPrismaTxCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            connectorName: "Channel 1",
+            rfidUserId: 42,
+            initialMeterValue: 1000,
+            status: "charging",
+          }),
+        })
+      );
+    });
+  });
+
+  describe("handleStopTransaction (OCPP-01)", () => {
+    it("should correctly parse connectorId when connectorName is 'Channel 1'", async () => {
+      mockPrismaTxFindFirst.mockResolvedValue({
+        id: 10,
+        transactionId: "12345",
+        connectorName: "Channel 1",
+        initialMeterValue: 1000,
+        startTime: new Date(Date.now() - 3600000),
+        charger_id: 1,
+      });
+      mockPrismaTariffFindFirst.mockResolvedValue({
+        electricity_rate: 0.30,
+        tariffType: "FIXED",
+      });
+      mockPrismaTxUpdate.mockResolvedValue({
+        id: 10,
+        charger: { charger_id: 1 },
+      });
+      mockPrismaConnectorFindFirst.mockResolvedValue({ connector_id: 1 });
+      mockPrismaConnectorUpdate.mockResolvedValue({});
+
+      const response = await v16Handlers.handleStopTransaction(1, {
+        transactionId: 12345,
+        meterStop: 5000,
+        timestamp: new Date().toISOString(),
+        transactionData: [
+          {
+            timestamp: new Date().toISOString(),
+            sampledValue: [{ value: "5000", measurand: "Energy.Active.Import.Register" }],
+          },
+        ],
+      });
+
+      expect(response.idTagInfo.status).toBe("Accepted");
+      expect(mockPrismaTxUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 10 },
+          data: expect.objectContaining({
+            finalMeterValue: 5000,
+            status: "completed",
+            energyConsumed: 4000,
+          }),
+        })
+      );
+    });
+
+    it("should correctly parse connectorId when connectorName is 'Connector 2'", async () => {
+      mockPrismaTxFindFirst.mockResolvedValue({
+        id: 11,
+        transactionId: "67890",
+        connectorName: "Connector 2",
+        initialMeterValue: 0,
+        startTime: new Date(Date.now() - 1800000),
+        charger_id: 1,
+      });
+      mockPrismaTariffFindFirst.mockResolvedValue({
+        electricity_rate: 0.25,
+        tariffType: "FIXED",
+      });
+      mockPrismaTxUpdate.mockResolvedValue({
+        id: 11,
+        charger: { charger_id: 1 },
+      });
+
+      const response = await v16Handlers.handleStopTransaction(1, {
+        transactionId: 67890,
+        meterStop: 2500,
+        timestamp: new Date().toISOString(),
+        transactionData: [
+          {
+            timestamp: new Date().toISOString(),
+            sampledValue: [{ value: "2500", measurand: "Energy.Active.Import.Register" }],
+          },
+        ],
+      });
+
+      expect(response.idTagInfo.status).toBe("Accepted");
+      expect(mockPrismaTxUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 11 },
+          data: expect.objectContaining({
+            finalMeterValue: 2500,
+            status: "completed",
+          }),
+        })
+      );
     });
   });
 });
