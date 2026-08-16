@@ -16,7 +16,7 @@ export class EpexSpotService {
       });
 
       const now = new Date();
-      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
 
       const countTodayNL = await prisma.epexSpotPrice.count({
         where: { timestamp: { gte: startOfToday }, country: "NL", provider: "EnergyZero" }
@@ -28,9 +28,7 @@ export class EpexSpotService {
       const cetHour = (now.getUTCHours() + 1) % 24;
       const isPastPublishTime = cetHour >= 14 || (cetHour === 13 && now.getUTCMinutes() >= 30);
 
-      const tomorrowEnd = new Date(startOfToday);
-      tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
-      tomorrowEnd.setHours(23, 0, 0, 0);
+      const tomorrowEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 23, 0, 0, 0));
 
       const countTomorrowNL = await prisma.epexSpotPrice.count({
         where: { timestamp: tomorrowEnd, country: "NL", provider: "EnergyZero" }
@@ -46,9 +44,8 @@ export class EpexSpotService {
         return;
       }
 
-      const endOfTomorrow = new Date(startOfToday);
-      endOfTomorrow.setDate(endOfTomorrow.getDate() + 2);
-      endOfTomorrow.setMilliseconds(-1);
+      const endOfTomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 2, 0, 0, 0, 0));
+      endOfTomorrow.setUTCMilliseconds(-1);
       const chunkSize = 50;
 
       // 1. Fetch NL prices via EnergyZero
@@ -75,6 +72,7 @@ export class EpexSpotService {
             const nlOperations = [];
             for (const pricePoint of data.Prices) {
               const timestamp = new Date(pricePoint.readingDate);
+              timestamp.setUTCMinutes(0, 0, 0);
               const pricePerKwh = pricePoint.price;
               if (typeof pricePerKwh !== 'number') continue;
               const pricePerMwh = pricePerKwh * 1000;
@@ -149,6 +147,7 @@ export class EpexSpotService {
 
                         // ENTSO-E positions are 1-based offset from period start
                         const timestamp = new Date(startPeriod.getTime() + (position - 1) * 3600 * 1000);
+                        timestamp.setUTCMinutes(0, 0, 0);
 
                         if (timestamp >= startOfToday && timestamp <= endOfTomorrow) {
                            beOperations.push(
@@ -192,6 +191,7 @@ export class EpexSpotService {
               const beOperations = [];
               for (let i = 0; i < beData.unix_seconds.length; i++) {
                 const timestamp = new Date(beData.unix_seconds[i] * 1000);
+                timestamp.setUTCMinutes(0, 0, 0);
                 const pricePerMwh = beData.price[i];
 
                 if (typeof pricePerMwh !== 'number') continue;
@@ -239,7 +239,7 @@ export class EpexSpotService {
   public static async getPriceForTimestamp(country: string, timestamp: Date, provider: string = "EnergyZero"): Promise<number | null> {
     try {
       const targetTime = new Date(timestamp);
-      targetTime.setMinutes(0, 0, 0);
+      targetTime.setUTCMinutes(0, 0, 0);
 
       const cacheKey = `epex_price:${provider}:${country}:${targetTime.toISOString()}`;
       const cachedPrice = await redisClient.get(cacheKey);

@@ -109,5 +109,36 @@ describe("EpexSpotService", () => {
       mockPrismaFindUnique.mockRestore();
       mockPrismaFindFirst.mockRestore();
     });
+
+    it("should maintain consistent UTC timestamp lookup during DST spring-forward transition (CET -> CEST)", async () => {
+      // March 29, 2026 01:30:00 UTC (during CET -> CEST changeover in Western Europe)
+      const dstSpringTimestamp = new Date('2026-03-29T01:30:00.000Z');
+      const expectedNormalized = new Date('2026-03-29T01:00:00.000Z');
+
+      const mockRedisGet = jest.spyOn(redisClient, "get").mockResolvedValue("112.5" as any);
+
+      const price = await EpexSpotService.getPriceForTimestamp("NL", dstSpringTimestamp);
+
+      expect(mockRedisGet).toHaveBeenCalledWith(`epex_price:EnergyZero:NL:${expectedNormalized.toISOString()}`);
+      expect(price).toBe(112.5);
+
+      mockRedisGet.mockRestore();
+    });
+
+    it("should maintain consistent UTC timestamp lookup during DST fall-back transition (CEST -> CET)", async () => {
+      // October 25, 2026 02:45:00 UTC (during CEST -> CET changeover)
+      const dstFallTimestamp = new Date('2026-10-25T02:45:00.000Z');
+      const expectedNormalized = new Date('2026-10-25T02:00:00.000Z');
+
+      const mockRedisGet = jest.spyOn(redisClient, "get").mockResolvedValue("98.0" as any);
+
+      const price = await EpexSpotService.getPriceForTimestamp("BE", dstFallTimestamp);
+
+      expect(mockRedisGet).toHaveBeenCalledWith(`epex_price:EnergyZero:BE:${expectedNormalized.toISOString()}`);
+      expect(price).toBe(98.0);
+
+      mockRedisGet.mockRestore();
+    });
   });
 });
+

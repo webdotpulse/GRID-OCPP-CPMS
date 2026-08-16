@@ -176,7 +176,7 @@ export const exportSepa = async (req: AuthRequest, res: Response) => {
 export const markLedgerPaid = async (req: AuthRequest, res: Response) => {
   try {
     const { userRole } = req;
-    const ledgerId = parseInt(req.params.id, 10);
+    const ledgerId = parseInt(req.params.id as string, 10);
 
     if (!isAdminOrSuperAdmin(userRole)) {
       return res.status(403).json({ success: false, error: "Forbidden" });

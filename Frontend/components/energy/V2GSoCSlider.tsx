@@ -10,14 +10,17 @@ export function V2GSoCSlider() {
   const [minSoc, setMinSoc] = useState<number>(40);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [savedSuccess, setSavedSuccess] = useState(false);
 
   useEffect(() => {
     // Fetch user's current V2G profile setting
     const fetchProfile = async () => {
       try {
         const response = await api.get('/energy-profile');
-        if (response.data && response.data.minSocThreshold) {
-          setMinSoc(response.data.minSocThreshold);
+        const data = response.data;
+        const threshold = data?.minSocThreshold ?? data?.data?.minSocThreshold;
+        if (typeof threshold === 'number') {
+          setMinSoc(threshold);
         }
       } catch (error) {
         logger.error('Failed to fetch energy profile', error);
@@ -30,9 +33,11 @@ export function V2GSoCSlider() {
 
   const handleSave = async () => {
     setIsSaving(true);
+    setSavedSuccess(false);
     try {
       await api.post('/energy-profile', { minSocThreshold: minSoc });
-      // Show success toast here in a real app
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
     } catch (error) {
       logger.error('Failed to save energy profile', error);
     } finally {
@@ -73,7 +78,7 @@ export function V2GSoCSlider() {
 
         <div className="flex justify-end">
           <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save Preferences"}
+            {isSaving ? "Saving..." : savedSuccess ? "Saved!" : "Save Preferences"}
           </Button>
         </div>
       </CardContent>

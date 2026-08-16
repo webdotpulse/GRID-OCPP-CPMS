@@ -42,7 +42,7 @@ export function authenticateToken(
       // Allow users to update their own profile and password, or access user-specific paths for BOLA logic
       // Strip query parameters to prevent query parameter injection bypasses
       const pathToCheck = req.originalUrl ? req.originalUrl.split('?')[0] : (req.baseUrl + req.path);
-      const isAuthExempt = pathToCheck.includes("/me") || pathToCheck.includes("/password") || pathToCheck.match(/\/api\/users\/\d+/) !== null;
+      const isAuthExempt = pathToCheck.includes("/me") || pathToCheck.includes("/password") || pathToCheck.includes("energy-profile") || pathToCheck.match(/\/api\/users\/\d+/) !== null;
 
       if (isWriteMethod && !isAuthExempt) {
         return res.status(403).json({ success: false, error: "Admin access required for this action" });

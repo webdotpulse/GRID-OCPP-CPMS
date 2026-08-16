@@ -72,3 +72,92 @@ export const remove = async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const getEnergyProfile = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).userId;
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Unauthorized" });
+      return;
+    }
+
+    const profile = await prisma.vehicleEnergyProfile.findFirst({
+      where: { userId },
+    });
+
+    if (!profile) {
+      res.json({
+        success: true,
+        data: {
+          minSocThreshold: 40.0,
+          batteryCapacity: null,
+          userId,
+        },
+        minSocThreshold: 40.0,
+        batteryCapacity: null,
+        userId,
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: profile,
+      minSocThreshold: profile.minSocThreshold,
+      batteryCapacity: profile.batteryCapacity,
+      userId: profile.userId,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: "Failed to fetch vehicle energy profile" });
+  }
+};
+
+export const saveEnergyProfile = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).userId;
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Unauthorized" });
+      return;
+    }
+
+    const { minSocThreshold, batteryCapacity, rfidUserId } = req.body;
+
+    if (minSocThreshold !== undefined) {
+      const numSoc = Number(minSocThreshold);
+      if (isNaN(numSoc) || numSoc < 0 || numSoc > 100) {
+        res.status(400).json({ success: false, error: "minSocThreshold must be a valid number between 0 and 100" });
+        return;
+      }
+    }
+
+    const parsedSoc = minSocThreshold !== undefined ? Number(minSocThreshold) : 40.0;
+    const parsedCapacity = batteryCapacity !== undefined ? (batteryCapacity !== null ? Number(batteryCapacity) : null) : undefined;
+    const parsedRfid = rfidUserId !== undefined ? (rfidUserId !== null ? Number(rfidUserId) : null) : undefined;
+
+    const profile = await prisma.vehicleEnergyProfile.upsert({
+      where: { userId },
+      update: {
+        minSocThreshold: parsedSoc,
+        ...(parsedCapacity !== undefined && { batteryCapacity: parsedCapacity }),
+        ...(parsedRfid !== undefined && { rfidUserId: parsedRfid }),
+      },
+      create: {
+        userId,
+        minSocThreshold: parsedSoc,
+        batteryCapacity: parsedCapacity ?? null,
+        rfidUserId: parsedRfid ?? null,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: profile,
+      minSocThreshold: profile.minSocThreshold,
+      batteryCapacity: profile.batteryCapacity,
+      userId: profile.userId,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: "Failed to save vehicle energy profile" });
+  }
+};
+

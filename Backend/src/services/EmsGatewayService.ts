@@ -112,6 +112,21 @@ export class EmsGatewayService {
 
     await redisClient.expire(redisKey, 300); // 5 minutes TTL
 
+    // 4. Trigger real-time V2G evaluation if V2G is enabled or if grid import is high
+    if (gateway.v2gEnabled !== false && telemetryData.grid_kw !== undefined) {
+      import("./V2GOrchestrationService.js").then(({ V2GOrchestrationService }) => {
+        V2GOrchestrationService.evaluateAndDispatchV2G(
+          gateway.gateway_id,
+          telemetryData.grid_kw,
+          gateway.maxGridImport || 5.0
+        ).catch(err => {
+          logger.error(`Error triggering real-time V2G evaluation: ${err}`);
+        });
+      }).catch(err => {
+        logger.error(`Error importing V2GOrchestrationService: ${err}`);
+      });
+    }
+
     return { success: true, gateway_id: gateway.gateway_id };
   }
 }

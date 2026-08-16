@@ -6,19 +6,16 @@ export class EnergyChartsService {
   public static async fetchAndStoreDayAheadPrices() {
     try {
       const now = new Date();
-      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
 
       // Check if we need to fetch
       const cetHour = (now.getUTCHours() + 1) % 24;
       const isPastPublishTime = cetHour >= 14 || (cetHour === 13 && now.getUTCMinutes() >= 30);
 
-      const tomorrowEnd = new Date(startOfToday);
-      tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
-      tomorrowEnd.setHours(23, 0, 0, 0);
+      const tomorrowEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 23, 0, 0, 0));
 
-      const endOfTomorrow = new Date(startOfToday);
-      endOfTomorrow.setDate(endOfTomorrow.getDate() + 2);
-      endOfTomorrow.setMilliseconds(-1);
+      const endOfTomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 2, 0, 0, 0, 0));
+      endOfTomorrow.setUTCMilliseconds(-1);
 
       const countries = ["BE", "NL"];
 
@@ -58,6 +55,7 @@ export class EnergyChartsService {
 
               for (let i = 0; i < data.unix_seconds.length; i++) {
                 const timestamp = new Date(data.unix_seconds[i] * 1000);
+                timestamp.setUTCMinutes(0, 0, 0);
                 const pricePerMwh = data.price[i];
 
                 if (typeof pricePerMwh !== 'number') continue;
