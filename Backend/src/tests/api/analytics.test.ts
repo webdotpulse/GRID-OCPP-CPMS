@@ -1,37 +1,17 @@
 import { jest } from '@jest/globals';
+import { prisma } from '../../config/database.js';
+import * as analyticsController from '../../api/analytics/analytics.controller.js';
 
-const mockStationCount = jest.fn() as any;
-const mockChargerCount = jest.fn() as any;
-const mockTxAggregate = jest.fn() as any;
-const mockTxCount = jest.fn() as any;
-const mockTxFindMany = jest.fn() as any;
-
-jest.unstable_mockModule('../../config/database.js', () => ({
-  prisma: {
-    chargingStation: { count: mockStationCount },
-    charger: { count: mockChargerCount },
-    transaction: {
-      aggregate: mockTxAggregate,
-      count: mockTxCount,
-      findMany: mockTxFindMany,
-    },
-  },
-}));
-
-const importPromise = import('../../api/analytics/analytics.controller.js');
-
-describe("Analytics Controller", () => {
-  let analyticsController: any;
+describe("Analytics Controller (FE-03)", () => {
   let mockReq: any;
   let mockRes: any;
 
-  beforeAll(async () => {
-    analyticsController = await importPromise;
-  });
-
   beforeEach(() => {
     jest.clearAllMocks();
-    mockReq = {};
+    mockReq = {
+      userRole: 'admin',
+      userId: 1,
+    };
     mockRes = {
       json: jest.fn(),
       status: jest.fn().mockReturnThis(),
@@ -42,14 +22,17 @@ describe("Analytics Controller", () => {
   });
 
   describe("getAnalyticsSummary", () => {
-    it("should return correct summary metrics", async () => {
-      mockStationCount.mockResolvedValue(5);
-      mockChargerCount.mockResolvedValueOnce(10).mockResolvedValueOnce(8); // total=10, active=8
-      mockTxAggregate.mockResolvedValue({ _sum: { energyConsumed: 1250.75 } });
-      mockTxCount.mockResolvedValue(150);
+    it("should return correct summary metrics and query active chargers", async () => {
+      jest.spyOn(prisma.chargingStation, 'count').mockResolvedValue(5 as any);
+      const countChargerSpy = jest.spyOn(prisma.charger, 'count')
+        .mockResolvedValueOnce(10 as any) // total=10
+        .mockResolvedValueOnce(8 as any);  // active=8
+      jest.spyOn(prisma.transaction, 'aggregate').mockResolvedValue({ _sum: { energyConsumed: 1250.75 } } as any);
+      jest.spyOn(prisma.transaction, 'count').mockResolvedValue(150 as any);
 
       await analyticsController.getAnalyticsSummary(mockReq, mockRes);
 
+      expect(countChargerSpy).toHaveBeenNthCalledWith(2, { where: { status: "active" } });
       expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
         data: {
@@ -65,24 +48,25 @@ describe("Analytics Controller", () => {
   });
 
   describe("exportAnalyticsCsv", () => {
-    it("should format transactions into a CSV file", async () => {
-      mockTxFindMany.mockResolvedValue([
+    it("should format transactions into a CSV file with correct start and end times", async () => {
+      jest.spyOn(prisma.transaction, 'findMany').mockResolvedValue([
         {
           transactionId: "TX-999",
           charger: { name: "Charger 1", model: "DC Fast 150" },
           status: "completed",
           energyConsumed: 45.2,
           currentPower: 0,
-          startTime: new Date("2026-08-01T10:00:00Z"),
-          endTime: new Date("2026-08-01T10:45:00Z"),
+          startTime: new Date("2026-08-01T10:00:00.000Z"),
+          endTime: new Date("2026-08-01T10:45:00.000Z"),
         },
-      ]);
+      ] as any);
 
       await analyticsController.exportAnalyticsCsv(mockReq, mockRes);
 
       expect(mockRes.header).toHaveBeenCalledWith("Content-Type", "text/csv");
+      expect(mockRes.attachment).toHaveBeenCalledWith(expect.stringMatching(/^analytics-export-\d+\.csv$/));
       expect(mockRes.send).toHaveBeenCalledWith(
-        expect.stringContaining("TX-999,Charger 1,DC Fast 150,completed,45.20,0.00")
+        expect.stringContaining("TX-999,Charger 1,DC Fast 150,completed,45.20,0.00,2026-08-01T10:00:00.000Z,2026-08-01T10:45:00.000Z")
       );
     });
   });

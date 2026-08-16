@@ -11,7 +11,7 @@ export const getAnalyticsSummary = async (req: AuthRequest, res: Response) => {
     const [stationCount, chargerCount, activeChargers, totalKwhResult, totalTransactions] = await Promise.all([
       prisma.chargingStation.count(),
       prisma.charger.count(),
-      prisma.charger.count({ where: { status: "Available" } }),
+      prisma.charger.count({ where: { status: "active" } }),
       prisma.transaction.aggregate({
         _sum: { energyConsumed: true },
       }),
@@ -59,8 +59,8 @@ export const exportAnalyticsCsv = async (req: AuthRequest, res: Response) => {
       const chargerModel = (tx.charger?.model || "Unknown").replace(/,/g, " ");
       const energy = (tx.energyConsumed || 0).toFixed(2);
       const power = (tx.currentPower || 0).toFixed(2);
-      const startTime = tx.startTime ? tx.startTime.toISOString() : "";
-      const endTime = tx.endTime ? tx.endTime.toISOString() : "";
+      const startTime = tx.startTime ? (typeof tx.startTime === 'string' ? tx.startTime : tx.startTime.toISOString()) : "";
+      const endTime = tx.endTime ? (typeof tx.endTime === 'string' ? tx.endTime : tx.endTime.toISOString()) : "";
 
       csvContent += `${tx.transactionId},${chargerName},${chargerModel},${tx.status},${energy},${power},${startTime},${endTime}\n`;
     });

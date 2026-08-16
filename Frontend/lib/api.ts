@@ -29,7 +29,15 @@ api.interceptors.response.use(
     // The backend wraps responses in { success: true, data: { ... } }
     // We unwrap it here so frontend components can use response.data directly.
     if (response.data && response.data.success && response.data.data !== undefined) {
-      response.data = response.data.data;
+      const pagination = response.data.pagination;
+      const unwrappedData = response.data.data;
+      if (pagination) {
+        (response as any).pagination = pagination;
+        if (unwrappedData && typeof unwrappedData === 'object') {
+          (unwrappedData as any).pagination = pagination;
+        }
+      }
+      response.data = unwrappedData;
     }
     return response;
   },

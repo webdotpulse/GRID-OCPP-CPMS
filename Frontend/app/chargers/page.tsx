@@ -8,7 +8,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Edit, Trash2, Zap, ArrowUpDown } from "lucide-react";
+import { Plus, Edit, Trash2, Zap, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -19,16 +19,37 @@ export default function ChargersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   const fetchChargers = useCallback(async () => {
+    setIsLoading(true);
     try {
-      const response = await api.get('/chargers', { params: { search: searchQuery || undefined } });
-      setChargers(response.data?.data || response.data);
+      const response = await api.get('/chargers', {
+        params: { search: searchQuery || undefined, page, limit },
+      });
+      const data = response.data;
+      setChargers(Array.isArray(data) ? data : (data?.data || []));
+
+      const pagination = (response as any).pagination || (data as any)?.pagination;
+      if (pagination) {
+        setTotalPages(pagination.totalPages || 1);
+        setTotalCount(pagination.total ?? (Array.isArray(data) ? data.length : 0));
+      } else if (Array.isArray(data)) {
+        setTotalCount(data.length);
+        setTotalPages(Math.ceil(data.length / limit) || 1);
+      }
     } catch (error) {
       logger.error("Failed to fetch chargers", error);
     } finally {
       setIsLoading(false);
     }
+  }, [searchQuery, page, limit]);
+
+  useEffect(() => {
+    setPage(1);
   }, [searchQuery]);
 
   useEffect(() => {
@@ -193,6 +214,42 @@ export default function ChargersPage() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 px-2">
+        <div className="text-sm text-muted-foreground">
+          Showing <span className="font-medium text-foreground">{chargers.length}</span> of{" "}
+          <span className="font-medium text-foreground">{totalCount}</span> chargers
+          {totalPages > 1 && (
+            <span className="ml-1">
+              (Page <span className="font-medium text-foreground">{page}</span> of{" "}
+              <span className="font-medium text-foreground">{totalPages}</span>)
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1 || isLoading}
+            className="h-8 px-3"
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+          </Button>
+          <div className="text-xs font-medium px-2 py-1 bg-muted rounded border min-w-[3rem] text-center">
+            {page} / {totalPages || 1}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages || isLoading}
+            className="h-8 px-3"
+          >
+            Next <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        </div>
       </div>
     </AppShell>
   );

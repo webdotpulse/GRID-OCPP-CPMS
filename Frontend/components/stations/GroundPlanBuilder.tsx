@@ -60,23 +60,20 @@ function DraggableSpot({
     data: spot,
   });
 
-  const style = transform
-    ? {
-        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-      }
-    : undefined;
+  const transformStyle = transform
+    ? `translate3d(${transform.x}px, ${transform.y}px, 0) rotate(${spot.rotation}deg)`
+    : `rotate(${spot.rotation}deg)`;
 
   return (
     <div
       ref={setNodeRef}
       style={{
-        ...style,
         position: "absolute",
         left: spot.x,
         top: spot.y,
         width: spot.width,
         height: spot.type === "line" ? (spot.lineWidth || 4) : spot.height,
-        transform: `rotate(${spot.rotation}deg)`,
+        transform: transformStyle,
         ...(spot.type === "rectangle" ? {
           backgroundColor: spot.fillColor || "transparent",
           borderColor: spot.lineColor || "#0f172a", // slate-900

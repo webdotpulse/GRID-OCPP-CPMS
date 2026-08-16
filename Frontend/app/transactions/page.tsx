@@ -7,7 +7,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Eye, ReceiptText, ArrowUpDown } from "lucide-react";
+import { Eye, ReceiptText, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow, format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -17,11 +17,20 @@ export default function TransactionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   const fetchTransactions = useCallback(async () => {
+    setIsLoading(true);
     try {
-      const response = await api.get('/transactions', { params: { search: searchQuery || undefined } });
+      const response = await api.get('/transactions', {
+        params: { search: searchQuery || undefined, page, limit },
+      });
       const payload = response.data;
+      const pagination = (response as any).pagination || (payload as any)?.pagination;
+
       if (payload && Array.isArray(payload.transactions)) {
         const txns = payload.transactions.map((t: any) => ({
           ...t,
@@ -35,11 +44,24 @@ export default function TransactionsPage() {
       } else {
         setTransactions([]);
       }
+
+      if (pagination) {
+        setTotalPages(pagination.totalPages || 1);
+        setTotalCount(pagination.total ?? 0);
+      } else {
+        const count = Array.isArray(payload?.transactions) ? payload.transactions.length : (Array.isArray(payload) ? payload.length : 0);
+        setTotalCount(count);
+        setTotalPages(Math.ceil(count / limit) || 1);
+      }
     } catch (error) {
       logger.error("Failed to fetch transactions", error);
     } finally {
       setIsLoading(false);
     }
+  }, [searchQuery, page, limit]);
+
+  useEffect(() => {
+    setPage(1);
   }, [searchQuery]);
 
   useEffect(() => {
@@ -184,6 +206,42 @@ export default function TransactionsPage() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 px-2">
+        <div className="text-sm text-muted-foreground">
+          Showing <span className="font-medium text-foreground">{transactions.length}</span> of{" "}
+          <span className="font-medium text-foreground">{totalCount}</span> transactions
+          {totalPages > 1 && (
+            <span className="ml-1">
+              (Page <span className="font-medium text-foreground">{page}</span> of{" "}
+              <span className="font-medium text-foreground">{totalPages}</span>)
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1 || isLoading}
+            className="h-8 px-3"
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+          </Button>
+          <div className="text-xs font-medium px-2 py-1 bg-muted rounded border min-w-[3rem] text-center">
+            {page} / {totalPages || 1}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages || isLoading}
+            className="h-8 px-3"
+          >
+            Next <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        </div>
       </div>
     </AppShell>
   );
