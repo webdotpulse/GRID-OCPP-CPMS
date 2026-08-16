@@ -1,78 +1,179 @@
 import { Request, Response } from "express";
 import { prisma } from "../../config/database.js";
+import { AuthRequest } from "../../middleware/auth.js";
+import { logger } from "../../utils/logger.js";
+import { parseId, parsePagination } from "../../utils/validation.js";
 
-export const getAll = async (req: Request, res: Response): Promise<void> => {
+/**
+ * List all ISO 15118 Vehicle Contract Certificates with pagination
+ */
+export const getCertificates = async (req: Request, res: Response): Promise<void> => {
   try {
-    const vehicles = await prisma.vehicleContractCertificate.findMany({
-      include: { user: true, rfidUser: true },
+    const { page, limit } = parsePagination(req.query.page, req.query.limit);
+    const skip = (page - 1) * limit;
+
+    const [total, certificates] = await Promise.all([
+      prisma.vehicleContractCertificate.count(),
+      prisma.vehicleContractCertificate.findMany({
+        skip,
+        take: limit,
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+          rfidUser: { select: { rfid_user_id: true, rfid_tag: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      data: certificates,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     });
-    res.json(vehicles);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch vehicles" });
+    logger.error("Error fetching vehicle contract certificates:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
 
-export const create = async (req: Request, res: Response): Promise<void> => {
+export const getAll = getCertificates;
+
+/**
+ * Get a specific Vehicle Contract Certificate by ID
+ */
+export const getCertificateById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) {
+      res.status(400).json({ success: false, error: "Invalid certificate ID" });
+      return;
+    }
+
+    const cert = await prisma.vehicleContractCertificate.findUnique({
+      where: { id },
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        rfidUser: { select: { rfid_user_id: true, rfid_tag: true } },
+      },
+    });
+
+    if (!cert) {
+      res.status(404).json({ success: false, error: "Certificate not found" });
+      return;
+    }
+
+    res.json({ success: true, data: cert });
+  } catch (error) {
+    logger.error("Error fetching certificate by ID:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+};
+
+/**
+ * Create a new ISO 15118 Vehicle Contract Certificate
+ */
+export const createCertificate = async (req: Request, res: Response): Promise<void> => {
   try {
     const { emaid, macAddress, contractCert, status, expirationDate, userId, rfidUserId } = req.body;
 
-    // Convert expirationDate to ISO format if provided
-    let expDate = expirationDate ? new Date(expirationDate) : undefined;
-    if (!expDate) {
-       expDate = new Date();
-       expDate.setFullYear(expDate.getFullYear() + 1); // default 1 year from now
+    if (!emaid || !userId) {
+      res.status(400).json({ success: false, error: "emaid and userId are required" });
+      return;
     }
 
-    const newVcc = await prisma.vehicleContractCertificate.create({
+    let expDate = expirationDate ? new Date(expirationDate) : undefined;
+    if (!expDate || isNaN(expDate.getTime())) {
+      expDate = new Date();
+      expDate.setFullYear(expDate.getFullYear() + 1); // default 1 year validity
+    }
+
+    const newCert = await prisma.vehicleContractCertificate.create({
       data: {
         emaid,
-        macAddress,
-        contractCert,
+        macAddress: macAddress || null,
+        contractCert: contractCert || null,
         status: status || "Valid",
         expirationDate: expDate,
         userId: Number(userId),
-        rfidUserRfid_user_id: rfidUserId ? Number(rfidUserId) : undefined,
+        rfidUserRfid_user_id: rfidUserId ? Number(rfidUserId) : null,
       },
     });
-    res.status(201).json(newVcc);
+
+    res.status(201).json({ success: true, data: newCert });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    logger.error("Error creating certificate:", error);
+    if (error.code === "P2002") {
+      res.status(409).json({ success: false, error: "EMAID already registered" });
+      return;
+    }
+    res.status(500).json({ success: false, error: error.message || "Internal server error" });
   }
 };
 
-export const update = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const { status, expirationDate, macAddress, contractCert } = req.body;
+export const create = createCertificate;
 
-    const updateData: any = {};
-    if (status) updateData.status = status;
-    if (expirationDate) updateData.expirationDate = new Date(expirationDate);
-    if (macAddress !== undefined) updateData.macAddress = macAddress;
-    if (contractCert !== undefined) updateData.contractCert = contractCert;
+/**
+ * Update an existing Vehicle Contract Certificate
+ */
+export const updateCertificate = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) {
+      res.status(400).json({ success: false, error: "Invalid certificate ID" });
+      return;
+    }
+
+    const { status, macAddress, contractCert, expirationDate } = req.body;
 
     const updated = await prisma.vehicleContractCertificate.update({
-      where: { id: Number(id) },
-      data: updateData,
+      where: { id },
+      data: {
+        ...(status && { status }),
+        ...(macAddress !== undefined && { macAddress }),
+        ...(contractCert !== undefined && { contractCert }),
+        ...(expirationDate && { expirationDate: new Date(expirationDate) }),
+      },
     });
-    res.json(updated);
+
+    res.json({ success: true, data: updated });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    logger.error("Error updating certificate:", error);
+    res.status(500).json({ success: false, error: error.message || "Internal server error" });
   }
 };
 
-export const remove = async (req: Request, res: Response): Promise<void> => {
+export const update = updateCertificate;
+
+/**
+ * Delete a Vehicle Contract Certificate
+ */
+export const deleteCertificate = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    await prisma.vehicleContractCertificate.delete({
-      where: { id: Number(id) },
-    });
-    res.status(204).send();
+    const id = parseId(req.params.id);
+    if (!id) {
+      res.status(400).json({ success: false, error: "Invalid certificate ID" });
+      return;
+    }
+
+    await prisma.vehicleContractCertificate.delete({ where: { id } });
+
+    res.json({ success: true, message: "Certificate deleted successfully" });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    logger.error("Error deleting certificate:", error);
+    res.status(500).json({ success: false, error: error.message || "Internal server error" });
   }
 };
 
+export const remove = deleteCertificate;
+
+/**
+ * Get Vehicle Energy Profile
+ */
 export const getEnergyProfile = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).userId;
@@ -112,6 +213,9 @@ export const getEnergyProfile = async (req: Request, res: Response): Promise<voi
   }
 };
 
+/**
+ * Save Vehicle Energy Profile
+ */
 export const saveEnergyProfile = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).userId;

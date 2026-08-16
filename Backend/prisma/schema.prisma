@@ -123,7 +123,7 @@ model Charger {
   updatedAt                    DateTime          @updatedAt
 
   owner           User            @relation(fields: [owner_id], references: [id])
-  chargingStation ChargingStation @relation(fields: [charging_station_id], references: [id])
+  chargingStation ChargingStation @relation(fields: [charging_station_id], references: [id], onDelete: Cascade)
 
   chargerAlerts ChargerAlert[]
   evses         Evse[]
@@ -163,7 +163,7 @@ model Evse {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  charger    Charger     @relation(fields: [charger_id], references: [charger_id])
+  charger    Charger     @relation(fields: [charger_id], references: [charger_id], onDelete: Cascade)
   connectors Connector[]
 
   @@unique([charger_id, evse_id])
@@ -184,7 +184,7 @@ model Connector {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  evse          Evse         @relation(fields: [evse_id], references: [id])
+  evse          Evse         @relation(fields: [evse_id], references: [id], onDelete: Cascade)
   parkingSpotId Int?         @unique
   parkingSpot   ParkingSpot? @relation(fields: [parkingSpotId], references: [id], onDelete: SetNull)
 }
@@ -220,7 +220,7 @@ model RfidSession {
   rfidUserId        Int
   charger_id        Int
   connectorName     String
-  charger           Charger   @relation(fields: [charger_id], references: [charger_id])
+  charger           Charger   @relation(fields: [charger_id], references: [charger_id], onDelete: Cascade)
   startTime         DateTime  @default(now())
   endTime           DateTime?
   initialMeterValue Float?
@@ -246,7 +246,7 @@ model Transaction {
   transactionId     String
   connectorName     String
   charger_id        Int
-  charger           Charger   @relation(fields: [charger_id], references: [charger_id])
+  charger           Charger   @relation(fields: [charger_id], references: [charger_id], onDelete: Cascade)
   rfidUserId        Int?
   rfidUser          RfidUser? @relation(fields: [rfidUserId], references: [rfid_user_id])
   startTime         DateTime  @default(now())
@@ -269,19 +269,21 @@ model Transaction {
 
   @@index([charger_id])
   @@index([status])
+  @@index([status, startTime])
 }
 
 // OCPP message logging for debugging
 model OcppLog {
   id            Int      @id @default(autoincrement())
   chargerId     Int
-  charger       Charger  @relation(fields: [chargerId], references: [charger_id])
+  charger       Charger  @relation(fields: [chargerId], references: [charger_id], onDelete: Cascade)
   transactionId String?
   timestamp     DateTime @default(now())
   direction     String
   message       String
 
   @@index([chargerId])
+  @@index([chargerId, timestamp])
 }
 
 // Optional: Tariff for pricing
@@ -464,6 +466,7 @@ model MeterValue {
 
   @@index([transactionId])
   @@index([chargerId])
+  @@index([chargerId, timestamp])
 }
 
 model DeviceComponent {
@@ -764,7 +767,7 @@ model RoamingSession {
   partnerId       Int
   partner         RoamingPartner @relation(fields: [partnerId], references: [id])
   stationId       Int
-  station         ChargingStation @relation(fields: [stationId], references: [id])
+  station         ChargingStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
   transactionId   String   @unique
   startTime       DateTime @default(now())
   endTime         DateTime?
@@ -784,7 +787,7 @@ model CDR {
   partnerId       Int
   partner         RoamingPartner @relation(fields: [partnerId], references: [id])
   stationId       Int
-  station         ChargingStation @relation(fields: [stationId], references: [id])
+  station         ChargingStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
   transactionId   String
   startTime       DateTime
   endTime         DateTime

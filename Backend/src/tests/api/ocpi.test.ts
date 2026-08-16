@@ -1,29 +1,10 @@
 import { jest } from '@jest/globals';
-
-const mockStationFindMany = jest.fn() as any;
-const mockTariffFindMany = jest.fn() as any;
-const mockSessionFindMany = jest.fn() as any;
-const mockCdrFindMany = jest.fn() as any;
-
-jest.unstable_mockModule('../../config/database.js', () => ({
-  prisma: {
-    chargingStation: { findMany: mockStationFindMany },
-    tariff: { findMany: mockTariffFindMany },
-    roamingSession: { findMany: mockSessionFindMany },
-    cDR: { findMany: mockCdrFindMany },
-  },
-}));
-
-const importPromise = import('../../api/ocpi/ocpi.controller.js');
+import { prisma } from '../../config/database.js';
+import * as ocpiController from '../../api/ocpi/ocpi.controller.js';
 
 describe("OCPI 2.2.1 Controller", () => {
-  let ocpiController: any;
   let mockReq: any;
   let mockRes: any;
-
-  beforeAll(async () => {
-    ocpiController = await importPromise;
-  });
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -36,7 +17,7 @@ describe("OCPI 2.2.1 Controller", () => {
 
   describe("getOcpiLocations", () => {
     it("should return OCPI 2.2.1 formatted locations with status_code 1000 and mapped connectors (OCPP-03)", async () => {
-      mockStationFindMany.mockResolvedValue([
+      jest.spyOn(prisma.chargingStation, 'findMany').mockResolvedValue([
         {
           id: 1,
           station_name: "FastCharge Central",
@@ -82,7 +63,7 @@ describe("OCPI 2.2.1 Controller", () => {
             },
           ],
         },
-      ]);
+      ] as any);
 
       await ocpiController.getOcpiLocations(mockReq, mockRes);
 
@@ -128,13 +109,13 @@ describe("OCPI 2.2.1 Controller", () => {
 
   describe("getOcpiTariffs", () => {
     it("should return OCPI 2.2.1 formatted tariffs", async () => {
-      mockTariffFindMany.mockResolvedValue([
+      jest.spyOn(prisma.tariff, 'findMany').mockResolvedValue([
         {
           tariff_id: 5,
           electricity_rate: 0.35,
           updatedAt: new Date("2026-08-01T12:00:00Z"),
         },
-      ]);
+      ] as any);
 
       await ocpiController.getOcpiTariffs(mockReq, mockRes);
 
@@ -154,7 +135,7 @@ describe("OCPI 2.2.1 Controller", () => {
 
   describe("getOcpiSessions", () => {
     it("should return OCPI 2.2.1 formatted sessions", async () => {
-      mockSessionFindMany.mockResolvedValue([
+      jest.spyOn(prisma.roamingSession, 'findMany').mockResolvedValue([
         {
           id: 1,
           startTime: new Date("2026-08-01T10:00:00Z"),
@@ -166,7 +147,7 @@ describe("OCPI 2.2.1 Controller", () => {
           status: "completed",
           updatedAt: new Date("2026-08-01T11:05:00Z"),
         },
-      ]);
+      ] as any);
 
       await ocpiController.getOcpiSessions(mockReq, mockRes);
 
@@ -187,7 +168,7 @@ describe("OCPI 2.2.1 Controller", () => {
 
   describe("getOcpiCdrs", () => {
     it("should return OCPI 2.2.1 formatted CDRs", async () => {
-      mockCdrFindMany.mockResolvedValue([
+      jest.spyOn(prisma.cDR, 'findMany').mockResolvedValue([
         {
           cdrId: "CDR-999",
           partnerId: 2,
@@ -202,7 +183,7 @@ describe("OCPI 2.2.1 Controller", () => {
           status: "settled",
           updatedAt: new Date("2026-08-01T11:05:00Z"),
         },
-      ]);
+      ] as any);
 
       await ocpiController.getOcpiCdrs(mockReq, mockRes);
 

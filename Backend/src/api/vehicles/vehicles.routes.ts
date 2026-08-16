@@ -6,10 +6,11 @@ const router = Router();
 router.get("/energy-profile", vehiclesController.getEnergyProfile);
 router.post("/energy-profile", vehiclesController.saveEnergyProfile);
 
-router.get("/", vehiclesController.getAll);
-router.post("/", vehiclesController.create);
-router.put("/:id", vehiclesController.update);
-router.delete("/:id", vehiclesController.remove);
+router.get("/", vehiclesController.getCertificates);
+router.get("/:id", vehiclesController.getCertificateById);
+router.post("/", vehiclesController.createCertificate);
+router.put("/:id", vehiclesController.updateCertificate);
+router.delete("/:id", vehiclesController.deleteCertificate);
 
 export const energyProfileRouter = Router();
 energyProfileRouter.get("/", vehiclesController.getEnergyProfile);

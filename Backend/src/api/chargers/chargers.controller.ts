@@ -476,16 +476,32 @@ export const deleteCharger = async (req: Request, res: Response) => {
       });
     }
 
-    await prisma.$transaction([
-      prisma.transaction.deleteMany({ where: { charger_id: chargerId } }),
-      prisma.ocppLog.deleteMany({ where: { chargerId: chargerId } }),
-      prisma.rfidSession.deleteMany({ where: { charger_id: chargerId } }),
-      prisma.chargerConfiguration.deleteMany({ where: { chargerId: chargerId } }),
-      prisma.chargingProfile.deleteMany({ where: { chargerId: chargerId } }),
-      prisma.connector.deleteMany({ where: { evse: { charger_id: chargerId } } }),
-      prisma.evse.deleteMany({ where: { charger_id: chargerId } }),
-      prisma.charger.delete({ where: { charger_id: chargerId } }),
-    ]);
+    const charger = await prisma.charger.findUnique({
+      where: { charger_id: chargerId },
+    });
+
+    if (!charger) {
+      return res.status(404).json({
+        success: false,
+        error: "Charger not found",
+      });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.meterValue.deleteMany({ where: { chargerId } });
+      await tx.chargerAlert.deleteMany({ where: { chargerId } });
+      await tx.chargingSchedulePlan.deleteMany({ where: { chargerId } });
+      await tx.diagnosticEvent.deleteMany({ where: { chargerId } });
+      await tx.deviceComponent.deleteMany({ where: { chargerId } });
+      await tx.transaction.deleteMany({ where: { charger_id: chargerId } });
+      await tx.ocppLog.deleteMany({ where: { chargerId } });
+      await tx.rfidSession.deleteMany({ where: { charger_id: chargerId } });
+      await tx.chargerConfiguration.deleteMany({ where: { chargerId } });
+      await tx.chargingProfile.deleteMany({ where: { chargerId } });
+      await tx.connector.deleteMany({ where: { evse: { charger_id: chargerId } } });
+      await tx.evse.deleteMany({ where: { charger_id: chargerId } });
+      await tx.charger.delete({ where: { charger_id: chargerId } });
+    });
 
     logger.info(`Charger deleted: ID ${chargerId}`);
     res.json({ success: true, message: "Charger deleted" });

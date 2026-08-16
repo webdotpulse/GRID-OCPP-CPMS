@@ -265,8 +265,49 @@ export const deleteStation = async (req: Request, res: Response) => {
       });
     }
 
-    await prisma.chargingStation.delete({
+    const station = await prisma.chargingStation.findUnique({
       where: { id: stationId },
+      include: { chargers: { select: { charger_id: true } } },
+    });
+
+    if (!station) {
+      return res.status(404).json({
+        success: false,
+        error: "Station not found",
+      });
+    }
+
+    const chargerIds = station.chargers.map((c) => c.charger_id);
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Clean up charger dependencies if any chargers exist on station
+      if (chargerIds.length > 0) {
+        await tx.meterValue.deleteMany({ where: { chargerId: { in: chargerIds } } });
+        await tx.chargerAlert.deleteMany({ where: { chargerId: { in: chargerIds } } });
+        await tx.chargingSchedulePlan.deleteMany({ where: { chargerId: { in: chargerIds } } });
+        await tx.diagnosticEvent.deleteMany({ where: { chargerId: { in: chargerIds } } });
+        await tx.deviceComponent.deleteMany({ where: { chargerId: { in: chargerIds } } });
+        await tx.transaction.deleteMany({ where: { charger_id: { in: chargerIds } } });
+        await tx.ocppLog.deleteMany({ where: { chargerId: { in: chargerIds } } });
+        await tx.rfidSession.deleteMany({ where: { charger_id: { in: chargerIds } } });
+        await tx.chargerConfiguration.deleteMany({ where: { chargerId: { in: chargerIds } } });
+        await tx.chargingProfile.deleteMany({ where: { chargerId: { in: chargerIds } } });
+        await tx.connector.deleteMany({ where: { evse: { charger_id: { in: chargerIds } } } });
+        await tx.evse.deleteMany({ where: { charger_id: { in: chargerIds } } });
+        await tx.charger.deleteMany({ where: { charger_id: { in: chargerIds } } });
+      }
+
+      // 2. Clean up station-level resources
+      await tx.parkingSpot.deleteMany({ where: { stationId } });
+      await tx.roamingSession.deleteMany({ where: { stationId } });
+      await tx.cDR.deleteMany({ where: { stationId } });
+      await tx.mediaCampaign.deleteMany({ where: { stationId } });
+      await tx.reimbursementContract.deleteMany({ where: { stationId } });
+
+      // 3. Delete the station
+      await tx.chargingStation.delete({
+        where: { id: stationId },
+      });
     });
 
     logger.info(`Station deleted: ID ${stationId}`);

@@ -37,7 +37,6 @@ import settingsPaymentsRoutes from "./api/settings/payments/payments.routes.js";
 import diagnosticsRoutes from "./routes/diagnostics.js";
 import mediaCampaignsRoutes from "./api/media-campaigns/media-campaigns.routes.js";
 import vehiclesRoutes, { energyProfileRouter } from "./api/vehicles/vehicles.routes.js";
-import vccRoutes from "./api/vcc/vcc.routes.js";
 import analyticsRoutes from "./api/analytics/analytics.routes.js";
 import reimbursementsRoutes from "./api/reimbursements/reimbursements.routes.js";
 
@@ -125,7 +124,7 @@ export function createApp(): Application {
   app.use("/api/media-campaigns", authenticateToken, mediaCampaignsRoutes);
   app.use("/api/vehicles", authenticateToken, vehiclesRoutes);
   app.use("/api/energy-profile", authenticateToken, energyProfileRouter);
-  app.use("/api/vcc", vccRoutes);
+  app.use("/api/vcc", authenticateToken, vehiclesRoutes);
   app.use("/api/analytics", analyticsRoutes);
   app.use("/api/reimbursements", reimbursementsRoutes);
 
