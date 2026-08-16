@@ -9,8 +9,11 @@ import {
   generateRecoveryProfile,
   generateStandardProfile,
 } from "./config-profiles.controller.js";
+import { requireAdmin } from "../../middleware/auth.js";
 
 const router = Router();
+
+router.use(requireAdmin as any);
 
 router.get("/", getConfigProfiles);
 router.get("/:id", getConfigProfile);

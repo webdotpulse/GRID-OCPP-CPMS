@@ -2,8 +2,11 @@ import { Router } from "express";
 import multer from "multer";
 import path from "path";
 import { getCampaigns, createCampaign, uploadMedia, pushCampaign } from "./media-campaigns.controller.js";
+import { requireAdmin } from "../../middleware/auth.js";
 
 const router = Router();
+
+router.use(requireAdmin as any);
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({

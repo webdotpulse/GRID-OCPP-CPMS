@@ -8,8 +8,11 @@ import {
   exportProfiles,
   importProfiles,
 } from "./quirk-profiles.controller.js";
+import { requireAdmin } from "../../middleware/auth.js";
 
 const router = Router();
+
+router.use(requireAdmin as any);
 
 router.get("/", getQuirkProfiles);
 router.post("/", createQuirkProfile);

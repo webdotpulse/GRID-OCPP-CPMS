@@ -1,2 +1,8 @@
 node_modules
 Backend/node_modules
+*.orig
+*.rej
+*.bak
+*.swp
+*~
+

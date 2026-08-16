@@ -202,6 +202,29 @@ export const updateRfidUser = async (req: Request, res: Response) => {
       });
     }
 
+    // @ts-expect-error userRole is attached by authenticateToken middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken middleware
+    const userId = req.userId;
+
+    const existing = await prisma.rfidUser.findUnique({
+      where: { rfid_user_id: rfidUserId },
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: "RFID user not found",
+      });
+    }
+
+    if (userRole !== "admin" && userRole !== "superadmin" && existing.owner_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: "Access denied",
+      });
+    }
+
     const data = req.body as UpdateRfidUserDto;
 
     const rfidUser = await prisma.rfidUser.update({
@@ -209,9 +232,6 @@ export const updateRfidUser = async (req: Request, res: Response) => {
       data,
       include: { owner: true },
     });
-
-
-
 
     logger.info(`RFID user updated: ${rfidUser.name}`);
     res.json({ success: true, data: { ...rfidUser, owner: rfidUser.owner ? sanitizeUser(rfidUser.owner) : rfidUser.owner } });
@@ -238,6 +258,29 @@ export const toggleRfidUserStatus = async (req: Request, res: Response) => {
       });
     }
 
+    // @ts-expect-error userRole is attached by authenticateToken middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken middleware
+    const userId = req.userId;
+
+    const existing = await prisma.rfidUser.findUnique({
+      where: { rfid_user_id: rfidUserId },
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: "RFID user not found",
+      });
+    }
+
+    if (userRole !== "admin" && userRole !== "superadmin" && existing.owner_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: "Access denied",
+      });
+    }
+
     const { active } = req.query;
 
     if (active === undefined) {
@@ -252,8 +295,6 @@ export const toggleRfidUserStatus = async (req: Request, res: Response) => {
       data: { active: active === "true" },
       include: { owner: true },
     });
-
-
 
     logger.info(
       `RFID user ${rfidUser.name} ${active === "true" ? "activated" : "deactivated"}`
@@ -282,11 +323,32 @@ export const deleteRfidUser = async (req: Request, res: Response) => {
       });
     }
 
-    await prisma.rfidUser.delete({
+    // @ts-expect-error userRole is attached by authenticateToken middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken middleware
+    const userId = req.userId;
+
+    const existing = await prisma.rfidUser.findUnique({
       where: { rfid_user_id: rfidUserId },
     });
 
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: "RFID user not found",
+      });
+    }
 
+    if (userRole !== "admin" && userRole !== "superadmin" && existing.owner_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: "Access denied",
+      });
+    }
+
+    await prisma.rfidUser.delete({
+      where: { rfid_user_id: rfidUserId },
+    });
 
     logger.info(`RFID user deleted: ID ${rfidUserId}`);
     res.json({ success: true, message: "RFID user deleted" });

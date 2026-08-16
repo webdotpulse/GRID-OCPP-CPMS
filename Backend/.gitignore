@@ -8,3 +8,9 @@ logs/
 *.log
 dist/
 node_modules
+*.orig
+*.rej
+*.bak
+*.swp
+*~
+
