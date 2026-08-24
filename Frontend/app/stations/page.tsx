@@ -1,14 +1,14 @@
 "use client";
+
 import { logger } from "@/lib/logger";
 import { useAuth } from "@/hooks/useAuth";
-
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Edit, Trash2, MapPin, ArrowUpDown, Monitor, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Edit, Trash2, MapPin, ArrowUpDown, Monitor, ChevronLeft, ChevronRight, Search, Building2, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 
@@ -118,141 +118,197 @@ export default function StationsPage() {
 
   return (
     <AppShell>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Locations</h1>
-          <p className="text-muted-foreground">Manage physical site locations for your EV chargers.</p>
-        </div>
-        {(user?.role === "admin" || user?.role === "superadmin") && (
-          <Link href="/stations/new">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" /> Add Location
-            </Button>
-          </Link>
-        )}
-      </div>
+      <div className="space-y-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <div className="size-9 rounded-xl bg-[#3f78e0]/15 text-[#3f78e0] flex items-center justify-center">
+                <MapPin className="size-5" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight text-foreground">
+                Charging Locations
+              </h1>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Manage physical site locations, ground plans, and station assignments.
+            </p>
+          </div>
 
-      <div className="mb-4">
-        <Input
-          placeholder="Search locations by name or city..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-sm"
-        />
-      </div>
-
-      <div className="rounded-md border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('station_name')}>
-                <div className="flex items-center gap-1">Name <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('location')}>
-                <div className="flex items-center gap-1">Location <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('country')}>
-                <div className="flex items-center gap-1">Country <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('owner')}>
-                <div className="flex items-center gap-1">Assigned to <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
-                <div className="flex items-center gap-1">Status <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              {(user?.role === "admin" || user?.role === "superadmin") && <TableHead className="text-right">Actions</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading && stations.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">Loading stations...</TableCell>
-              </TableRow>
-            ) : sortedStations.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">No stations found.</TableCell>
-              </TableRow>
-            ) : (
-              sortedStations.map((station) => (
-                <TableRow key={station.id}>
-                  <TableCell className="font-medium flex items-center gap-2">
-                    {(user?.role === "admin" || user?.role === "superadmin") && station.isGroundPlanEnabled && (
-                      <Link href={`/stations/${station.id}/live`} title="Live View">
-                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full bg-primary/10 text-primary hover:bg-primary/20">
-                          <Monitor className="h-3 w-3" />
-                        </Button>
-                      </Link>
-                    )}
-                    <Link href={`/stations/${station.id}`} className="hover:underline flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-primary" />
-                      {station.station_name}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    {station.street_name ? `${station.street_name}, ` : ''}
-                    {station.city}, {station.state} {station.postal_code || ''}
-                  </TableCell>
-                  <TableCell>
-                    {station.country || '—'}
-                  </TableCell>
-                  <TableCell>
-                    {station.owner?.email || '—'}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={station.status === 'active' ? 'text-green-500 bg-green-500/10' : ''}>
-                      {station.status}
-                    </Badge>
-                  </TableCell>
-                  {(user?.role === "admin" || user?.role === "superadmin") && (
-                    <TableCell className="text-right">
-                      <Link href={`/stations/${station.id}/edit`}>
-                         <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
-                      </Link>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(station.id)} className="text-destructive hover:bg-destructive/10">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 px-2">
-        <div className="text-sm text-muted-foreground">
-          Showing <span className="font-medium text-foreground">{stations.length}</span> of{" "}
-          <span className="font-medium text-foreground">{totalCount}</span> locations
-          {totalPages > 1 && (
-            <span className="ml-1">
-              (Page <span className="font-medium text-foreground">{page}</span> of{" "}
-              <span className="font-medium text-foreground">{totalPages}</span>)
-            </span>
+          {(user?.role === "admin" || user?.role === "superadmin") && (
+            <Link href="/stations/new">
+              <Button className="rounded-xl bg-[#54a8c7] hover:bg-[#54a8c7]/90 text-white shadow-md shadow-[#54a8c7]/20">
+                <Plus className="size-4 mr-1.5" /> Add Location
+              </Button>
+            </Link>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1 || isLoading}
-            className="h-8 px-3"
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" /> Previous
-          </Button>
-          <div className="text-xs font-medium px-2 py-1 bg-muted rounded border min-w-[3rem] text-center">
-            {page} / {totalPages || 1}
+
+        {/* Search */}
+        <div className="flex items-center justify-between gap-4 bg-card p-3 rounded-2xl border border-border/70 shadow-xs">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Search locations by name, city, postal code..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-9.5 bg-muted/40 border-border/60"
+            />
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages || isLoading}
-            className="h-8 px-3"
-          >
-            Next <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
+          <Badge variant="outline" className="text-xs font-semibold">
+            {totalCount} Total Locations
+          </Badge>
+        </div>
+
+        {/* Stations Table */}
+        <div className="rounded-2xl border border-border/70 bg-card overflow-hidden shadow-xs">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('station_name')}>
+                  <div className="flex items-center gap-1.5">Station Name <ArrowUpDown className="size-3" /></div>
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('location')}>
+                  <div className="flex items-center gap-1.5">Location <ArrowUpDown className="size-3" /></div>
+                </TableHead>
+                <TableHead>Fleet Size</TableHead>
+                <TableHead>Ground Plan</TableHead>
+                {(user?.role === "admin" || user?.role === "superadmin") && <TableHead>Owner</TableHead>}
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
+                  <div className="flex items-center gap-1.5">Status <ArrowUpDown className="size-3" /></div>
+                </TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="size-6 border-2 border-[#54a8c7] border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-xs">Loading station locations...</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : sortedStations.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-1.5">
+                      <MapPin className="size-8 text-muted-foreground/50" />
+                      <p className="font-semibold text-foreground text-sm">No Locations Found</p>
+                      <p className="text-xs text-muted-foreground">Try adjusting your search criteria.</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                sortedStations.map((station) => (
+                  <TableRow key={station.id} className="hover:bg-[#54a8c7]/5 transition-colors">
+                    <TableCell className="font-medium">
+                      <Link
+                        href={`/stations/${station.id}`}
+                        className="group flex items-center gap-2 font-bold text-foreground hover:text-[#54a8c7] transition-colors"
+                      >
+                        <div className="size-7 rounded-lg bg-[#3f78e0]/10 flex items-center justify-center text-[#3f78e0] group-hover:bg-[#3f78e0] group-hover:text-white transition-colors">
+                          <Building2 className="size-3.5" />
+                        </div>
+                        <span>{station.station_name}</span>
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-xs font-medium">
+                      {station.street_name ? `${station.street_name}, ` : ''}{station.city}, {station.state}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="soft-primary" className="text-xs font-semibold gap-1">
+                        <Zap className="size-3" />
+                        {station._count?.chargers || 0} {station._count?.chargers === 1 ? 'Charger' : 'Chargers'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {station.isGroundPlanEnabled ? (
+                        <Link href={`/stations/${station.id}/live`}>
+                          <Badge variant="soft-success" className="gap-1 cursor-pointer hover:bg-emerald-500/20 text-xs">
+                            <Monitor className="size-3" /> Interactive Live Plan
+                          </Badge>
+                        </Link>
+                      ) : (
+                        <Badge variant="soft-secondary" className="text-xs">Disabled</Badge>
+                      )}
+                    </TableCell>
+                    {(user?.role === "admin" || user?.role === "superadmin") && (
+                      <TableCell className="text-xs text-muted-foreground">
+                        {station.owner?.email || 'System'}
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      <Badge
+                        variant={station.status === 'active' ? 'soft-success' : 'soft-secondary'}
+                        className="text-[10px] font-bold uppercase tracking-wider py-0.5"
+                      >
+                        {station.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Link href={`/stations/${station.id}`}>
+                          <Button variant="ghost" size="icon-sm" className="rounded-lg text-muted-foreground hover:text-foreground">
+                            <MapPin className="size-3.5" />
+                          </Button>
+                        </Link>
+                        {(user?.role === "admin" || user?.role === "superadmin") && (
+                          <>
+                            <Link href={`/stations/${station.id}/edit`}>
+                              <Button variant="ghost" size="icon-sm" className="rounded-lg text-muted-foreground hover:text-foreground">
+                                <Edit className="size-3.5" />
+                              </Button>
+                            </Link>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => handleDelete(station.id)}
+                              className="rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Pagination */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
+          <div className="text-xs text-muted-foreground">
+            Showing <span className="font-semibold text-foreground">{stations.length}</span> of{" "}
+            <span className="font-semibold text-foreground">{totalCount}</span> locations
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || isLoading}
+              className="h-8.5 px-3 rounded-xl"
+            >
+              <ChevronLeft className="size-4 mr-1" /> Previous
+            </Button>
+            <div className="text-xs font-semibold px-3 py-1.5 bg-card rounded-xl border border-border/80 min-w-[3.5rem] text-center shadow-2xs">
+              {page} / {totalPages || 1}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || isLoading}
+              className="h-8.5 px-3 rounded-xl"
+            >
+              Next <ChevronRight className="size-4 ml-1" />
+            </Button>
+          </div>
         </div>
       </div>
     </AppShell>

@@ -7,9 +7,10 @@ import { api } from "@/lib/api";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, CheckCircle2, Wrench, Activity } from "lucide-react";
+import { AlertCircle, CheckCircle2, Wrench, Activity, ShieldAlert, Sparkles, Zap } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
+import Link from "next/link";
 
 export default function HardwareAtRiskPage() {
   const { t } = useTranslation();
@@ -21,8 +22,6 @@ export default function HardwareAtRiskPage() {
     const fetchDiagnostics = async () => {
       try {
         const response = await api.get("/diagnostics");
-
-        // Ensure events is always an array
         let eventsData: any[] = [];
         if (Array.isArray(response.data)) {
           eventsData = response.data;
@@ -31,153 +30,159 @@ export default function HardwareAtRiskPage() {
         } else if (response.data && Array.isArray(response.data.data)) {
           eventsData = response.data.data;
         }
-
         setEvents(eventsData);
       } catch (error) {
         console.error("Failed to fetch diagnostics", error);
-        setEvents([]); // Fallback to empty array on error
+        setEvents([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchDiagnostics();
-    const interval = setInterval(fetchDiagnostics, 30000); // Poll every 30s
+    const interval = setInterval(fetchDiagnostics, 30000);
     return () => clearInterval(interval);
   }, []);
 
   if (loading) {
     return (
       <AppShell>
-        <div className="p-6 space-y-6">
-          <Skeleton className="h-10 w-1/4" />
+        <div className="space-y-6 max-w-7xl mx-auto">
+          <Skeleton className="h-10 w-1/4 rounded-xl" />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Skeleton className="h-64 w-full" />
-            <Skeleton className="h-64 w-full" />
-            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-64 w-full rounded-2xl" />
+            <Skeleton className="h-64 w-full rounded-2xl" />
+            <Skeleton className="h-64 w-full rounded-2xl" />
           </div>
         </div>
       </AppShell>
     );
   }
 
-  // Derived state categories
-  const recentEvents = events.filter((e) => new Date(e.timestamp) >= new Date(Date.now() - 24 * 60 * 60 * 1000));
-
-  // Categorize chargers
-  const chargersWithAttempts = new Set(events.filter(e => e.type === "AutoHealAttempt").map(e => e.chargerId));
   const chargersAtRisk = new Set(events.filter(e => e.type !== "AutoHealAttempt" && !e.resolved).map(e => e.chargerId));
-
-  // "Requires Physical Maintenance" means it's still at risk, and maybe auto-heal failed or wasn't enough.
-  // We define it here simply as chargers that are at risk.
   const requiresMaintenance = events.filter(e => chargersAtRisk.has(e.chargerId) && e.type !== "AutoHealAttempt");
   const autoHealAttempts = events.filter(e => e.type === "AutoHealAttempt");
 
   return (
     <AppShell>
-      <div className="p-6 max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg text-primary">
-            <Activity className="h-6 w-6" />
+      <div className="space-y-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <div className="size-9 rounded-xl bg-[#e2626b]/15 text-[#e2626b] flex items-center justify-center">
+              <ShieldAlert className="size-5" />
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight text-foreground">
+              Hardware Health & Predictive Maintenance
+            </h1>
           </div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Hardware at Risk</h1>
-            <p className="text-muted-foreground">Predictive Maintenance & Auto-Healing Overview</p>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Automated fault detection, self-healing reboot logs, and technician work orders.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Healthy (Placeholder/Stat) */}
-          <Card className="col-span-1 border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-950/10">
-            <CardHeader>
-              <CardTitle className="text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5" /> Healthy Operations
+        {/* Status Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Healthy Operations */}
+          <Card hoverLift className="card-border-top-success">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="size-4.5" /> Fleet Health
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold text-emerald-600 dark:text-emerald-500">
-                Active
+            <CardContent className="space-y-2">
+              <div className="text-3xl font-heading font-extrabold text-foreground">
+                {chargersAtRisk.size === 0 ? '100% Operational' : `${chargersAtRisk.size} Units At Risk`}
               </div>
-              <p className="text-sm text-emerald-600/80 mt-2">No critical hardware faults detected in other chargers.</p>
+              <p className="text-xs text-muted-foreground">
+                Continuous automated heartbeat & error code monitoring.
+              </p>
             </CardContent>
           </Card>
 
-          {/* Auto-Healing Attempted */}
-          <Card className="col-span-1 border-blue-500/20 bg-blue-50/50 dark:bg-blue-950/10">
-            <CardHeader>
-              <CardTitle className="text-blue-700 dark:text-blue-400 flex items-center gap-2">
-                <Wrench className="h-5 w-5" /> Auto-Healing Attempted
+          {/* Auto Heal Invocations */}
+          <Card hoverLift className="card-border-top-primary">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base text-[#54a8c7]">
+                <Sparkles className="size-4.5" /> Auto-Heal Interventions
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold text-blue-600 dark:text-blue-500">
-                {chargersWithAttempts.size}
+            <CardContent className="space-y-2">
+              <div className="text-3xl font-heading font-extrabold text-foreground">
+                {autoHealAttempts.length}
               </div>
-              <p className="text-sm text-blue-600/80 mt-2">Chargers revived or attempted via software reset.</p>
+              <p className="text-xs text-muted-foreground">
+                Automatic SoftReset & UnlockConnector attempts.
+              </p>
             </CardContent>
           </Card>
 
-          {/* Requires Maintenance */}
-          <Card className="col-span-1 border-destructive/20 bg-destructive/5 dark:bg-destructive/10">
-            <CardHeader>
-              <CardTitle className="text-destructive flex items-center gap-2">
-                <AlertCircle className="h-5 w-5" /> Requires Maintenance
+          {/* Maintenance Work Orders */}
+          <Card hoverLift>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base text-[#fab758]">
+                <Wrench className="size-4.5" /> Physical Service
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold text-destructive">
-                {chargersAtRisk.size}
+            <CardContent className="space-y-2">
+              <div className="text-3xl font-heading font-extrabold text-foreground">
+                {requiresMaintenance.length}
               </div>
-              <p className="text-sm text-destructive/80 mt-2">Physical technician rollout required.</p>
+              <p className="text-xs text-muted-foreground">
+                Active alerts requiring on-site technician dispatch.
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Activity Timeline */}
-        <Card>
+        {/* Events Log Card */}
+        <Card className="overflow-hidden">
           <CardHeader>
-            <CardTitle>Recent Diagnostic Events</CardTitle>
-            <CardDescription>Live feed of hardware faults and automated CPMS interventions</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Recent Diagnostics & Auto-Healing Stream</CardTitle>
+                <CardDescription>Live diagnostic alerts and automated remediation logs</CardDescription>
+              </div>
+              <Badge variant="outline" className="text-xs font-semibold">
+                {events.length} Recorded Events
+              </Badge>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="h-[400px] pr-4 overflow-y-auto">
-              <div className="space-y-4">
-                {events.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">No diagnostic events recorded.</p>
-                ) : (
-                  events.map((event) => (
-                    <div key={event.id} className="flex gap-4 p-4 rounded-lg border bg-card">
-                      <div className="mt-1">
-                        {event.type === "AutoHealAttempt" ? (
-                          <Wrench className="h-5 w-5 text-blue-500" />
-                        ) : event.type === "HighTemperature" ? (
-                          <AlertCircle className="h-5 w-5 text-orange-500" />
-                        ) : (
-                          <AlertCircle className="h-5 w-5 text-destructive" />
-                        )}
+          <CardContent className="p-0">
+            {events.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground gap-2">
+                <CheckCircle2 className="size-10 text-emerald-500/50" />
+                <p className="font-bold text-sm text-foreground">All Hardware Operational</p>
+                <p className="text-xs text-muted-foreground">No hardware risk events or anomalies detected.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border/40 p-4 pt-0">
+                {events.slice(0, 20).map((ev, idx) => (
+                  <div key={idx} className="py-3 flex items-center justify-between gap-4 hover:bg-muted/20 rounded-xl px-3 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className={`size-8 rounded-xl flex items-center justify-center ${
+                        ev.type === 'AutoHealAttempt' ? 'bg-[#54a8c7]/15 text-[#54a8c7]' : 'bg-[#e2626b]/15 text-[#e2626b]'
+                      }`}>
+                        {ev.type === 'AutoHealAttempt' ? <Sparkles className="size-4" /> : <AlertCircle className="size-4" />}
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-semibold flex items-center gap-2">
-                            Charger {event.charger?.name || event.chargerId}
-                            {event.connectorId && <span className="text-muted-foreground font-normal text-sm">(Ch {event.connectorId})</span>}
-                          </h4>
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(event.timestamp), "MMM d, HH:mm:ss")}
-                          </span>
+                      <div>
+                        <div className="text-sm font-bold text-foreground">
+                          {ev.type === 'AutoHealAttempt' ? 'Auto-Heal Remote Reset' : (ev.description || 'Hardware Fault')}
                         </div>
-                        <div className="mt-1 flex items-center gap-2">
-                          <Badge variant={event.type === "AutoHealAttempt" ? "secondary" : "destructive"}>
-                            {event.type}
-                          </Badge>
-                          <span className="text-sm text-muted-foreground">{event.description}</span>
+                        <div className="text-xs text-muted-foreground">
+                          Charger ID: <span className="font-mono font-semibold text-foreground">#{ev.chargerId}</span> • {ev.timestamp ? format(new Date(ev.timestamp), 'dd MMM yyyy, HH:mm:ss') : 'Just now'}
                         </div>
                       </div>
                     </div>
-                  ))
-                )}
+                    <div>
+                      <Badge variant={ev.resolved ? 'soft-success' : 'soft-danger'} className="text-[10px] font-bold uppercase">
+                        {ev.resolved ? 'Resolved' : 'Active Alert'}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>

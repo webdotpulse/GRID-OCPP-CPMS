@@ -4,9 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { AppShell } from "@/components/layout/AppShell";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Edit, Building, User as UserIcon, Briefcase, ArrowUpDown } from "lucide-react";
+import { Plus, Trash2, Edit, Building, User as UserIcon, Briefcase, ArrowUpDown, Search, Users, Shield } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +23,7 @@ export default function UsersPage() {
   const fetchUsers = useCallback(async () => {
     try {
       const response = await api.get('/users', { params: { search: searchQuery || undefined } });
-      setUsers(response.data );
+      setUsers(response.data || []);
     } catch (error) {
       toast.error("Failed to fetch users");
     } finally {
@@ -51,16 +50,18 @@ export default function UsersPage() {
   };
 
   const getUserTypeIcon = (type: string) => {
-    if (type === 'company') return <Building className="h-4 w-4 text-blue-500" />;
-    if (type === 'employee') return <Briefcase className="h-4 w-4 text-green-500" />;
-    return <UserIcon className="h-4 w-4 text-orange-500" />;
+    if (type === 'company') return <Building className="size-3.5 text-[#3f78e0]" />;
+    if (type === 'employee') return <Briefcase className="size-3.5 text-[#45c4a0]" />;
+    return <UserIcon className="size-3.5 text-[#fab758]" />;
   };
 
   if (user?.role !== 'admin' && user?.role !== 'superadmin') {
     return (
       <AppShell>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Admin access required to view users.</p>
+        <div className="flex flex-col items-center justify-center h-64 gap-2 text-center">
+          <Shield className="size-10 text-muted-foreground/50" />
+          <p className="text-foreground font-bold">Admin Privileges Required</p>
+          <p className="text-xs text-muted-foreground">Only system administrators can access user accounts.</p>
         </div>
       </AppShell>
     );
@@ -93,111 +94,151 @@ export default function UsersPage() {
 
   return (
     <AppShell>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Customers / Users</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage system access, companies, employees, and private users.
-          </p>
+      <div className="space-y-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <div className="size-9 rounded-xl bg-[#54a8c7]/15 text-[#54a8c7] flex items-center justify-center">
+                <Users className="size-5" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight text-foreground">
+                Users & Customers
+              </h1>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Manage system operators, fleet company accounts, and EV driver memberships.
+            </p>
+          </div>
+          {(user?.role === "admin" || user?.role === "superadmin") && (
+            <Link href="/users/create">
+              <Button className="rounded-xl bg-[#54a8c7] hover:bg-[#54a8c7]/90 text-white shadow-md shadow-[#54a8c7]/20">
+                <Plus className="size-4 mr-1.5" /> Add User
+              </Button>
+            </Link>
+          )}
         </div>
-        {(user?.role === "admin" || user?.role === "superadmin") && (
-          <Link href="/users/create">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" /> Add User
-            </Button>
-          </Link>
-        )}
-      </div>
 
-      <div className="mb-4">
-        <Input
-          placeholder="Search users by name or email..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-sm"
-        />
-      </div>
+        {/* Search */}
+        <div className="flex items-center justify-between gap-4 bg-card p-3 rounded-2xl border border-border/70 shadow-xs">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Search users by name, email, or company..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-9.5 bg-muted/40 border-border/60"
+            />
+          </div>
+          <Badge variant="outline" className="text-xs font-semibold">
+            {sortedUsers.length} Registered Accounts
+          </Badge>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>All Users</CardTitle>
-        </CardHeader>
-        <CardContent>
+        {/* Users Table */}
+        <div className="rounded-2xl border border-border/70 bg-card overflow-hidden shadow-xs">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
-                  <div className="flex items-center gap-1">Name / Email <ArrowUpDown className="h-3 w-3" /></div>
+                  <div className="flex items-center gap-1.5">User / Contact <ArrowUpDown className="size-3" /></div>
                 </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('userType')}>
-                  <div className="flex items-center gap-1">Type <ArrowUpDown className="h-3 w-3" /></div>
-                </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('companyName')}>
-                  <div className="flex items-center gap-1">Company <ArrowUpDown className="h-3 w-3" /></div>
-                </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('createdAt')}>
-                  <div className="flex items-center gap-1">Created <ArrowUpDown className="h-3 w-3" /></div>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('user_type')}>
+                  <div className="flex items-center gap-1.5">Account Type <ArrowUpDown className="size-3" /></div>
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('role')}>
-                  <div className="flex items-center gap-1">Role <ArrowUpDown className="h-3 w-3" /></div>
+                  <div className="flex items-center gap-1.5">Role <ArrowUpDown className="size-3" /></div>
                 </TableHead>
-                {(user?.role === "admin" || user?.role === "superadmin") && <TableHead className="text-right">Actions</TableHead>}
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('createdAt')}>
+                  <div className="flex items-center gap-1.5">Created <ArrowUpDown className="size-3" /></div>
+                </TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedUsers.map((u) => (
-                <TableRow key={u.id}>
-                  <TableCell className="font-medium">
-                    {u.name && <div className="font-semibold">{u.name}</div>}
-                    <div className={u.name ? "text-xs text-muted-foreground" : ""}>{u.email}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {getUserTypeIcon(u.userType)}
-                      <span className="capitalize">{u.userType || 'Private'}</span>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="size-6 border-2 border-[#54a8c7] border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-xs">Loading user directory...</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{u.companyName || '—'}</TableCell>
-                  <TableCell>{u.createdAt ? format(new Date(u.createdAt), 'MMM d, yyyy') : '—'}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={u.role === 'admin' || u.role === 'superadmin' ? "default" : "secondary"}>
-                        {u.role}
-                      </Badge>
+                </TableRow>
+              ) : sortedUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-1.5">
+                      <Users className="size-8 text-muted-foreground/50" />
+                      <p className="font-semibold text-foreground text-sm">No Users Found</p>
+                      <p className="text-xs text-muted-foreground">Add a new user to grant access.</p>
                     </div>
                   </TableCell>
-                  {(user?.role === "admin" || user?.role === "superadmin") && (
-                    <TableCell className="text-right">
-                      <Link href={`/users/${u.id}/edit`}>
-                        <Button variant="ghost" size="icon">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDelete(u.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                </TableRow>
+              ) : (
+                sortedUsers.map((u) => (
+                  <TableRow key={u.user_id || u.id} className="hover:bg-[#54a8c7]/5 transition-colors">
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2.5">
+                        <div className="size-8 rounded-full bg-gradient-to-br from-[#54a8c7]/20 to-[#3f78e0]/20 border border-[#54a8c7]/30 flex items-center justify-center text-xs font-bold text-[#54a8c7]">
+                          {(u.name || u.email || 'U').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="font-bold text-sm text-foreground">
+                            {u.name || u.email?.split('@')[0]}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {u.email}
+                          </div>
+                        </div>
+                      </div>
                     </TableCell>
-                  )}
-                </TableRow>
-              ))}
-              {!isLoading && sortedUsers.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                    No users found.
-                  </TableCell>
-                </TableRow>
-              )}
-              {isLoading && sortedUsers.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                    Loading users...
-                  </TableCell>
-                </TableRow>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        {getUserTypeIcon(u.user_type)}
+                        <span className="text-xs font-semibold capitalize text-foreground">
+                          {u.user_type || 'Private'}
+                        </span>
+                        {u.company_name && (
+                          <span className="text-xs text-muted-foreground">({u.company_name})</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={u.role === 'admin' || u.role === 'superadmin' ? 'soft-danger' : 'soft-primary'}
+                        className="text-[10px] font-bold uppercase tracking-wider py-0.5"
+                      >
+                        {u.role || 'User'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground font-medium">
+                      {u.createdAt ? format(new Date(u.createdAt), 'dd MMM yyyy') : '—'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Link href={`/users/${u.user_id || u.id}/edit`}>
+                          <Button variant="ghost" size="icon-sm" className="rounded-lg text-muted-foreground hover:text-foreground">
+                            <Edit className="size-3.5" />
+                          </Button>
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => handleDelete(u.user_id || u.id)}
+                          className="rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </AppShell>
   );
 }

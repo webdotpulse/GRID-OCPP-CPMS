@@ -7,6 +7,8 @@ import { logger } from '@/lib/logger';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
+import { MapPin, Navigation } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import 'leaflet/dist/leaflet.css';
 
 // Dynamically import Leaflet components to avoid SSR window issues
@@ -72,7 +74,6 @@ export function LocationsMap() {
   // Default center (e.g. Europe)
   const defaultCenter: [number, number] = [50.8503, 4.3517]; // Brussels
 
-  // Calculate bounds if stations exist
   let mapCenter = defaultCenter;
   let mapZoom = 8;
 
@@ -94,15 +95,26 @@ export function LocationsMap() {
   const isDark = theme === 'dark' || (theme === 'system' && systemTheme === 'dark');
 
   return (
-    <Card className="col-span-1 md:col-span-3 flex flex-col">
-      <CardHeader>
-        <CardTitle>Station Locations</CardTitle>
-        <CardDescription>Geographic overview of your charging network</CardDescription>
+    <Card className="flex flex-col h-full overflow-hidden">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="size-8 rounded-xl bg-[#3f78e0]/15 text-[#3f78e0] flex items-center justify-center">
+              <MapPin className="size-4" />
+            </div>
+            <CardTitle>Station Locations</CardTitle>
+          </div>
+          <Badge variant="soft-primary" className="text-xs font-semibold">
+            {stations.length} Active {stations.length === 1 ? 'Station' : 'Stations'}
+          </Badge>
+        </div>
+        <CardDescription>Geographic overview of your deployed charging network</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 min-h-[400px] p-0 relative overflow-hidden z-0">
+      <CardContent className="flex-1 min-h-[340px] p-0 relative overflow-hidden rounded-b-2xl z-0">
         {isLoading || !icon ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-muted/20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/20 gap-2">
+            <div className="size-8 border-2 border-[#54a8c7] border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-xs text-muted-foreground">Loading interactive map...</span>
           </div>
         ) : (
           <MapContainer
@@ -111,6 +123,7 @@ export function LocationsMap() {
             scrollWheelZoom={false}
             style={{
               height: '100%',
+              minHeight: '340px',
               width: '100%',
               zIndex: 0,
               filter: isDark ? 'invert(1) hue-rotate(180deg) brightness(95%) contrast(90%)' : 'none'
@@ -127,13 +140,16 @@ export function LocationsMap() {
                 icon={icon}
               >
                 <Popup>
-                  <div className="text-sm">
-                    <h3 className="font-bold">{station.station_name}</h3>
-                    <p className="text-muted-foreground mb-2">
+                  <div className="text-sm p-1 font-sans">
+                    <h3 className="font-bold text-foreground">{station.station_name}</h3>
+                    <p className="text-xs text-muted-foreground mb-2">
                       {station.street_name}, {station.city}
                     </p>
-                    <Link href={`/stations/${station.id}`} className="text-primary hover:underline font-medium">
-                      View details
+                    <Link
+                      href={`/stations/${station.id}`}
+                      className="inline-flex items-center gap-1 text-xs text-[#54a8c7] font-semibold hover:underline"
+                    >
+                      View Station Details →
                     </Link>
                   </div>
                 </Popup>

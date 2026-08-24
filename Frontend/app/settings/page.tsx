@@ -1,6 +1,6 @@
 "use client";
-import { logger } from "@/lib/logger";
 
+import { logger } from "@/lib/logger";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -13,11 +13,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { Loader2, User, KeyRound, ShieldAlert, ShieldCheck, Settings, WalletCards, Mail, Globe, Activity, Tv } from "lucide-react";
+import { Loader2, User, KeyRound, ShieldAlert, ShieldCheck, Settings, WalletCards, Mail, Globe, Activity, Tv, Sparkles, Shield } from "lucide-react";
 import Image from "next/image";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -99,7 +100,6 @@ export default function SettingsPage() {
         })
         .catch(err => {
           logger.error("Failed to fetch full user profile for settings", err);
-          // Fallback to basic user data if fetch fails
           profileForm.reset({
             name: user.name || "",
             email: user.email,
@@ -215,395 +215,315 @@ export default function SettingsPage() {
     }
   };
 
-  if (authLoading) return <AppShell><div className="p-8">Loading profile...</div></AppShell>;
+  if (authLoading) {
+    return (
+      <AppShell>
+        <div className="flex flex-col items-center justify-center h-64 gap-2 text-muted-foreground">
+          <div className="size-8 border-2 border-[#54a8c7] border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-xs">Loading profile settings...</span>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Settings & Profile</h1>
-        <p className="text-muted-foreground">Manage your account preferences and security.</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Profile Settings */}
-        <Card className="shadow-sm">
-          <CardHeader className="border-b pb-4">
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" /> Public Profile
-            </CardTitle>
-            <CardDescription>
-              Update your basic information.
-            </CardDescription>
-          </CardHeader>
-          <form onSubmit={profileForm.handleSubmit(onProfileSubmit)}>
-            <CardContent className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input id="name" {...profileForm.register('name')} />
-                {profileForm.formState.errors.name && (
-                  <p className="text-sm text-destructive">{profileForm.formState.errors.name.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input id="email" type="email" {...profileForm.register('email')} />
-                {profileForm.formState.errors.email && (
-                  <p className="text-sm text-destructive">{profileForm.formState.errors.email.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="userType">User Type</Label>
-                <Select
-                  value={profileForm.watch('userType')}
-                  onValueChange={(val: any) => profileForm.setValue('userType', val)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select user type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="private">Private</SelectItem>
-                    <SelectItem value="company">Company</SelectItem>
-                    <SelectItem value="employee">Employee</SelectItem>
-                  </SelectContent>
-                </Select>
-                {profileForm.formState.errors.userType && (
-                  <p className="text-sm text-destructive">{profileForm.formState.errors.userType.message}</p>
-                )}
-              </div>
-
-              {profileForm.watch('userType') !== 'private' && (
-                <div className="space-y-2">
-                  <Label htmlFor="companyName">Company Name</Label>
-                  <Input id="companyName" {...profileForm.register('companyName')} />
-                  {profileForm.formState.errors.companyName && (
-                    <p className="text-sm text-destructive">{profileForm.formState.errors.companyName.message}</p>
-                  )}
-                </div>
-              )}
-              {profileForm.watch('userType') !== 'private' && (
-                <div className="space-y-2">
-                  <Label htmlFor="taxNumber">Tax Number</Label>
-                  <Input id="taxNumber" {...profileForm.register('taxNumber')} />
-                  {profileForm.formState.errors.taxNumber && (
-                    <p className="text-sm text-destructive">{profileForm.formState.errors.taxNumber.message}</p>
-                  )}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" type="tel" {...profileForm.register('phone')} />
-                {profileForm.formState.errors.phone && (
-                  <p className="text-sm text-destructive">{profileForm.formState.errors.phone.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <Input id="address" {...profileForm.register('address')} />
-                {profileForm.formState.errors.address && (
-                  <p className="text-sm text-destructive">{profileForm.formState.errors.address.message}</p>
-                )}
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>System Role</Label>
-                  <Input value={user?.role === 'superadmin' ? 'Super Administrator' : user?.role === 'admin' ? 'Administrator' : 'Standard User'} readOnly className="bg-muted text-muted-foreground" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Member Since</Label>
-                  <Input value={createdAt ? new Date(createdAt).toLocaleDateString() : 'Loading...'} readOnly className="bg-muted text-muted-foreground" />
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="border-t pt-4">
-              <Button type="submit" disabled={isSavingProfile}>
-                {isSavingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
-
-        <div className="space-y-8">
-          {/* Security Settings */}
-          <Card className="shadow-sm">
-          <CardHeader className="border-b pb-4">
-            <CardTitle className="flex items-center gap-2">
-              <KeyRound className="h-5 w-5" /> Security
-            </CardTitle>
-            <CardDescription>
-              Update your password to keep your account secure.
-            </CardDescription>
-          </CardHeader>
-          <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)}>
-            <CardContent className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword">Current Password</Label>
-                <Input id="currentPassword" type="password" {...passwordForm.register('currentPassword')} />
-                {passwordForm.formState.errors.currentPassword && (
-                  <p className="text-sm text-destructive">{passwordForm.formState.errors.currentPassword.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">New Password</Label>
-                <Input id="newPassword" type="password" {...passwordForm.register('newPassword')} />
-                {passwordForm.formState.errors.newPassword && (
-                  <p className="text-sm text-destructive">{passwordForm.formState.errors.newPassword.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                <Input id="confirmPassword" type="password" {...passwordForm.register('confirmPassword')} />
-                {passwordForm.formState.errors.confirmPassword && (
-                  <p className="text-sm text-destructive">{passwordForm.formState.errors.confirmPassword.message}</p>
-                )}
-              </div>
-            </CardContent>
-            <CardFooter className="border-t pt-4">
-              <Button type="submit" variant="destructive" className="bg-destructive/10 text-destructive hover:bg-destructive hover:text-white" disabled={isSavingPassword}>
-                {isSavingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Update Password
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
-
-        {/* 2FA Settings */}
-        <Card className="shadow-sm">
-          <CardHeader className="border-b pb-4">
-            <CardTitle className="flex items-center gap-2">
-              {twoFactorEnabled ? <ShieldCheck className="h-5 w-5 text-green-500" /> : <ShieldAlert className="h-5 w-5 text-amber-500" />}
-              Two-Factor Authentication
-            </CardTitle>
-            <CardDescription>
-              Add an extra layer of security to your account.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5 pt-4">
-            {!twoFactorEnabled && !isSettingUp2FA && (
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">Choose a method to set up 2FA:</p>
-                <div className="flex gap-4">
-                  <Button variant="outline" onClick={() => start2FASetup('authenticator')} disabled={is2FALoading}>
-                    {is2FALoading && setupMethod === 'authenticator' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Authenticator App
-                  </Button>
-                  <Button variant="outline" onClick={() => start2FASetup('email')} disabled={is2FALoading}>
-                    {is2FALoading && setupMethod === 'email' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Email Codes
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {isSettingUp2FA && (
-              <div className="space-y-4">
-                {setupMethod === 'authenticator' && qrCodeUrl && (
-                  <div className="flex flex-col items-center gap-2 p-4 border rounded-md bg-white">
-                    <p className="text-sm text-gray-800 font-medium">Scan this QR code with your Authenticator app</p>
-                    <Image src={qrCodeUrl} alt="2FA QR Code" width={200} height={200} />
-                  </div>
-                )}
-                {setupMethod === 'email' && (
-                  <Alert>
-                    <AlertDescription>We have sent a verification code to your email.</AlertDescription>
-                  </Alert>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="setupCode">Verification Code</Label>
-                  <Input
-                    id="setupCode"
-                    value={setupCode}
-                    onChange={(e) => setSetupCode(e.target.value)}
-                    placeholder="123456"
-                    maxLength={6}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={confirm2FASetup} disabled={is2FALoading || setupCode.length < 6}>
-                    {is2FALoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Verify & Enable
-                  </Button>
-                  <Button variant="ghost" onClick={() => { setIsSettingUp2FA(false); setSetupMethod(null); }} disabled={is2FALoading}>
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {twoFactorEnabled && (
-              <div className="space-y-4">
-                <Alert className="bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-400">
-                  <AlertDescription>
-                    2FA is currently enabled via <strong>{twoFactorMethod === 'authenticator' ? 'Authenticator App' : 'Email'}</strong>.
-                  </AlertDescription>
-                </Alert>
-                <Button variant="destructive" onClick={disable2FA} disabled={is2FALoading}>
-                  {is2FALoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Disable 2FA
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      <div className="space-y-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <div className="size-9 rounded-xl bg-[#54a8c7]/15 text-[#54a8c7] flex items-center justify-center">
+              <Settings className="size-5" />
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight text-foreground">
+              Account Settings & Preferences
+            </h1>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Manage your personal profile, security authentication, and global system configurations.
+          </p>
         </div>
 
-        {/* Admin Settings */}
-        {(user?.role === 'admin' || user?.role === 'superadmin') && (
-          <Card className="shadow-sm md:col-span-2">
-            <CardHeader className="border-b pb-4">
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5 text-primary" /> System Configuration
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Profile Settings */}
+          <Card className="card-border-top-primary">
+            <CardHeader className="pb-3 border-b border-border/50">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <User className="size-5 text-[#54a8c7]" /> Public Profile
               </CardTitle>
               <CardDescription>
-                Manage global settings and integrations for the platform.
+                Update your account details and contact information.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2 border rounded-lg p-4 bg-muted/30">
-                  <h3 className="font-medium flex items-center gap-2">
-                    <WalletCards className="h-4 w-4" /> Dynamic Tariffs
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Configure API keys for EPEX Spot day-ahead pricing integrations (e.g., ENTSO-E).
-                  </p>
-                  <Link href="/settings/tariffs">
-                    <Button variant="outline" size="sm" className="w-full">
-                      Configure Tariffs Integration
-                    </Button>
-                  </Link>
-                </div>
-
-                <div className="space-y-2 border rounded-lg p-4 bg-muted/30">
-                  <h3 className="font-medium flex items-center gap-2">
-                    <Mail className="h-4 w-4" /> Mail Templates
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Manage templates used for transactional emails like password resets.
-                  </p>
-                  <Link href="/settings/templates">
-                    <Button variant="outline" size="sm" className="w-full">
-                      Manage Mail Templates
-                    </Button>
-                  </Link>
-                </div>
-
-                <div className="space-y-2 border rounded-lg p-4 bg-muted/30">
-                  <h3 className="font-medium flex items-center gap-2">
-                    <Mail className="h-4 w-4" /> Mail Server
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Configure SMTP settings for outgoing system emails.
-                  </p>
-                  {mailConfig ? (
-                    <div className="text-xs text-muted-foreground mb-3 flex items-center gap-2">
-                      <span className={`inline-block w-2 h-2 rounded-full ${mailConfig.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
-                      {mailConfig.isActive ? 'Active' : 'Inactive'} • {mailConfig.fromAddress}
-                    </div>
-                  ) : (
-                    <div className="text-xs text-muted-foreground mb-3">
-                      Not configured
-                    </div>
+            <form onSubmit={profileForm.handleSubmit(onProfileSubmit)}>
+              <CardContent className="space-y-4 pt-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="name" className="text-xs font-semibold">Full Name</Label>
+                  <Input id="name" {...profileForm.register('name')} />
+                  {profileForm.formState.errors.name && (
+                    <p className="text-xs text-destructive">{profileForm.formState.errors.name.message}</p>
                   )}
-                  <Link href="/settings/mail">
-                    <Button variant="outline" size="sm" className="w-full">
-                      Manage Mail Settings
-                    </Button>
-                  </Link>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="email" className="text-xs font-semibold">Email Address</Label>
+                  <Input id="email" type="email" {...profileForm.register('email')} />
+                  {profileForm.formState.errors.email && (
+                    <p className="text-xs text-destructive">{profileForm.formState.errors.email.message}</p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="userType" className="text-xs font-semibold">User Type</Label>
+                  <Select
+                    value={profileForm.watch('userType')}
+                    onValueChange={(val: any) => profileForm.setValue('userType', val)}
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Select user type" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="private">Private Individual</SelectItem>
+                      <SelectItem value="company">Enterprise Company</SelectItem>
+                      <SelectItem value="employee">Corporate Employee</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {profileForm.formState.errors.userType && (
+                    <p className="text-xs text-destructive">{profileForm.formState.errors.userType.message}</p>
+                  )}
                 </div>
 
-                <div className="space-y-2 border rounded-lg p-4 bg-muted/30">
-                  <h3 className="font-medium flex items-center gap-2">
-                    <Globe className="h-4 w-4" /> Roaming
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Manage OCPI and OICP roaming integrations and network settings.
-                  </p>
-                  <Link href="/roaming">
-                    <Button variant="outline" size="sm" className="w-full">
-                      Configure Roaming
-                    </Button>
-                  </Link>
+                {profileForm.watch('userType') !== 'private' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="companyName" className="text-xs font-semibold">Company Name</Label>
+                      <Input id="companyName" {...profileForm.register('companyName')} />
+                      {profileForm.formState.errors.companyName && (
+                        <p className="text-xs text-destructive">{profileForm.formState.errors.companyName.message}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="taxNumber" className="text-xs font-semibold">Tax / VAT Number</Label>
+                      <Input id="taxNumber" {...profileForm.register('taxNumber')} />
+                      {profileForm.formState.errors.taxNumber && (
+                        <p className="text-xs text-destructive">{profileForm.formState.errors.taxNumber.message}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="phone" className="text-xs font-semibold">Phone Number</Label>
+                  <Input id="phone" type="tel" placeholder="+32 ..." {...profileForm.register('phone')} />
+                  {profileForm.formState.errors.phone && (
+                    <p className="text-xs text-destructive">{profileForm.formState.errors.phone.message}</p>
+                  )}
                 </div>
 
-                <div className="space-y-2 border rounded-lg p-4 bg-muted/30">
-                  <h3 className="font-medium flex items-center gap-2">
-                    <Settings className="h-4 w-4" /> Config Profiles
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Manage standard OCPP configuration profiles applied to charging stations.
-                  </p>
-                  <Link href="/config-profiles">
-                    <Button variant="outline" size="sm" className="w-full">
-                      Manage Config Profiles
-                    </Button>
-                  </Link>
+                <div className="space-y-1.5">
+                  <Label htmlFor="address" className="text-xs font-semibold">Address</Label>
+                  <Input id="address" {...profileForm.register('address')} />
+                  {profileForm.formState.errors.address && (
+                    <p className="text-xs text-destructive">{profileForm.formState.errors.address.message}</p>
+                  )}
                 </div>
-
-                <div className="space-y-2 border rounded-lg p-4 bg-muted/30">
-                  <h3 className="font-medium flex items-center gap-2">
-                    <Settings className="h-4 w-4" /> Quirk Profiles
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Manage custom quirk profiles to handle specific charger model behaviors.
-                  </p>
-                  <Link href="/quirk-profiles">
-                    <Button variant="outline" size="sm" className="w-full">
-                      Manage Quirk Profiles
-                    </Button>
-                  </Link>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">System Role</Label>
+                    <Input value={user?.role === 'superadmin' ? 'Super Administrator' : user?.role === 'admin' ? 'Administrator' : 'Standard User'} readOnly className="bg-muted/50 text-muted-foreground font-semibold" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Member Since</Label>
+                    <Input value={createdAt ? new Date(createdAt).toLocaleDateString() : 'Active'} readOnly className="bg-muted/50 text-muted-foreground font-semibold" />
+                  </div>
                 </div>
-
-                <div className="space-y-2 border rounded-lg p-4 bg-muted/30">
-                  <h3 className="font-medium flex items-center gap-2">
-                    <Tv className="h-4 w-4" /> Ad Manager
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Manage and push promotional media and digital ads directly to charger LCD screens.
-                  </p>
-                  <Link href="/settings/ad-manager">
-                    <Button variant="outline" size="sm" className="w-full">
-                      Open Ad Manager
-                    </Button>
-                  </Link>
-                </div>
-
-                <div className="space-y-2 border rounded-lg p-4 bg-muted/30">
-                  <h3 className="font-medium flex items-center gap-2">
-                    <Activity className="h-4 w-4" /> EMS Gateways
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Configure and monitor Energy Management System gateways.
-                  </p>
-                  <Link href="/ems-gateways">
-                    <Button variant="outline" size="sm" className="w-full">
-                      Manage EMS Gateways
-                    </Button>
-                  </Link>
-                </div>
-
-                <div className="space-y-2 border rounded-lg p-4 bg-muted/30">
-                  <h3 className="font-medium flex items-center gap-2">
-                    <WalletCards className="h-4 w-4" /> Payments
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Configure Mollie payment integration.
-                  </p>
-                  <Link href="/settings/payments">
-                    <Button variant="outline" size="sm" className="w-full">
-                      Configure Payments
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </CardContent>
+              </CardContent>
+              <CardFooter className="border-t border-border/50 pt-4 px-6 flex justify-end">
+                <Button type="submit" className="rounded-xl bg-[#54a8c7] hover:bg-[#54a8c7]/90 text-white font-bold" disabled={isSavingProfile}>
+                  {isSavingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Profile Changes
+                </Button>
+              </CardFooter>
+            </form>
           </Card>
-        )}
+
+          <div className="space-y-8">
+            {/* Security Settings */}
+            <Card>
+              <CardHeader className="pb-3 border-b border-border/50">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <KeyRound className="size-5 text-[#fab758]" /> Account Password
+                </CardTitle>
+                <CardDescription>
+                  Update your authentication password to ensure system security.
+                </CardDescription>
+              </CardHeader>
+              <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)}>
+                <CardContent className="space-y-4 pt-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="currentPassword" className="text-xs font-semibold">Current Password</Label>
+                    <Input id="currentPassword" type="password" placeholder="••••••••" {...passwordForm.register('currentPassword')} />
+                    {passwordForm.formState.errors.currentPassword && (
+                      <p className="text-xs text-destructive">{passwordForm.formState.errors.currentPassword.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="newPassword" className="text-xs font-semibold">New Password</Label>
+                    <Input id="newPassword" type="password" placeholder="••••••••" {...passwordForm.register('newPassword')} />
+                    {passwordForm.formState.errors.newPassword && (
+                      <p className="text-xs text-destructive">{passwordForm.formState.errors.newPassword.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="confirmPassword" className="text-xs font-semibold">Confirm New Password</Label>
+                    <Input id="confirmPassword" type="password" placeholder="••••••••" {...passwordForm.register('confirmPassword')} />
+                    {passwordForm.formState.errors.confirmPassword && (
+                      <p className="text-xs text-destructive">{passwordForm.formState.errors.confirmPassword.message}</p>
+                    )}
+                  </div>
+                </CardContent>
+                <CardFooter className="border-t border-border/50 pt-4 px-6 flex justify-end">
+                  <Button type="submit" variant="destructive" className="rounded-xl font-semibold" disabled={isSavingPassword}>
+                    {isSavingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Update Password
+                  </Button>
+                </CardFooter>
+              </form>
+            </Card>
+
+            {/* 2FA Settings */}
+            <Card>
+              <CardHeader className="pb-3 border-b border-border/50">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  {twoFactorEnabled ? <ShieldCheck className="size-5 text-emerald-500" /> : <ShieldAlert className="size-5 text-amber-500" />}
+                  Two-Factor Authentication
+                </CardTitle>
+                <CardDescription>
+                  Protect your operator session with multi-factor verification.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-4">
+                {!twoFactorEnabled && !isSettingUp2FA && (
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground">Select your preferred 2FA authentication method:</p>
+                    <div className="flex flex-wrap gap-3">
+                      <Button variant="outline" className="rounded-xl" onClick={() => start2FASetup('authenticator')} disabled={is2FALoading}>
+                        {is2FALoading && setupMethod === 'authenticator' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Authenticator App (TOTP)
+                      </Button>
+                      <Button variant="outline" className="rounded-xl" onClick={() => start2FASetup('email')} disabled={is2FALoading}>
+                        {is2FALoading && setupMethod === 'email' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Email Verification Code
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {isSettingUp2FA && (
+                  <div className="space-y-4">
+                    {setupMethod === 'authenticator' && qrCodeUrl && (
+                      <div className="flex flex-col items-center gap-2 p-4 border rounded-2xl bg-white shadow-xs">
+                        <p className="text-xs text-gray-800 font-bold">Scan QR code in Google Authenticator or 1Password</p>
+                        <Image src={qrCodeUrl} alt="2FA QR Code" width={180} height={180} />
+                      </div>
+                    )}
+                    {setupMethod === 'email' && (
+                      <Alert className="rounded-xl">
+                        <AlertDescription className="text-xs">We sent a 6-digit confirmation code to your email.</AlertDescription>
+                      </Alert>
+                    )}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="setupCode" className="text-xs font-semibold">Verification Code</Label>
+                      <Input
+                        id="setupCode"
+                        value={setupCode}
+                        onChange={(e) => setSetupCode(e.target.value)}
+                        placeholder="123456"
+                        maxLength={6}
+                        className="font-mono text-center tracking-widest text-base"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={confirm2FASetup} disabled={is2FALoading || setupCode.length < 6} className="rounded-xl bg-[#54a8c7] text-white">
+                        {is2FALoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Verify & Enable
+                      </Button>
+                      <Button variant="ghost" onClick={() => { setIsSettingUp2FA(false); setSetupMethod(null); }} disabled={is2FALoading} className="rounded-xl">
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {twoFactorEnabled && (
+                  <div className="space-y-3">
+                    <Badge variant="soft-success" className="text-xs font-semibold py-1 px-3">
+                      2FA Active via {twoFactorMethod === 'authenticator' ? 'Authenticator App' : 'Email'}
+                    </Badge>
+                    <div>
+                      <Button variant="destructive" size="sm" onClick={disable2FA} disabled={is2FALoading} className="rounded-xl">
+                        {is2FALoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Disable 2FA Protection
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Admin Global Settings Tiles */}
+          {(user?.role === 'admin' || user?.role === 'superadmin') && (
+            <Card className="lg:col-span-2 shadow-sandbox">
+              <CardHeader className="border-b border-border/50 pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Sparkles className="size-5 text-[#54a8c7]" /> Enterprise Integrations & Subsystems
+                </CardTitle>
+                <CardDescription>
+                  Configure protocol parameters, pricing feeds, payment processors, and connected gateways.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    { title: 'Dynamic Tariffs', desc: 'EPEX Spot day-ahead electricity prices (ENTSO-E, EnergyZero).', link: '/settings/tariffs', icon: WalletCards, color: 'text-[#fab758] bg-[#fab758]/15' },
+                    { title: 'Mail Templates', desc: 'Custom HTML email layouts for receipts & password resets.', link: '/settings/templates', icon: Mail, color: 'text-[#54a8c7] bg-[#54a8c7]/15' },
+                    { title: 'SMTP Mail Server', desc: 'Outgoing mail server credentials and sender delivery rules.', link: '/settings/mail', icon: Mail, color: 'text-[#3f78e0] bg-[#3f78e0]/15' },
+                    { title: 'Roaming (OCPI & OICP)', desc: 'Interoperability hubs, Hubject OICP and e-clearing.net OCPI.', link: '/roaming', icon: Globe, color: 'text-[#45c4a0] bg-[#45c4a0]/15' },
+                    { title: 'Config Profiles', desc: 'Standardized OCPP 1.6/2.0.1 key-value parameter templates.', link: '/config-profiles', icon: Settings, color: 'text-[#747ed1] bg-[#747ed1]/15' },
+                    { title: 'Quirk Profiles', desc: 'Hardware-specific compatibility fixes for non-compliant chargers.', link: '/quirk-profiles', icon: ShieldAlert, color: 'text-[#e2626b] bg-[#e2626b]/15' },
+                    { title: 'Ad Manager', desc: 'Promotional multimedia campaigns for charger LCD screens.', link: '/settings/ad-manager', icon: Tv, color: 'text-[#54a8c7] bg-[#54a8c7]/15' },
+                    { title: 'EMS Gateways', desc: 'Real-time telemetry feeds for solar PV, inverters, and BESS storage.', link: '/ems-gateways', icon: Activity, color: 'text-[#45c4a0] bg-[#45c4a0]/15' },
+                    { title: 'Mollie Payments', desc: 'Direct credit card and iDEAL settlement integration.', link: '/settings/payments', icon: WalletCards, color: 'text-[#fab758] bg-[#fab758]/15' },
+                  ].map((tile) => {
+                    const Icon = tile.icon;
+                    return (
+                      <Link key={tile.title} href={tile.link} className="group block">
+                        <div className="h-full rounded-2xl border border-border/70 bg-card p-4.5 hover:border-[#54a8c7]/50 hover:shadow-md transition-all flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center gap-2.5 mb-2">
+                              <div className={`size-8 rounded-xl flex items-center justify-center ${tile.color}`}>
+                                <Icon className="size-4" />
+                              </div>
+                              <h3 className="font-bold text-sm text-foreground group-hover:text-[#54a8c7] transition-colors">
+                                {tile.title}
+                              </h3>
+                            </div>
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                              {tile.desc}
+                            </p>
+                          </div>
+                          <div className="mt-3 text-[11px] font-bold text-[#54a8c7] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                            Configure Subsystem →
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </AppShell>
   );
-
 }
-

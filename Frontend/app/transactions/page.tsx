@@ -1,13 +1,13 @@
 "use client";
-import { logger } from "@/lib/logger";
 
+import { logger } from "@/lib/logger";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Eye, ReceiptText, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Eye, ReceiptText, ArrowUpDown, ChevronLeft, ChevronRight, Search, Activity, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow, format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -73,10 +73,21 @@ export default function TransactionsPage() {
 
   const getStatusBadge = (status: string) => {
     const s = status?.toLowerCase() || '';
-    if (s === 'completed') return <Badge variant="outline" className="text-green-500 bg-green-500/10">COMPLETED</Badge>;
-    if (s === 'charging' || s === 'initiated') return <Badge variant="outline" className="text-blue-500 bg-blue-500/10 animate-pulse">CHARGING</Badge>;
-    if (s === 'faulted') return <Badge variant="outline" className="text-red-500 bg-red-500/10">FAULTED</Badge>;
-    return <Badge variant="outline" className="text-muted-foreground bg-muted">{status?.toUpperCase() || ''}</Badge>;
+    if (s === 'completed') {
+      return <Badge variant="soft-success" className="text-[10px] font-bold uppercase tracking-wider py-0.5">COMPLETED</Badge>;
+    }
+    if (s === 'charging' || s === 'initiated') {
+      return (
+        <Badge variant="soft-primary" className="text-[10px] font-bold uppercase tracking-wider py-0.5 gap-1">
+          <span className="size-1.5 rounded-full bg-[#54a8c7] animate-pulse" />
+          CHARGING
+        </Badge>
+      );
+    }
+    if (s === 'faulted') {
+      return <Badge variant="soft-danger" className="text-[10px] font-bold uppercase tracking-wider py-0.5">FAULTED</Badge>;
+    }
+    return <Badge variant="soft-secondary" className="text-[10px] font-bold uppercase tracking-wider py-0.5">{status?.toUpperCase() || 'UNKNOWN'}</Badge>;
   };
 
   const handleSort = (key: string) => {
@@ -109,138 +120,175 @@ export default function TransactionsPage() {
 
   return (
     <AppShell>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">All Transactions</h1>
-          <p className="text-muted-foreground">Historical charging sessions across all stations.</p>
+      <div className="space-y-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <div className="size-9 rounded-xl bg-[#54a8c7]/15 text-[#54a8c7] flex items-center justify-center">
+                <ReceiptText className="size-5" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight text-foreground">
+                Charging Transactions
+              </h1>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Audit log of historical EV charging sessions, energy metering, and billing status.
+            </p>
+          </div>
+          <Link href="/transactions/active">
+            <Button variant="outline" className="rounded-xl border-[#54a8c7]/40 text-[#54a8c7] hover:bg-[#54a8c7]/10">
+              <Activity className="size-4 mr-1.5" /> View Active Live Sessions
+            </Button>
+          </Link>
         </div>
-        <Link href="/transactions/active">
-          <Button variant="outline" className="border-blue-500 text-blue-500 hover:bg-blue-500/10">
-            View Active Sessions
-          </Button>
-        </Link>
-      </div>
 
-      <div className="mb-4">
-        <Input
-          placeholder="Search transactions by ID or status..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-sm"
-        />
-      </div>
+        {/* Search */}
+        <div className="flex items-center justify-between gap-4 bg-card p-3 rounded-2xl border border-border/70 shadow-xs">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by transaction ID, RFID tag, or status..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-9.5 bg-muted/40 border-border/60"
+            />
+          </div>
+          <Badge variant="outline" className="text-xs font-semibold">
+            {totalCount} Total Sessions
+          </Badge>
+        </div>
 
-      <div className="rounded-md border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('transactionId')}>
-                <div className="flex items-center gap-1">Txn ID <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('startTime')}>
-                <div className="flex items-center gap-1">Start Time <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('charger')}>
-                <div className="flex items-center gap-1">Charger / Channel <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('idTag')}>
-                <div className="flex items-center gap-1">RFID Tag <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('energyConsumed')}>
-                <div className="flex items-center justify-end gap-1">Energy <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
-                <div className="flex items-center gap-1">Status <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="text-right">Total Cost</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading && transactions.length === 0 ? (
+        {/* Transactions Table */}
+        <div className="rounded-2xl border border-border/70 bg-card overflow-hidden shadow-xs">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center">Loading transactions...</TableCell>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('transactionId')}>
+                  <div className="flex items-center gap-1.5">Txn ID <ArrowUpDown className="size-3" /></div>
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('startTime')}>
+                  <div className="flex items-center gap-1.5">Start Time <ArrowUpDown className="size-3" /></div>
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('charger')}>
+                  <div className="flex items-center gap-1.5">Charger / Channel <ArrowUpDown className="size-3" /></div>
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('idTag')}>
+                  <div className="flex items-center gap-1.5">RFID Tag <ArrowUpDown className="size-3" /></div>
+                </TableHead>
+                <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('energyConsumed')}>
+                  <div className="flex items-center justify-end gap-1.5">Energy <ArrowUpDown className="size-3" /></div>
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
+                  <div className="flex items-center gap-1.5">Status <ArrowUpDown className="size-3" /></div>
+                </TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ) : sortedTransactions.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">No transactions recorded.</TableCell>
-              </TableRow>
-            ) : (
-              sortedTransactions.map((txn) => (
-                <TableRow key={txn.id}>
-                  <TableCell className="font-mono text-sm">
-                    <div className="flex items-center gap-2">
-                      <ReceiptText className="h-4 w-4 text-muted-foreground" />
-                      #{txn.transactionId}
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="size-6 border-2 border-[#54a8c7] border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-xs">Loading transaction records...</span>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium text-sm">
-                      {format(new Date(txn.startTime), 'MMM d, yyyy HH:mm')}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(txn.startTime), { addSuffix: true })}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {txn.charger?.name || `Charger ID: ${txn.charger_id}`} 
-                    <span className="text-muted-foreground text-xs ml-1">({txn.connectorName})</span>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{txn.idTag || 'N/A'}</TableCell>
-                  <TableCell className="text-right font-mono text-primary">
-                    {(txn.energyConsumed / 1000).toFixed(2)} kWh
-                  </TableCell>
-                  <TableCell>{getStatusBadge(txn.status)}</TableCell>
-                  <TableCell className="text-right font-mono">
-                    {txn.totalCost !== undefined && txn.totalCost !== null ? `€${(txn.totalCost / 100).toFixed(2)}` : (txn.amountDue !== undefined && txn.amountDue !== null ? `€${(txn.amountDue / 100).toFixed(2)}` : '-')}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Link href={`/transactions/${txn.id}`}>
-                       <Button variant="ghost" size="sm">
-                         <Eye className="mr-2 h-4 w-4" /> View
-                       </Button>
-                    </Link>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 px-2">
-        <div className="text-sm text-muted-foreground">
-          Showing <span className="font-medium text-foreground">{transactions.length}</span> of{" "}
-          <span className="font-medium text-foreground">{totalCount}</span> transactions
-          {totalPages > 1 && (
-            <span className="ml-1">
-              (Page <span className="font-medium text-foreground">{page}</span> of{" "}
-              <span className="font-medium text-foreground">{totalPages}</span>)
-            </span>
-          )}
+              ) : sortedTransactions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-1.5">
+                      <ReceiptText className="size-8 text-muted-foreground/50" />
+                      <p className="font-semibold text-foreground text-sm">No Transactions Found</p>
+                      <p className="text-xs text-muted-foreground">No charging sessions match your query.</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                sortedTransactions.map((tx) => (
+                  <TableRow key={tx.transaction_id || tx.transactionId || tx.id} className="hover:bg-[#54a8c7]/5 transition-colors">
+                    <TableCell className="font-mono font-bold text-xs text-foreground">
+                      #{tx.transaction_id || tx.transactionId || tx.id}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground font-medium">
+                      {tx.startTime 
+                        ? format(new Date(tx.startTime), 'dd MMM yyyy, HH:mm') 
+                        : (tx.createdAt ? format(new Date(tx.createdAt), 'dd MMM yyyy, HH:mm') : '—')}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <Zap className="size-3.5 text-[#54a8c7]" />
+                        <span className="font-semibold text-sm text-foreground">
+                          {tx.charger?.name || `Charger #${tx.charger_id}`}
+                        </span>
+                        {tx.connector?.connector_name && (
+                          <Badge variant="outline" className="text-[10px] ml-1">
+                            {tx.connector.connector_name}
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {tx.idTag ? (
+                        <Badge variant="outline" className="font-mono text-xs">
+                          {tx.idTag}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Direct / App</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-bold text-xs text-[#54a8c7]">
+                      {tx.energyConsumed != null 
+                        ? `${(Number(tx.energyConsumed) / 1000).toFixed(2)} kWh` 
+                        : (tx.meter_stop ? `${((tx.meter_stop - (tx.meter_start || 0)) / 1000).toFixed(2)} kWh` : '0.00 kWh')}
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(tx.status || 'completed')}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Link href={`/transactions/${tx.transaction_id || tx.transactionId || tx.id}`}>
+                        <Button variant="ghost" size="icon-sm" className="rounded-lg text-muted-foreground hover:text-foreground">
+                          <Eye className="size-3.5" />
+                        </Button>
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1 || isLoading}
-            className="h-8 px-3"
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" /> Previous
-          </Button>
-          <div className="text-xs font-medium px-2 py-1 bg-muted rounded border min-w-[3rem] text-center">
-            {page} / {totalPages || 1}
+
+        {/* Pagination */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
+          <div className="text-xs text-muted-foreground">
+            Showing <span className="font-semibold text-foreground">{transactions.length}</span> of{" "}
+            <span className="font-semibold text-foreground">{totalCount}</span> sessions
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages || isLoading}
-            className="h-8 px-3"
-          >
-            Next <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || isLoading}
+              className="h-8.5 px-3 rounded-xl"
+            >
+              <ChevronLeft className="size-4 mr-1" /> Previous
+            </Button>
+            <div className="text-xs font-semibold px-3 py-1.5 bg-card rounded-xl border border-border/80 min-w-[3.5rem] text-center shadow-2xs">
+              {page} / {totalPages || 1}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || isLoading}
+              className="h-8.5 px-3 rounded-xl"
+            >
+              Next <ChevronRight className="size-4 ml-1" />
+            </Button>
+          </div>
         </div>
       </div>
     </AppShell>

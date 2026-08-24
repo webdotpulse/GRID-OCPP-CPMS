@@ -32,7 +32,7 @@ export function MobileAppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 text-foreground w-full max-w-full overflow-x-hidden relative pb-16">
+    <div className="flex flex-col min-h-screen bg-background text-foreground w-full max-w-full overflow-x-hidden relative pb-16">
       {/* Main Content Area */}
       {children}
     </div>

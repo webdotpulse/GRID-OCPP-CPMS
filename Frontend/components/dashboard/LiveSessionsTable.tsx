@@ -1,12 +1,14 @@
 "use client";
 
-
 import { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { useTelemetryStore } from "@/store/useTelemetryStore";
+import { Zap, Activity, ArrowRight, BatteryCharging, Radio } from 'lucide-react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 export function LiveSessionsTable() {
   const sessions = useTelemetryStore((state) => state.sessions);
@@ -20,59 +22,101 @@ export function LiveSessionsTable() {
   }, [fetchSessions]);
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
+    <Card className="overflow-hidden">
+      <CardHeader className="flex flex-row items-center justify-between pb-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <div className="size-8 rounded-xl bg-[#45c4a0]/15 text-[#45c4a0] flex items-center justify-center">
+              <Radio className="size-4 animate-pulse" />
+            </div>
             <CardTitle>Live Charging Sessions</CardTitle>
-            <CardDescription>
-              Currently active transaction updates
-            </CardDescription>
           </div>
-          <Badge variant="outline" className="bg-green-500/10 text-green-500 hover:bg-green-500/20">
-            <span className="h-2 w-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
-            Live
+          <CardDescription>
+            Real-time power delivery & active transaction telemetry
+          </CardDescription>
+        </div>
+        <div className="flex items-center gap-3">
+          <Badge variant="soft-success" className="gap-1.5 px-3 py-1 text-xs">
+            <span className="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            {sessions.length} Active {sessions.length === 1 ? 'Session' : 'Sessions'}
           </Badge>
+          <Link href="/transactions">
+            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground">
+              View All <ArrowRight className="size-3.5 ml-1" />
+            </Button>
+          </Link>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         {isSessionsLoading ? (
-          <div className="flex justify-center p-8 text-muted-foreground">Loading...</div>
+          <div className="flex flex-col items-center justify-center p-12 text-muted-foreground gap-3">
+            <div className="size-8 border-2 border-[#54a8c7] border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-xs font-medium">Fetching real-time sessions...</span>
+          </div>
         ) : sessions.length === 0 ? (
-          <div className="flex justify-center p-8 text-muted-foreground border border-dashed rounded-lg">
-            No active sessions currently.
+          <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground gap-2">
+            <div className="size-12 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground mb-1">
+              <Zap className="size-6" />
+            </div>
+            <p className="font-semibold text-sm text-foreground">No Active Sessions</p>
+            <p className="text-xs text-muted-foreground max-w-sm">
+              All charge points are currently idle or awaiting EV connection.
+            </p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Txn ID</TableHead>
-                <TableHead>Charger</TableHead>
-                <TableHead>Channel</TableHead>
-                <TableHead>Started</TableHead>
-                <TableHead className="text-right">Power</TableHead>
-                <TableHead className="text-right">Energy</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sessions.map((session) => (
-                <TableRow key={session.transactionId}>
-                  <TableCell className="font-medium">#{session.transactionId}</TableCell>
-                  <TableCell>{session.chargerName}</TableCell>
-                  <TableCell>{session.connectorName}</TableCell>
-                  <TableCell>
-                    {formatDistanceToNow(new Date(session.startTime), { addSuffix: true })}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-blue-500">
-                    {session.currentPower > 0 ? `${(session.currentPower / 1000).toFixed(2)} kW` : '-'}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-primary">
-                    {session.energyConsumed > 0 ? `${(session.energyConsumed / 1000).toFixed(2)} kWh` : 'Starting...'}
-                  </TableCell>
+          <div className="p-4 pt-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Txn ID</TableHead>
+                  <TableHead>Charge Point</TableHead>
+                  <TableHead>Channel</TableHead>
+                  <TableHead>Started</TableHead>
+                  <TableHead className="text-right">Live Power</TableHead>
+                  <TableHead className="text-right">Energy Delivered</TableHead>
+                  <TableHead className="text-right">Status</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {sessions.map((session) => (
+                  <TableRow key={session.transactionId} className="group hover:bg-[#54a8c7]/5">
+                    <TableCell className="font-mono font-bold text-xs text-foreground">
+                      #{session.transactionId}
+                    </TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/chargers/${session.chargerId}`}
+                        className="font-semibold text-foreground hover:text-[#54a8c7] flex items-center gap-1.5 transition-colors"
+                      >
+                        <Zap className="size-3.5 text-[#54a8c7]" />
+                        {session.chargerName}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[11px] font-medium bg-muted/50 border-border/80">
+                        {session.connectorName}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(session.startTime), { addSuffix: true })}
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-bold text-xs text-[#3f78e0]">
+                      {session.currentPower > 0 ? `${(session.currentPower / 1000).toFixed(2)} kW` : '0.00 kW'}
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-bold text-xs text-[#54a8c7]">
+                      {session.energyConsumed > 0 ? `${(session.energyConsumed / 1000).toFixed(2)} kWh` : 'Initialising...'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant="soft-success" className="text-[10px] font-bold uppercase tracking-wider py-0.5">
+                        <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse mr-1"></span>
+                        Charging
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </CardContent>
     </Card>

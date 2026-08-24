@@ -1,23 +1,25 @@
 "use client";
-import { logger } from "@/lib/logger";
 
+import { logger } from "@/lib/logger";
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { Cpu, PieChart as PieIcon } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface DistributionData {
   status: string;
   count: number;
 }
 
-const COLORS = {
-  Available: '#10b981',   // emerald-500
-  Charging: '#3b82f6',    // blue-500
-  Faulted: '#ef4444',     // red-500
-  Unavailable: '#6b7280', // gray-500
-  Preparing: '#f59e0b',   // amber-500
-  Finishing: '#8b5cf6',   // violet-500
+const COLORS: Record<string, string> = {
+  Available: '#45c4a0',   // SandBox Green
+  Charging: '#54a8c7',    // SandBox Aqua
+  Preparing: '#fab758',   // SandBox Yellow
+  Finishing: '#747ed1',   // SandBox Purple
+  Faulted: '#e2626b',     // SandBox Red
+  Unavailable: '#60697b', // SandBox Gray
 };
 
 export function ConnectorDistribution() {
@@ -48,42 +50,73 @@ export function ConnectorDistribution() {
     fetchDistribution();
   }, []);
 
+  const totalConnectors = data.reduce((acc, curr) => acc + curr.count, 0);
+
   return (
-    <Card className="col-span-2">
-      <CardHeader>
-        <CardTitle>Channel Status</CardTitle>
+    <Card className="h-full flex flex-col">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="size-8 rounded-xl bg-[#54a8c7]/15 text-[#54a8c7] flex items-center justify-center">
+              <PieIcon className="size-4" />
+            </div>
+            <CardTitle>Channel Status</CardTitle>
+          </div>
+          <Badge variant="outline" className="text-xs font-semibold">
+            {totalConnectors} Connectors
+          </Badge>
+        </div>
+        <CardDescription>
+          Real-time connector availability distribution
+        </CardDescription>
       </CardHeader>
-      <CardContent className="h-[300px] flex items-center justify-center">
+      <CardContent className="flex-1 flex items-center justify-center min-h-[280px]">
         {isLoading ? (
-          <div className="text-muted-foreground">Loading chart...</div>
+          <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+            <div className="size-6 border-2 border-[#54a8c7] border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-xs">Loading telemetry...</span>
+          </div>
         ) : data.length === 0 ? (
-          <div className="text-muted-foreground">No data available</div>
+          <div className="text-xs text-muted-foreground">No connector data recorded</div>
         ) : (
-          <div className="w-full h-full min-h-[300px]">
-            <ResponsiveContainer width="100%" height={300} minWidth={0} minHeight={0}>
+          <div className="w-full h-[260px]">
+            <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={80}
-                paddingAngle={5}
-                dataKey="count"
-                nameKey="status"
-              >
-                {data.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={COLORS[entry.status as keyof typeof COLORS] || COLORS.Unavailable} 
-                  />
-                ))}
-              </Pie>
-              <Tooltip 
-                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                itemStyle={{ color: 'var(--foreground)' }}
-              />
-                <Legend verticalAlign="bottom" height={36}/>
+                <Pie
+                  data={data}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={65}
+                  outerRadius={90}
+                  paddingAngle={4}
+                  dataKey="count"
+                  nameKey="status"
+                  strokeWidth={0}
+                >
+                  {data.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[entry.status] || COLORS.Unavailable}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: '12px',
+                    border: '1px solid rgba(164, 174, 198, 0.25)',
+                    backgroundColor: 'var(--card)',
+                    boxShadow: '0 8px 24px rgba(30, 34, 40, 0.12)',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                  }}
+                  itemStyle={{ color: 'var(--foreground)' }}
+                />
+                <Legend
+                  verticalAlign="bottom"
+                  height={36}
+                  iconType="circle"
+                  formatter={(value) => <span className="text-xs font-medium text-foreground">{value}</span>}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>

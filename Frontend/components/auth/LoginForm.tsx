@@ -149,17 +149,17 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-md shadow-sm">
-      <CardHeader className="space-y-1 border-b pb-4">
-        <CardTitle className="text-2xl font-bold tracking-tight">Sign in</CardTitle>
+    <Card className="w-full max-w-md shadow-2xl border-border/80 bg-card/95 backdrop-blur-md rounded-3xl overflow-hidden card-border-top-primary">
+      <CardHeader className="space-y-1.5 pb-2 pt-6 px-6">
+        <CardTitle className="text-2xl font-bold tracking-tight text-foreground">Sign In</CardTitle>
         <CardDescription>
-          Enter your email and password to access the CPMS dashboard
+          Enter your credentials to access the central CPMS console
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
-        <CardContent className="space-y-5 pt-4">
+        <CardContent className="space-y-4 pt-2 px-6">
           {error && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="rounded-xl">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription className="flex flex-col gap-2">
                 <span>{error}</span>
@@ -168,7 +168,7 @@ export function LoginForm() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="self-start mt-1 text-xs"
+                    className="self-start mt-1 text-xs rounded-lg"
                     onClick={onResendVerification}
                     disabled={isResending}
                   >
@@ -180,45 +180,46 @@ export function LoginForm() {
             </Alert>
           )}
           {resendStatus && (
-            <Alert variant="default" className="border-green-500 bg-green-50/10 text-green-700 dark:text-green-300">
+            <Alert variant="default" className="rounded-xl border-green-500 bg-green-50/10 text-green-700 dark:text-green-300">
               <AlertDescription>{resendStatus}</AlertDescription>
             </Alert>
           )}
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="email" className="text-xs font-semibold text-foreground">Email Address</Label>
             <Input 
               id="email" 
               type="email" 
-              placeholder="admin@example.com" 
+              placeholder="operator@thechargegrid.com" 
               {...register('email')}
-              className={errors.email ? 'border-destructive' : ''}
+              className={`rounded-xl ${errors.email ? 'border-destructive' : ''}`}
             />
-            {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+            {errors.email && <p className="text-xs text-destructive mt-1">{errors.email.message}</p>}
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
-              <Link href="/forgot-password" className="text-sm text-primary hover:underline font-medium">
+              <Label htmlFor="password" className="text-xs font-semibold text-foreground">Password</Label>
+              <Link href="/forgot-password" className="text-xs text-primary hover:underline font-semibold">
                 Forgot password?
               </Link>
             </div>
             <Input 
               id="password" 
               type="password" 
+              placeholder="••••••••"
               {...register('password')}
-              className={errors.password ? 'border-destructive' : ''}
+              className={`rounded-xl ${errors.password ? 'border-destructive' : ''}`}
             />
-            {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+            {errors.password && <p className="text-xs text-destructive mt-1">{errors.password.message}</p>}
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col gap-3 border-t pt-4">
-          <Button type="submit" className="w-full" disabled={isLoading}>
+        <CardFooter className="flex flex-col gap-3 pt-2 pb-6 px-6 border-0">
+          <Button type="submit" className="w-full rounded-xl bg-[#54a8c7] hover:bg-[#54a8c7]/90 text-white font-bold h-10 shadow-md shadow-[#54a8c7]/20" disabled={isLoading}>
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Sign In
+            Sign In to CPMS
           </Button>
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-xs text-muted-foreground">
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-primary hover:underline font-medium">
+            <Link href="/register" className="text-primary hover:underline font-semibold">
               Create Account
             </Link>
           </p>

@@ -1,14 +1,14 @@
 "use client";
+
 import { logger } from "@/lib/logger";
 import { useAuth } from "@/hooks/useAuth";
-
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Edit, Trash2, CreditCard, ArrowUpDown } from "lucide-react";
+import { Plus, Edit, Trash2, CreditCard, ArrowUpDown, Search, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -32,7 +32,7 @@ export default function RfidPage() {
   const fetchTags = useCallback(async () => {
     try {
       const response = await api.get('/rfid', { params: { search: searchQuery || undefined } });
-      setTags(response.data?.data || response.data);
+      setTags(response.data?.data || response.data || []);
     } catch (error) {
       logger.error("Failed to fetch RFID tags", error);
     } finally {
@@ -90,96 +90,151 @@ export default function RfidPage() {
 
   return (
     <AppShell>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">RFID Management</h1>
-          <p className="text-muted-foreground">Manage NFC/RFID authorization whitelist and users.</p>
+      <div className="space-y-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <div className="size-9 rounded-xl bg-[#54a8c7]/15 text-[#54a8c7] flex items-center justify-center">
+                <CreditCard className="size-5" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight text-foreground">
+                RFID & Access Authorization
+              </h1>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Manage authorized RFID tags, key fobs, driver credentials, and whitelist sync.
+            </p>
+          </div>
+          {(user?.role === "admin" || user?.role === "superadmin") && (
+            <Link href="/rfid/new">
+              <Button className="rounded-xl bg-[#54a8c7] hover:bg-[#54a8c7]/90 text-white shadow-md shadow-[#54a8c7]/20">
+                <Plus className="size-4 mr-1.5" /> Register Tag
+              </Button>
+            </Link>
+          )}
         </div>
-        {(user?.role === "admin" || user?.role === "superadmin") && (
-          <Link href="/rfid/new">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" /> Register Tag
-            </Button>
-          </Link>
-        )}
-      </div>
 
-      <div className="mb-4">
-        <Input
-          placeholder="Search tags by name or ID..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-sm"
-        />
-      </div>
+        {/* Search */}
+        <div className="flex items-center justify-between gap-4 bg-card p-3 rounded-2xl border border-border/70 shadow-xs">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Search tags by UID, assigned user, or type..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-9.5 bg-muted/40 border-border/60"
+            />
+          </div>
+          <Badge variant="outline" className="text-xs font-semibold">
+            {tags.length} Whitelist Tokens
+          </Badge>
+        </div>
 
-      <div className="rounded-md border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('rfid_tag')}>
-                <div className="flex items-center gap-1">Tag ID (Hex) <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
-                <div className="flex items-center gap-1">Holder Name <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('type')}>
-                <div className="flex items-center gap-1">Type <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('active')}>
-                <div className="flex items-center gap-1">Status <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              {(user?.role === "admin" || user?.role === "superadmin") && <TableHead className="text-right">Actions</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading && tags.length === 0 ? (
+        {/* RFID Table */}
+        <div className="rounded-2xl border border-border/70 bg-card overflow-hidden shadow-xs">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">Loading tags...</TableCell>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('rfid_tag')}>
+                  <div className="flex items-center gap-1.5">Tag ID (UID) <ArrowUpDown className="size-3" /></div>
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
+                  <div className="flex items-center gap-1.5">Assigned Holder <ArrowUpDown className="size-3" /></div>
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('type')}>
+                  <div className="flex items-center gap-1.5">Type <ArrowUpDown className="size-3" /></div>
+                </TableHead>
+                <TableHead>Authorization Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ) : sortedTags.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">No RFID tags registered.</TableCell>
-              </TableRow>
-            ) : (
-              sortedTags.map((tag) => (
-                <TableRow key={tag.rfid_user_id}>
-                  <TableCell className="font-mono font-medium flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-muted-foreground" />
-                    <Link href={`/rfid/${tag.rfid_user_id}`} className="hover:underline text-primary">
-                      {tag.rfid_tag}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{tag.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="capitalize">{tag.type}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-2">
-                       <Switch 
-                         checked={tag.active}
-                         onCheckedChange={() => toggleActive(tag.rfid_user_id)}
-                       />
-                       <span className="text-sm font-medium">{tag.active ? "Authorized" : "Blocked"}</span>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="size-6 border-2 border-[#54a8c7] border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-xs">Loading authorization tags...</span>
                     </div>
                   </TableCell>
-                  {(user?.role === "admin" || user?.role === "superadmin") && (
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Link href={`/rfid/${tag.rfid_user_id}/edit`}>
-                           <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
-                        </Link>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(tag.rfid_user_id)} className="text-destructive hover:bg-destructive/10">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                </TableRow>
+              ) : sortedTags.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-1.5">
+                      <CreditCard className="size-8 text-muted-foreground/50" />
+                      <p className="font-semibold text-foreground text-sm">No RFID Tags Found</p>
+                      <p className="text-xs text-muted-foreground">Add RFID tokens to authorize charging sessions.</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                sortedTags.map((tag) => (
+                  <TableRow key={tag.rfid_user_id} className="hover:bg-[#54a8c7]/5 transition-colors">
+                    <TableCell className="font-mono font-bold text-xs text-foreground">
+                      <div className="flex items-center gap-2">
+                        <div className="size-7 rounded-lg bg-[#54a8c7]/10 text-[#54a8c7] flex items-center justify-center font-sans">
+                          <CreditCard className="size-3.5" />
+                        </div>
+                        <span>{tag.rfid_tag}</span>
                       </div>
                     </TableCell>
-                  )}
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                    <TableCell className="font-semibold text-sm text-foreground">
+                      {tag.name || 'Unassigned'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs uppercase">
+                        {tag.type || 'Standard'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2.5">
+                        <Switch
+                          checked={tag.active}
+                          onCheckedChange={() => toggleActive(tag.rfid_user_id)}
+                          disabled={user?.role !== "admin" && user?.role !== "superadmin"}
+                        />
+                        <Badge
+                          variant={tag.active ? "soft-success" : "soft-secondary"}
+                          className="text-[10px] font-bold uppercase tracking-wider py-0.5"
+                        >
+                          {tag.active ? "Active / Whitelisted" : "Blocked"}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Link href={`/rfid/${tag.rfid_user_id}`}>
+                          <Button variant="ghost" size="icon-sm" className="rounded-lg text-muted-foreground hover:text-foreground">
+                            <CreditCard className="size-3.5" />
+                          </Button>
+                        </Link>
+                        {(user?.role === "admin" || user?.role === "superadmin") && (
+                          <>
+                            <Link href={`/rfid/${tag.rfid_user_id}/edit`}>
+                              <Button variant="ghost" size="icon-sm" className="rounded-lg text-muted-foreground hover:text-foreground">
+                                <Edit className="size-3.5" />
+                              </Button>
+                            </Link>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => handleDelete(tag.rfid_user_id)}
+                              className="rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </AppShell>
   );

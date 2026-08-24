@@ -124,10 +124,36 @@ export default function ChargerDetailPage() {
 
   const getStatusBadge = (status: string) => {
     const s = status?.toLowerCase() || '';
-    if (s === 'online' || s === 'active') return <Badge className="text-green-500 bg-green-500/10 border-green-500/20">ONLINE</Badge>;
-    if (s === 'charging') return <Badge className="text-blue-500 bg-blue-500/10 border-blue-500/20">CHARGING</Badge>;
-    if (s === 'faulted') return <Badge className="text-red-500 bg-red-500/10 border-red-500/20">FAULTED</Badge>;
-    return <Badge variant="secondary">OFFLINE</Badge>;
+    if (s === 'online' || s === 'active') {
+      return (
+        <Badge variant="soft-success" className="gap-1.5 px-3 py-1 text-xs font-bold">
+          <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+          ONLINE
+        </Badge>
+      );
+    }
+    if (s === 'charging') {
+      return (
+        <Badge variant="soft-primary" className="gap-1.5 px-3 py-1 text-xs font-bold">
+          <span className="size-2 rounded-full bg-[#54a8c7] animate-pulse" />
+          CHARGING
+        </Badge>
+      );
+    }
+    if (s === 'faulted') {
+      return (
+        <Badge variant="soft-danger" className="gap-1.5 px-3 py-1 text-xs font-bold">
+          <span className="size-2 rounded-full bg-rose-500" />
+          FAULTED
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="soft-secondary" className="gap-1.5 px-3 py-1 text-xs font-bold">
+        <span className="size-2 rounded-full bg-slate-400" />
+        OFFLINE
+      </Badge>
+    );
   };
 
   return (

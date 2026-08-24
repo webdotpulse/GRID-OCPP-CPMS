@@ -5,9 +5,8 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { AppShell } from "@/components/layout/AppShell";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Users, Zap, Trash2, Edit, ArrowUpDown } from "lucide-react";
+import { Plus, Users, Zap, Trash2, Edit, ArrowUpDown, Search, Cpu, Building } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +23,7 @@ export default function ChargeGroupsPage() {
   const fetchGroups = useCallback(async () => {
     try {
       const response = await api.get('/charge-groups', { params: { search: searchQuery || undefined } });
-      setGroups(response.data );
+      setGroups(response.data || []);
     } catch (error) {
       toast.error("Failed to fetch charge groups");
     } finally {
@@ -58,7 +57,7 @@ export default function ChargeGroupsPage() {
     setSortConfig({ key, direction });
   };
 
-  const sortedGroups = [...groups].sort((a, b) => {
+  const sortedGroups = [...(Array.isArray(groups) ? groups : [])].sort((a, b) => {
     if (!sortConfig) return 0;
     const { key, direction } = sortConfig;
 
@@ -83,100 +82,151 @@ export default function ChargeGroupsPage() {
 
   return (
     <AppShell>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Charge Groups</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage groups of chargers, users, and specific tariffs.
-          </p>
+      <div className="space-y-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <div className="size-9 rounded-xl bg-[#54a8c7]/15 text-[#54a8c7] flex items-center justify-center">
+                <Cpu className="size-5" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight text-foreground">
+                Charge Groups
+              </h1>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Group chargers and drivers to enforce dedicated power profiles and tailored pricing.
+            </p>
+          </div>
+          {(user?.role === "admin" || user?.role === "superadmin") && (
+            <Link href="/charge-groups/create">
+              <Button className="rounded-xl bg-[#54a8c7] hover:bg-[#54a8c7]/90 text-white shadow-md shadow-[#54a8c7]/20">
+                <Plus className="size-4 mr-1.5" /> Create Group
+              </Button>
+            </Link>
+          )}
         </div>
-        {(user?.role === "admin" || user?.role === "superadmin") && (
-          <Link href="/charge-groups/create">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" /> Create Group
-            </Button>
-          </Link>
-        )}
-      </div>
 
-      <div className="mb-4">
-        <Input
-          placeholder="Search groups by name or description..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-sm"
-        />
-      </div>
+        {/* Search */}
+        <div className="flex items-center justify-between gap-4 bg-card p-3 rounded-2xl border border-border/70 shadow-xs">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Search charge groups..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-9.5 bg-muted/40 border-border/60"
+            />
+          </div>
+          <Badge variant="outline" className="text-xs font-semibold">
+            {sortedGroups.length} Active Groups
+          </Badge>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>All Charge Groups</CardTitle>
-        </CardHeader>
-        <CardContent>
+        {/* Groups Table */}
+        <div className="rounded-2xl border border-border/70 bg-card overflow-hidden shadow-xs">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
-                  <div className="flex items-center gap-1">Name <ArrowUpDown className="h-3 w-3" /></div>
+                  <div className="flex items-center gap-1.5">Group Name <ArrowUpDown className="size-3" /></div>
                 </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('description')}>
-                  <div className="flex items-center gap-1">Description <ArrowUpDown className="h-3 w-3" /></div>
-                </TableHead>
+                <TableHead>Assigned Company</TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('chargers')}>
-                  <div className="flex items-center gap-1">Chargers <ArrowUpDown className="h-3 w-3" /></div>
+                  <div className="flex items-center gap-1.5">Chargers <ArrowUpDown className="size-3" /></div>
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('users')}>
-                  <div className="flex items-center gap-1">Users <ArrowUpDown className="h-3 w-3" /></div>
+                  <div className="flex items-center gap-1.5">Members <ArrowUpDown className="size-3" /></div>
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('createdAt')}>
-                  <div className="flex items-center gap-1">Created <ArrowUpDown className="h-3 w-3" /></div>
+                  <div className="flex items-center gap-1.5">Created <ArrowUpDown className="size-3" /></div>
                 </TableHead>
-                {(user?.role === "admin" || user?.role === "superadmin") && <TableHead className="text-right">Actions</TableHead>}
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedGroups.map((group) => (
-                <TableRow key={group.id}>
-                  <TableCell className="font-medium">{group.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{group.description || '—'}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="flex w-fit items-center gap-1">
-                      <Zap className="h-3 w-3" /> {group.chargers?.length || 0}
-                    </Badge>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="size-6 border-2 border-[#54a8c7] border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-xs">Loading charge groups...</span>
+                    </div>
                   </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="flex w-fit items-center gap-1">
-                      <Users className="h-3 w-3" /> {group.users?.length || 0}
-                    </Badge>
+                </TableRow>
+              ) : sortedGroups.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-1.5">
+                      <Cpu className="size-8 text-muted-foreground/50" />
+                      <p className="font-semibold text-foreground text-sm">No Charge Groups Found</p>
+                      <p className="text-xs text-muted-foreground">Create a group to organize charge points.</p>
+                    </div>
                   </TableCell>
-                  <TableCell>{format(new Date(group.createdAt), 'MMM d, yyyy')}</TableCell>
-                  {(user?.role === "admin" || user?.role === "superadmin") && (
+                </TableRow>
+              ) : (
+                sortedGroups.map((group) => (
+                  <TableRow key={group.id} className="hover:bg-[#54a8c7]/5 transition-colors">
+                    <TableCell className="font-medium">
+                      <div className="font-bold text-sm text-foreground flex items-center gap-2">
+                        <div className="size-7 rounded-lg bg-[#54a8c7]/10 text-[#54a8c7] flex items-center justify-center">
+                          <Cpu className="size-3.5" />
+                        </div>
+                        <span>{group.name}</span>
+                      </div>
+                      {group.description && (
+                        <div className="text-xs text-muted-foreground ml-9">{group.description}</div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs font-semibold text-muted-foreground">
+                      {group.company ? (
+                        <span className="flex items-center gap-1 text-foreground">
+                          <Building className="size-3 text-[#3f78e0]" />
+                          {group.company.name}
+                        </span>
+                      ) : (
+                        <Badge variant="soft-secondary" className="text-[10px]">Global / Public</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="soft-primary" className="text-xs font-semibold gap-1">
+                        <Zap className="size-3" />
+                        {group.chargers?.length || 0} Chargers
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="soft-secondary" className="text-xs font-semibold gap-1">
+                        <Users className="size-3" />
+                        {group.users?.length || 0} Members
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground font-medium">
+                      {group.createdAt ? format(new Date(group.createdAt), 'dd MMM yyyy') : '—'}
+                    </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1.5">
                         <Link href={`/charge-groups/${group.id}/edit`}>
-                          <Button variant="ghost" size="icon">
-                            <Edit className="h-4 w-4" />
+                          <Button variant="ghost" size="icon-sm" className="rounded-lg text-muted-foreground hover:text-foreground">
+                            <Edit className="size-3.5" />
                           </Button>
                         </Link>
-                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDelete(group.id)}>
-                          <Trash2 className="h-4 w-4" />
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => handleDelete(group.id)}
+                          className="rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                        >
+                          <Trash2 className="size-3.5" />
                         </Button>
                       </div>
                     </TableCell>
-                  )}
-                </TableRow>
-              ))}
-              {!isLoading && groups.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                    No charge groups found.
-                  </TableCell>
-                </TableRow>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </AppShell>
   );
 }
