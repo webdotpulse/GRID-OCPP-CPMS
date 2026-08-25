@@ -26,7 +26,6 @@ import roamingRoutes from "./api/roaming/roaming.routes.js";
 import usersRoutes from "./api/users/users.routes.js";
 import chargeGroupsRoutes from "./api/chargeGroups/chargeGroups.routes.js";
 import companiesRoutes from "./api/companies/companies.routes.js";
-import emsGatewaysRoutes from "./api/ems-gateways/ems-gateways.routes.js";
 import configProfilesRoutes from "./api/config-profiles/config-profiles.routes.js";
 import quirkProfilesRoutes from "./api/quirk-profiles/quirk-profiles.routes.js";
 import mailRoutes from "./api/mail/mail.routes.js";
@@ -44,7 +43,6 @@ import reimbursementsRoutes from "./api/reimbursements/reimbursements.routes.js"
 import { ocppServer } from "./ocpp/ocppServer.js";
 import { ocppLogsServer } from "./ocpp/logsWebSocket.js";
 import { setupRealtimeSocket } from "./ocpp/realtime.socket.js";
-import { startTelemetrySyncCron } from "./cron/telemetrySyncCron.js";
 import { startAutoHealCron } from "./cron/autoHealCron.js";
 import { startReimbursementCron } from "./cron/reimbursementCron.js";
 import "./cron/predictiveBalancingCron.js";
@@ -108,7 +106,6 @@ export function createApp(): Application {
   app.use("/api/users", authenticateToken, usersRoutes);
   app.use("/api/companies", authenticateToken, companiesRoutes);
   app.use("/api/charge-groups", authenticateToken, chargeGroupsRoutes);
-  app.use("/api/ems-gateways", emsGatewaysRoutes);
   app.use("/api/payments", paymentsRoutes); // Auth handled within router to permit public webhooks
   app.use("/api/ocpi", ocpiRoutes); // Removed auth for initial testing
   app.use("/api/oicp", authenticateToken, oicpRoutes);
@@ -158,7 +155,6 @@ export function startServers(): void {
   setupRealtimeSocket(server);
 
   // Start background crons
-  startTelemetrySyncCron();
   startAutoHealCron();
   startReimbursementCron();
 

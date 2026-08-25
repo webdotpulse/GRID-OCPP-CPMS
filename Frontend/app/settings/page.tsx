@@ -491,7 +491,6 @@ export default function SettingsPage() {
                     { title: 'Config Profiles', desc: 'Standardized OCPP 1.6/2.0.1 key-value parameter templates.', link: '/config-profiles', icon: Settings, color: 'text-[#747ed1] bg-[#747ed1]/15' },
                     { title: 'Quirk Profiles', desc: 'Hardware-specific compatibility fixes for non-compliant chargers.', link: '/quirk-profiles', icon: ShieldAlert, color: 'text-[#e2626b] bg-[#e2626b]/15' },
                     { title: 'Ad Manager', desc: 'Promotional multimedia campaigns for charger LCD screens.', link: '/settings/ad-manager', icon: Tv, color: 'text-[#54a8c7] bg-[#54a8c7]/15' },
-                    { title: 'EMS Gateways', desc: 'Real-time telemetry feeds for solar PV, inverters, and BESS storage.', link: '/ems-gateways', icon: Activity, color: 'text-[#45c4a0] bg-[#45c4a0]/15' },
                     { title: 'Mollie Payments', desc: 'Direct credit card and iDEAL settlement integration.', link: '/settings/payments', icon: WalletCards, color: 'text-[#fab758] bg-[#fab758]/15' },
                   ].map((tile) => {
                     const Icon = tile.icon;

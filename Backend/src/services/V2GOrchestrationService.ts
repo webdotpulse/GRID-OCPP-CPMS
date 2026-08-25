@@ -1,50 +1,52 @@
 import { prisma } from "../config/database.js";
 import { logger } from "../utils/logger.js";
 import { setChargingProfile } from "../ocpp/remoteControl.js";
-import { redisClient } from "../config/redis.js";
 
 export class V2GOrchestrationService {
   /**
-   * Evaluates if we need to dispatch V2G discharging commands based on building load (EMS telemetry).
-   * Can evaluate all active gateways, or a specific gateway if gatewayId is provided.
+   * Evaluates if we need to dispatch V2G discharging commands based on grid load or high peak tariffs.
+   * Can evaluate all active clients or a specific client if clientId is provided.
    */
-  public static async evaluateAndDispatchV2G(gatewayId?: string, currentGridKw?: number, gridLimitKw?: number) {
+  public static async evaluateAndDispatchV2G(clientId?: number, currentGridKw?: number, gridLimitKw?: number) {
     try {
-      logger.info(`Evaluating V2G Orchestration based on EMS telemetry...${gatewayId ? ` (Gateway: ${gatewayId})` : ""}`);
+      logger.info(`Evaluating V2G Orchestration...${clientId ? ` (Client: ${clientId})` : ""}`);
 
-      // 1. Get active EMS Gateways
-      const gateways = gatewayId
-        ? await prisma.emsGateway.findMany({ where: { gateway_id: gatewayId, status: "online" } })
-        : await prisma.emsGateway.findMany({ where: { status: "online" } });
-
-      for (const gateway of gateways) {
-        // If V2G is disabled on this gateway, ensure any ongoing V2G discharge is stopped
-        if (gateway.v2gEnabled === false) {
-          await this.stopV2GDischargeForClient(gateway.client_id);
-          continue;
-        }
-
-        let gridKw = currentGridKw;
-        if (gridKw === undefined) {
-          // Retrieve telemetry from Redis (recent data)
-          const redisKey = `ems_telemetry:${gateway.gateway_id}`;
-          const telemetryRaw = await redisClient.hgetall(redisKey);
-
-          if (!telemetryRaw || Object.keys(telemetryRaw).length === 0) {
-            continue; // No recent telemetry for this gateway
-          }
-
-          gridKw = parseFloat(telemetryRaw.grid_kw || "0");
-        }
-
-        const maxGridImport = gridLimitKw ?? gateway.maxGridImport ?? 5.0;
-
-        // If the house is drawing high power exceeding grid import limit, trigger V2G
-        if (gridKw > maxGridImport) {
-          const excessLoadKw = gridKw - maxGridImport;
-          await this.triggerV2GDischargeForClient(gateway.client_id, excessLoadKw > 0 ? excessLoadKw : gridKw);
+      if (clientId !== undefined && currentGridKw !== undefined) {
+        const maxGridImport = gridLimitKw ?? 5.0;
+        if (currentGridKw > maxGridImport) {
+          const excessLoadKw = currentGridKw - maxGridImport;
+          await this.triggerV2GDischargeForClient(clientId, excessLoadKw > 0 ? excessLoadKw : currentGridKw);
         } else {
-          await this.stopV2GDischargeForClient(gateway.client_id);
+          await this.stopV2GDischargeForClient(clientId);
+        }
+        return;
+      }
+
+      // Find all active transactions with V2G capability
+      const activeTransactions = await prisma.transaction.findMany({
+        where: {
+          status: { in: ["initiated", "charging"] },
+          ...(clientId ? { charger: { owner_id: clientId } } : {})
+        },
+        include: {
+          charger: true,
+          rfidUser: {
+            include: { vehicleEnergyProfile: true }
+          }
+        }
+      });
+
+      const clientIds = Array.from(new Set(activeTransactions.map(tx => tx.charger?.owner_id).filter((id): id is number => id !== null && id !== undefined)));
+
+      for (const cId of clientIds) {
+        if (currentGridKw !== undefined) {
+          const maxGridImport = gridLimitKw ?? 5.0;
+          if (currentGridKw > maxGridImport) {
+            const excessLoadKw = currentGridKw - maxGridImport;
+            await this.triggerV2GDischargeForClient(cId, excessLoadKw > 0 ? excessLoadKw : currentGridKw);
+          } else {
+            await this.stopV2GDischargeForClient(cId);
+          }
         }
       }
 

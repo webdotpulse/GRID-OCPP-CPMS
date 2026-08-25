@@ -2,7 +2,6 @@ import { prisma } from "../config/database.js";
 import { logger } from "../utils/logger.js";
 import axios from "axios";
 import { setChargingProfile } from "../ocpp/remoteControl.js";
-import { EmsGatewayService } from "./EmsGatewayService.js";
 import { EpexSpotService } from "./EpexSpotService.js";
 
 import { Prisma } from "@prisma/client";
@@ -10,9 +9,7 @@ import { Prisma } from "@prisma/client";
 type PredictiveCharger = Prisma.ChargerGetPayload<{
   include: {
     chargingStation: true,
-    owner: {
-      include: { emsGateways: true }
-    }
+    owner: true
   }
 }>;
 
@@ -51,9 +48,7 @@ export class PredictiveBalancingService {
           where: { charger_id: chargerId },
           include: {
             chargingStation: true,
-            owner: {
-              include: { emsGateways: true }
-            }
+            owner: true
           }
         });
       } else {
@@ -66,8 +61,6 @@ export class PredictiveBalancingService {
         logger.warn(`Charger ${chargerId} has predictive balancing enabled but missing location/solar data on its station.`);
         return;
       }
-
-      const hasEms = charger.owner?.emsGateways && charger.owner.emsGateways.length > 0;
 
       const forecast = await this.fetchSolarForecast(charger.chargingStation.latitude, charger.chargingStation.longitude);
       if (!forecast) {
@@ -98,31 +91,8 @@ export class PredictiveBalancingService {
         const forecastIndex = forecast.time.findIndex(t => t.startsWith(targetIsoStr));
         const radiation = forecastIndex !== -1 ? forecast.radiation[forecastIndex] : 0; // W/m2
 
-        // Extremely simplified estimation: SolarKwp * (radiation / 1000)
-        let solarKw = charger.localSolarKwp * (radiation / 1000);
-        let batteryKw = 0;
-        let gridKw = 0;
-
-        if (hasEms && charger.owner?.emsGateways && charger.owner.emsGateways.length > 0) {
-          try {
-            const { redisClient } = await import("../config/redis.js");
-            const gateway = charger.owner.emsGateways[0];
-            const redisKey = `ems_telemetry:${gateway.gateway_id}`;
-            const telemetryRaw = await redisClient.hgetall(redisKey);
-
-            if (telemetryRaw && Object.keys(telemetryRaw).length > 0) {
-              batteryKw = parseFloat(telemetryRaw.battery_kw || "0");
-              gridKw = parseFloat(telemetryRaw.grid_kw || "0");
-
-              // Use real-time solar if it's the current hour
-              if (i === 0 && telemetryRaw.solar_kw) {
-                solarKw = parseFloat(telemetryRaw.solar_kw);
-              }
-            }
-          } catch (e) {
-            logger.error(`Failed to fetch EMS telemetry for predictive balancing: ${e}`);
-          }
-        }
+        // Solar estimation: SolarKwp * (radiation / 1000)
+        const solarKw = charger.localSolarKwp * (radiation / 1000);
 
         // Get EPEX price for the hour (using Netherlands as default if country unknown)
         const epexPrice = await EpexSpotService.getPriceForTimestamp("NL", targetTime) || 0;
@@ -134,8 +104,7 @@ export class PredictiveBalancingService {
         let predictedAmps = minAmps;
 
         // Calculate total available renewable/local power
-        // Positive batteryKw means discharging (available to use), negative means charging
-        const totalAvailableLocalKw = solarKw + (batteryKw > 0 ? batteryKw : 0);
+        const totalAvailableLocalKw = solarKw;
 
         if (epexPrice < 50) {
           predictedAmps = maxAmps;
@@ -143,9 +112,6 @@ export class PredictiveBalancingService {
            // 1.4kW is approx 6A at 230V
            const localAmps = (totalAvailableLocalKw * 1000) / 230;
            predictedAmps = Math.min(maxAmps, Math.max(minAmps, localAmps));
-        } else if (gridKw > charger.power_capacity) {
-           // If building is already drawing heavily from grid, suspend charging
-           predictedAmps = 0;
         } else if (epexPrice > 150) {
           predictedAmps = 0;
         }
@@ -207,9 +173,7 @@ export class PredictiveBalancingService {
       where: { isPredictiveBalancingEnabled: true, status: { not: 'offline' } },
       include: {
         chargingStation: true,
-        owner: {
-          include: { emsGateways: true }
-        }
+        owner: true
       }
     });
 

@@ -20,7 +20,7 @@ Once logged in, you'll see a sidebar navigation menu providing access to differe
 - **Users**: Manage EV drivers, assign RFID tags, and control access.
 - **Tariffs**: Configure pricing structures and billing rates.
 - **Logs**: View real-time OCPP WebSocket communication for debugging.
-- **Settings**: Manage system-wide configuration, EMS integrations, and roaming endpoints.
+- **Settings**: Manage system-wide configuration, dynamic tariffs, and roaming endpoints.
 
 ---
 
@@ -101,6 +101,6 @@ For advanced troubleshooting, navigate to **Logs**.
 
 The **Settings** page is restricted to system administrators and contains advanced configurations:
 
+*   **Dynamic Tariffs:** Configure EPEX Spot day-ahead electricity prices.
 *   **Quirk Profiles:** Apply specific behavioral modifications for non-compliant hardware vendors.
-*   **EMS Gateways:** Manage authentication tokens for external Energy Management Systems (e.g., solar/battery integrations).
 *   **Roaming (OCPI/OICP):** Configure endpoints and tokens to connect with external roaming networks (e.g., Hubject, Gireve).

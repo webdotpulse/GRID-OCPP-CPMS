@@ -41,7 +41,6 @@ model User {
   rfidUsers                   RfidUser[]
   chargeGroupUsers            ChargeGroupUser[]
   reimbursementContracts      ReimbursementContract[]
-  emsGateways                 EmsGateway[]
   vehicleEnergyProfile        VehicleEnergyProfile?
   vehicleContractCertificates VehicleContractCertificate[]
 }
@@ -560,42 +559,6 @@ model SystemSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
-}
-
-// EMS Gateway linked to an account
-model EmsGateway {
-  id             Int      @id @default(autoincrement())
-  gateway_id     String   @unique @default(uuid())
-  client_id      Int
-  status         String   @default("offline")
-  auth_token     String   @unique
-  last_heartbeat DateTime @default("1970-01-01T00:00:00.000Z")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  maxGridImport       Float   @default(0)
-  maxGridExport       Float   @default(0)
-  strategy            String  @default("self-consumption")
-  v2gEnabled          Boolean @default(false)
-  batteryReserveLimit Float   @default(20)
-  autoUpdate          Boolean @default(true)
-
-  client    User                 @relation(fields: [client_id], references: [id])
-  telemetry EmsTelemetryRecord[]
-}
-
-model EmsTelemetryRecord {
-  id         Int      @id @default(autoincrement())
-  gateway_id String
-  solar_kw   Float
-  battery_kw Float
-  grid_kw    Float
-  house_kw   Float
-  timestamp  DateTime @default(now())
-
-  gateway EmsGateway @relation(fields: [gateway_id], references: [gateway_id], onDelete: Cascade)
-
-  @@index([gateway_id, timestamp])
 }
 
 model ParkingSpot {

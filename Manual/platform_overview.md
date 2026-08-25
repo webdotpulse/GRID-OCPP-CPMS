@@ -32,7 +32,7 @@ sequenceDiagram
     CP->>OCPP: StartTransaction / MeterValues
     OCPP->>API: Internal Event Trigger
     API->>DB: Persist Session Data
-    API->>Redis: Cache Telemetry (EmsGatewayService)
+    API->>Redis: Cache Session Telemetry & Meter Values
     end
 
     rect rgb(255, 245, 238)
@@ -71,8 +71,8 @@ npx prisma db push --accept-data-loss
 ### 3.3 Redis for WebSocket Clustering
 Redis is **strictly required** for the system to function. It serves three vital roles:
 1.  **WebSocket Clustering:** The OCPP Server (`ocppServer.ts`) uses `ioredis` to publish `ocpp_callresults` so that HTTP requests handled by one Node instance can correctly await responses from WebSockets connected to a different instance.
-2.  **Telemetry Caching:** The `EmsGatewayService` caches live power values in Redis hashes (`ems_telemetry:<gateway_id>`) with a 5-minute TTL.
-3.  **Real-Time Logs:** Broadcasts charger status updates to the Next.js frontend.
+2.  **Telemetry & State Caching:** High-speed meter values and active charging session states in Redis.
+3.  **Real-Time Logs:** Broadcasts charger status updates and live transaction logs to the Next.js frontend.
 
 Ensure Redis is installed and running natively (`sudo systemctl start redis-server`).
 

@@ -52,18 +52,12 @@ export function Sidebar({
   const pathname = usePathname();
   const { user } = useAuth();
   const { t } = useTranslation();
-  const [hasEms, setHasEms] = useState(false);
   const [liveViewStationId, setLiveViewStationId] = useState<string | null>(null);
 
   useEffect(() => {
     const checkUserFeatures = async () => {
       if (!user) return;
       try {
-        const resEms = await api.get('/ems-gateways');
-        if (resEms.data && resEms.data.length > 0) {
-          setHasEms(true);
-        }
-
         if (user.role !== 'admin' && user.role !== 'superadmin') {
           const resStations = await api.get('/stations');
           const stations = resStations.data?.data || resStations.data || [];
@@ -99,7 +93,6 @@ export function Sidebar({
     {
       title: 'Energy & Smart Grid',
       items: [
-        ...(hasEms ? [{ key: 'nav.emsDashboard', path: '/energy', icon: Activity }] : []),
         { key: 'nav.v2g', path: '/v2g', icon: Radio },
       ],
     },

@@ -1,36 +1,18 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Zap, Map as MapIcon, Settings, Bell, Activity } from "lucide-react";
+import { Home, Zap, Map as MapIcon, Settings, Bell } from "lucide-react";
 import { MobileAppShell } from "@/components/layout/MobileAppShell";
 import { useAuth } from "@/hooks/useAuth";
-import { api } from "@/lib/api";
 
 export default function MobileLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const [hasEms, setHasEms] = useState(false);
-
-  useEffect(() => {
-    const checkEms = async () => {
-      if (!user) return;
-      try {
-        const res = await api.get('/ems-gateways');
-        if (res.data && res.data.length > 0) {
-          setHasEms(true);
-        }
-      } catch (error) {
-        // Silently ignore errors
-      }
-    };
-    checkEms();
-  }, [user]);
 
   const getPageTitle = () => {
     if (pathname?.startsWith("/mobile/dashboard")) return "Dashboard";
-    if (pathname?.startsWith("/mobile/energy")) return "Energy";
     if (pathname?.startsWith("/mobile/chargers")) return "Chargers";
     if (pathname?.startsWith("/mobile/map")) return "Map";
     if (pathname?.startsWith("/mobile/settings")) return "Settings";
@@ -39,7 +21,6 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
 
   const navItems = [
     { name: "Dashboard", href: "/mobile/dashboard", icon: Home },
-    ...(hasEms ? [{ name: "Energy", href: "/mobile/energy", icon: Activity }] : []),
     { name: "Chargers", href: "/mobile/chargers", icon: Zap },
     { name: "Map", href: "/mobile/map", icon: MapIcon },
     { name: "Settings", href: "/mobile/settings", icon: Settings },

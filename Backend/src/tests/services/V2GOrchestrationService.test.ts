@@ -1,6 +1,5 @@
 import { jest } from '@jest/globals';
 import { prisma } from '../../config/database.js';
-import { redisClient } from '../../config/redis.js';
 import * as remoteControl from '../../ocpp/remoteControl.js';
 import { V2GOrchestrationService } from '../../services/V2GOrchestrationService.js';
 
@@ -223,79 +222,42 @@ describe('V2GOrchestrationService (ENG-01)', () => {
   });
 
   describe('evaluateAndDispatchV2G', () => {
-    it('should evaluate active gateways and dispatch discharge when grid load exceeds maxGridImport', async () => {
-      const mockGateways = [
-        {
-          id: 1,
-          gateway_id: 'EMS_GW_001',
-          client_id: 100,
-          status: 'online',
-          v2gEnabled: true,
-          maxGridImport: 4.0,
-        },
-      ];
-
-      jest.spyOn(prisma.emsGateway, 'findMany').mockResolvedValue(mockGateways as any);
-      jest.spyOn(redisClient, 'hgetall').mockResolvedValue({
-        grid_kw: '7.5',
-      } as any);
-
+    it('should dispatch discharge when grid load exceeds maxGridImport for client', async () => {
       const triggerSpy = jest.spyOn(V2GOrchestrationService, 'triggerV2GDischargeForClient').mockResolvedValue(undefined as any);
       const stopSpy = jest.spyOn(V2GOrchestrationService, 'stopV2GDischargeForClient').mockResolvedValue(undefined as any);
 
-      await V2GOrchestrationService.evaluateAndDispatchV2G();
+      await V2GOrchestrationService.evaluateAndDispatchV2G(100, 7.5, 4.0);
 
       expect(triggerSpy).toHaveBeenCalledWith(100, 3.5); // 7.5 - 4.0 = 3.5 kW excess
       expect(stopSpy).not.toHaveBeenCalled();
     });
 
-    it('should stop discharge if grid load is below maxGridImport', async () => {
-      const mockGateways = [
-        {
-          id: 2,
-          gateway_id: 'EMS_GW_002',
-          client_id: 101,
-          status: 'online',
-          v2gEnabled: true,
-          maxGridImport: 6.0,
-        },
-      ];
-
-      jest.spyOn(prisma.emsGateway, 'findMany').mockResolvedValue(mockGateways as any);
-      jest.spyOn(redisClient, 'hgetall').mockResolvedValue({
-        grid_kw: '2.5',
-      } as any);
-
+    it('should stop discharge if grid load is below maxGridImport for client', async () => {
       const triggerSpy = jest.spyOn(V2GOrchestrationService, 'triggerV2GDischargeForClient').mockResolvedValue(undefined as any);
       const stopSpy = jest.spyOn(V2GOrchestrationService, 'stopV2GDischargeForClient').mockResolvedValue(undefined as any);
 
-      await V2GOrchestrationService.evaluateAndDispatchV2G();
+      await V2GOrchestrationService.evaluateAndDispatchV2G(101, 2.5, 6.0);
 
       expect(triggerSpy).not.toHaveBeenCalled();
       expect(stopSpy).toHaveBeenCalledWith(101);
     });
 
-    it('should stop discharge if v2gEnabled is false on the gateway', async () => {
-      const mockGateways = [
+    it('should evaluate active transactions when called without explicit client', async () => {
+      const mockActiveTransactions = [
         {
-          id: 3,
-          gateway_id: 'EMS_GW_003',
-          client_id: 102,
-          status: 'online',
-          v2gEnabled: false,
-          maxGridImport: 5.0,
-        },
+          id: 1,
+          charger: { owner_id: 102 }
+        }
       ];
 
-      jest.spyOn(prisma.emsGateway, 'findMany').mockResolvedValue(mockGateways as any);
-
+      jest.spyOn(prisma.transaction, 'findMany').mockResolvedValue(mockActiveTransactions as any);
       const triggerSpy = jest.spyOn(V2GOrchestrationService, 'triggerV2GDischargeForClient').mockResolvedValue(undefined as any);
       const stopSpy = jest.spyOn(V2GOrchestrationService, 'stopV2GDischargeForClient').mockResolvedValue(undefined as any);
 
-      await V2GOrchestrationService.evaluateAndDispatchV2G();
+      await V2GOrchestrationService.evaluateAndDispatchV2G(undefined, 8.0, 5.0);
 
-      expect(triggerSpy).not.toHaveBeenCalled();
-      expect(stopSpy).toHaveBeenCalledWith(102);
+      expect(triggerSpy).toHaveBeenCalledWith(102, 3.0);
+      expect(stopSpy).not.toHaveBeenCalled();
     });
   });
 });

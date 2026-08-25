@@ -60,10 +60,10 @@ The system consists of four primary layers that work together to manage EV charg
                                                                                    │
                                                                                    │ Pub/Sub & Cache
                                                                                    ▼
-  ┌──────────────────┐      Hardware Token Auth                       ┌──────────────────────────┐
-  │  EMS Gateway     │ ◄─────────────────────────────────────────────►│   Redis (ioredis)        │
-  │  (Telemetry)     │    (battery_kw, grid_kw, solar_kw)             │   (Pub/Sub, Caching)     │
-  └──────────────────┘                                                └──────────────────────────┘
+                                                                      ┌──────────────────────────┐
+                                                                      │   Redis (ioredis)        │
+                                                                      │   (Pub/Sub, Caching)     │
+                                                                      └──────────────────────────┘
 ```
 
 ```mermaid
@@ -74,7 +74,6 @@ flowchart TD
     DB[("PostgreSQL Database\n(via Prisma ORM)")]
     UI["🖥️ Admin Dashboard\nNext.js 16+ App Router\nhttp://:3002"]
     RT["📋 Live Real-Time Server\nSocket.IO Stream\n/api/realtime"]
-    EMS["🔋 EMS Gateway\n(Live Telemetry)"]
     V2G["🔄 V2G Orchestration\nService"]
     MOLLIE["💳 Mollie API\n(Ad-Hoc Payments)"]
     OCPI["🌍 OCPI Partners\n(Roaming)"]
@@ -90,7 +89,6 @@ flowchart TD
     API -->|"Dynamic Power Limits"| LMS["Load Management Service"]
     LMS -->|"SetChargingProfile"| OCPP
 
-    EMS -->|"Telemetry (battery, grid, solar)"| REDIS
     API <-->|"Roaming Sync"| OCPI
     UI -->|"PaymentIntent"| MOLLIE
     API <-->|"Mollie Webhooks"| MOLLIE
@@ -103,7 +101,7 @@ flowchart TD
 |------|----------|-------------|
 | Charger ↔ OCPP Server | OCPP 1.6 & 2.1/2.0.1 (WebSocket JSON) | Boot, Heartbeat, Authorize, Start/Stop Transaction, MeterValues |
 | Dashboard ↔ API | HTTPS REST | Station management, analytics, RFID, tariffs, user auth |
-| Dashboard ↔ Log Server | Socket.IO | Real-time OCPP message streaming and live EMS telemetry for monitoring/debugging |
+| Dashboard ↔ Log Server | Socket.IO | Real-time OCPP message streaming and live event telemetry for monitoring/debugging |
 | API ↔ Database | Prisma ORM (SQL) | All persistent data — chargers, sessions, tariffs, users |
 | External APIs ↔ API | HTTPS REST/Webhooks | OCPI roaming sync, Mollie payment processing, and EPEX spot pricing |
 
@@ -148,7 +146,7 @@ open-source-csms/
 
 ### 🎛️ Remote Control & V2G Orchestration
 - Start/stop charging sessions remotely, reset chargers, unlock connectors.
-- V2G Orchestration Service with predictive balancing and dynamic discharge limits based on battery SOC and live telemetry.
+- V2G Orchestration Service with predictive balancing and dynamic discharge limits based on battery SOC and energy profiles.
 
 ### 🔑 RFID Management
 - Full whitelist management for RFID-authorized sessions.
@@ -164,8 +162,8 @@ open-source-csms/
 - Fully integrated Ad-hoc EV charging payments via Mollie PaymentIntents and Webhooks.
 
 ### ⚡ Smart Charging & Load Management
-- Intelligent power distribution via `LoadManagementService` to prevent grid overloads.
-- Energy Management System (EMS) gateway integration with Redis telemetry caching and hardware token authentication for external load constraints.
+- Intelligent power distribution via `LoadManagementService` to prevent site overloads.
+- Solar predictive balancing using Open-Meteo radiation forecasts and EPEX Day-Ahead spot prices.
 
 ### 🌍 OCPI Roaming
 - Supports OCPI endpoint mapping for locations and tariffs to integrate with external roaming partners. (OICP foundation is present, full integration pending).
@@ -174,11 +172,11 @@ open-source-csms/
 
 ## Documentation & Manuals
 
-Comprehensive guides for users, administrators, and EMS integrators are available in the `Manual/` directory:
+Comprehensive guides for users and administrators are available in the `Manual/` directory:
 
 - 📖 **[User Manual](Manual/user_manual.md)**: Guide for CPOs and Station Managers on using the Next.js admin dashboard (managing chargers, users, tariffs, remote control).
 - 🛠️ **[Admin Manual](Manual/admin_manual.md)**: Deployment and operations guide for system administrators (PM2, PostgreSQL/Redis, Nginx, Certbot). Includes local and Google Cloud VM deployment details.
-- ⚡ **[EMS Manual](Manual/ems_manual.md)**: Extended technical guide for integrating external Energy Management Systems with the CMS.
+- ⚡ **[Smart Charging & V2G Guide](Manual/advanced_ems_smart_charging_guide.md)**: Technical guide for dynamic tariffs, predictive solar balancing, and V2G orchestration.
 
 ---
 

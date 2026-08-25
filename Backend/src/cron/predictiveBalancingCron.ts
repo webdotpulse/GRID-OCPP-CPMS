@@ -14,7 +14,7 @@ cron.schedule("0 * * * *", async () => {
   }
 });
 
-// Run every minute (* * * * *) for real-time V2G load balancing & EMS grid peak shaving
+// Run every minute (* * * * *) for real-time V2G load balancing & grid peak shaving
 cron.schedule("* * * * *", async () => {
   try {
     await V2GOrchestrationService.evaluateAndDispatchV2G();

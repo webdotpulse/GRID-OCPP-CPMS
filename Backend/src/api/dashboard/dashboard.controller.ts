@@ -367,58 +367,6 @@ export const getChargersStatus = async (req: Request, res: Response) => {
 };
 
 /**
- * GET /api/dashboard/ems-telemetry - Get current EMS telemetry for all linked gateways
- */
-export const getEmsTelemetry = async (req: Request, res: Response) => {
-  try {
-    // @ts-expect-error userRole is attached by authenticateToken middleware
-    const userRole = req.userRole;
-    // @ts-expect-error userId is attached by authenticateToken middleware
-    const userId = req.userId;
-
-    const isUser = userRole !== "admin" && userRole !== "superadmin";
-
-    // 1. Fetch relevant gateways for this user/admin
-    const gateways = await prisma.emsGateway.findMany({
-      where: isUser ? { client_id: userId } : undefined,
-    });
-
-    if (gateways.length === 0) {
-      return res.json({ success: true, data: [] });
-    }
-
-    // 2. Fetch live redis telemetry for each
-    const telemetryData = [];
-    for (const gw of gateways) {
-      const redisKey = `ems_telemetry:${gw.gateway_id}`;
-      const data = await redisClient.hgetall(redisKey);
-
-      if (data && Object.keys(data).length > 0) {
-        telemetryData.push({
-          gateway_id: gw.gateway_id,
-          solar_kw: parseFloat(data.solar_kw || '0'),
-          battery_kw: parseFloat(data.battery_kw || '0'),
-          grid_kw: parseFloat(data.grid_kw || '0'),
-          house_kw: parseFloat(data.house_kw || '0'),
-          timestamp: new Date(parseInt(data.timestamp || '0')),
-        });
-      }
-    }
-
-    res.json({
-      success: true,
-      data: telemetryData,
-    });
-  } catch (error) {
-    logger.error(`Error getting EMS telemetry: ${error}`);
-    res.status(500).json({
-      success: false,
-      error: "Failed to get EMS telemetry",
-    });
-  }
-};
-
-/**
  * GET /api/dashboard/fleet-capacity - Get available V2G discharge capacity
  */
 export const getFleetCapacity = async (req: Request, res: Response) => {
@@ -474,54 +422,6 @@ export const getFleetCapacity = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: "Failed to get fleet capacity",
-    });
-  }
-};
-
-/**
- * GET /api/dashboard/ems-telemetry/history - Get historical EMS telemetry for linked gateways
- */
-export const getHistoricalEmsTelemetry = async (req: Request, res: Response) => {
-  try {
-    // @ts-expect-error userRole is attached by authenticateToken middleware
-    const userRole = req.userRole;
-    // @ts-expect-error userId is attached by authenticateToken middleware
-    const userId = req.userId;
-
-    const isUser = userRole !== "admin" && userRole !== "superadmin";
-    const hours = parseInt(req.query.hours as string) || 24;
-
-    // 1. Fetch relevant gateways for this user/admin
-    const gateways = await prisma.emsGateway.findMany({
-      where: isUser ? { client_id: userId } : undefined,
-      select: { gateway_id: true }
-    });
-
-    if (gateways.length === 0) {
-      return res.json({ success: true, data: [] });
-    }
-
-    const gatewayIds = gateways.map(g => g.gateway_id);
-    const since = new Date(Date.now() - hours * 60 * 60 * 1000);
-
-    // 2. Fetch historical records from the database
-    const history = await prisma.emsTelemetryRecord.findMany({
-      where: {
-        gateway_id: { in: gatewayIds },
-        timestamp: { gte: since }
-      },
-      orderBy: { timestamp: 'asc' }
-    });
-
-    res.json({
-      success: true,
-      data: history,
-    });
-  } catch (error) {
-    logger.error(`Error getting historical EMS telemetry: ${error}`);
-    res.status(500).json({
-      success: false,
-      error: "Failed to get historical EMS telemetry",
     });
   }
 };
