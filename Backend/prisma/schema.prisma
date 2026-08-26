@@ -142,6 +142,7 @@ model Charger {
   quirkProfileId Int?
   quirkProfile   ChargerQuirkProfile?   @relation(fields: [quirkProfileId], references: [id], onDelete: SetNull)
   schedulePlans  ChargingSchedulePlan[]
+  installedCertificates InstalledCertificate[]
 }
 
 model ChargerQuirkProfile {
@@ -679,19 +680,44 @@ model ReimbursementLedger {
 
 // ISO 15118 Vehicle Contract Certificate for Plug & Charge
 model VehicleContractCertificate {
-  id             Int      @id @default(autoincrement())
-  emaid          String   @unique
-  macAddress     String?
-  contractCert   String?
-  status         String   @default("Valid") // "Valid", "Expired", "Revoked"
-  expirationDate DateTime
-  userId         Int
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                Int       @id @default(autoincrement())
+  emaid             String    @unique
+  macAddress        String?
+  contractCert      String?   @db.Text
+  contractCertChain String?   @db.Text
+  status            String    @default("Valid") // "Valid", "Expired", "Revoked"
+  expirationDate    DateTime
+  issuerNameHash    String?
+  issuerKeyHash     String?
+  serialNumber      String?
+  userId            Int
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
   rfidUser             RfidUser? @relation(fields: [rfidUserRfid_user_id], references: [rfid_user_id])
   rfidUserRfid_user_id Int?
+
+  @@index([issuerNameHash, issuerKeyHash, serialNumber])
+}
+
+// Installed X.509 Certificates on Chargers (CSMS / V2G / Sub-CA / EVSE)
+model InstalledCertificate {
+  id                  Int       @id @default(autoincrement())
+  chargerId           Int
+  certificateType     String    // "V2GRootCertificate", "MORootCertificate", "CSMSRootCertificate", "ManufacturerRootCertificate"
+  certificateHashData Json?     // { hashAlgorithm, issuerNameHash, issuerKeyHash, serialNumber }
+  certificatePem      String?   @db.Text
+  serialNumber        String?
+  validFrom           DateTime?
+  validTo             DateTime?
+  status              String    @default("Accepted") // "Accepted", "Rejected", "Failed"
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  charger             Charger   @relation(fields: [chargerId], references: [charger_id], onDelete: Cascade)
+
+  @@index([chargerId])
 }
 
 model MediaCampaign {

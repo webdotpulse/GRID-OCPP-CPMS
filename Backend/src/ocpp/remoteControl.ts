@@ -320,3 +320,94 @@ export async function getConnectedChargers(): Promise<number[]> {
 export async function isChargerConnected(chargerId: number): Promise<boolean> {
   return chargerRegistry.isConnectedGlobally(chargerId);
 }
+
+/**
+ * Send CertificateSigned to charger (OCPP 2.0.1/2.1)
+ */
+export async function certificateSigned(
+  chargerId: number,
+  certificateType: string,
+  certificateChain: string
+): Promise<{ status: string; error?: string }> {
+  try {
+    const result = await sendDistributedOcppCall(
+      chargerId,
+      "CertificateSigned",
+      { certificateType, certificateChain },
+      15000
+    );
+    return { ...result, status: result.status || "Accepted" };
+  } catch (error) {
+    logger.error(`Error in certificateSigned for charger ${chargerId}: ${error}`);
+    return { status: "Rejected", error: "Failed to send CertificateSigned" };
+  }
+}
+
+/**
+ * Send InstallCertificate to charger (OCPP 2.0.1/2.1)
+ */
+export async function installCertificate(
+  chargerId: number,
+  certificateType: string,
+  certificate: string
+): Promise<{ status: string; error?: string }> {
+  try {
+    const result = await sendDistributedOcppCall(
+      chargerId,
+      "InstallCertificate",
+      { certificateType, certificate },
+      15000
+    );
+    return { ...result, status: result.status || "Accepted" };
+  } catch (error) {
+    logger.error(`Error in installCertificate for charger ${chargerId}: ${error}`);
+    return { status: "Rejected", error: "Failed to send InstallCertificate" };
+  }
+}
+
+/**
+ * Send DeleteCertificate to charger (OCPP 2.0.1/2.1)
+ */
+export async function deleteCertificate(
+  chargerId: number,
+  certificateHashData: any
+): Promise<{ status: string; error?: string }> {
+  try {
+    const result = await sendDistributedOcppCall(
+      chargerId,
+      "DeleteCertificate",
+      { certificateHashData },
+      15000
+    );
+    return { ...result, status: result.status || "Accepted" };
+  } catch (error) {
+    logger.error(`Error in deleteCertificate for charger ${chargerId}: ${error}`);
+    return { status: "Rejected", error: "Failed to send DeleteCertificate" };
+  }
+}
+
+/**
+ * Send GetInstalledCertificateIds to charger (OCPP 2.0.1/2.1)
+ */
+export async function getInstalledCertificateIds(
+  chargerId: number,
+  certificateType?: string[]
+): Promise<{ status: string; certificateHashDataChain?: any[]; error?: string }> {
+  try {
+    const payload: any = {};
+    if (certificateType && certificateType.length > 0) {
+      payload.certificateType = certificateType;
+    }
+
+    const result = await sendDistributedOcppCall(
+      chargerId,
+      "GetInstalledCertificateIds",
+      payload,
+      15000
+    );
+    return { ...result, status: result.status || "Accepted" };
+  } catch (error) {
+    logger.error(`Error in getInstalledCertificateIds for charger ${chargerId}: ${error}`);
+    return { status: "Rejected", error: "Failed to send GetInstalledCertificateIds" };
+  }
+}

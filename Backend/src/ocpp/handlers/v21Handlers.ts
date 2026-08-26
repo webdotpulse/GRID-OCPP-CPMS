@@ -114,7 +114,7 @@ export async function handleHeartbeat(
 }
 
 /**
- * Handle Authorize request from charger
+ * Handle Authorize request from charger (supports RFID, eMAID, and ISO 15118 Certificate Hash)
  */
 export async function handleAuthorize(
   chargerId: number,
@@ -122,90 +122,127 @@ export async function handleAuthorize(
   protocol?: string
 ): Promise<any> {
   const idTag = payload.idToken?.idToken;
+  const hashData = payload.iso15118CertificateHashData || payload["15118CertificateHashData"] || payload.certificateHashData;
 
   try {
     let isAuthorized = true;
+    let authStatus = "Accepted";
     let userName = "";
 
-    // Look up RFID tag in database
-    const rfidUser = await prisma.rfidUser.findUnique({
-      where: { rfid_tag: idTag },
-    });
+    // 1. Check ISO 15118 Certificate Hash Data if present
+    if (hashData) {
+      const { PkiCertificateService } = await import("../../services/PkiCertificateService.js");
+      const validation = await PkiCertificateService.validate15118CertificateHash(hashData);
 
-    if (!rfidUser || !rfidUser.active) {
-      // If not an RFID user, check if it's a valid EMAID for Plug & Charge
-      const vcc = await prisma.vehicleContractCertificate.findUnique({
-        where: { emaid: idTag },
-        include: { user: true }
-      });
-
-      if (!vcc || vcc.status !== "Valid" || vcc.expirationDate < new Date()) {
-         isAuthorized = false;
+      if (!validation.isValid) {
+        authStatus = validation.status;
+        isAuthorized = false;
       } else {
-         userName = vcc.user?.name || "";
-         // Also check charge group for Plug&Charge users
-         const charger = await prisma.charger.findUnique({
-           where: { charger_id: chargerId },
-           select: { chargeGroupId: true }
-         });
+        const vcc = validation.certificate;
+        userName = vcc.user?.name || `eMAID: ${vcc.emaid}`;
 
-         if (charger && charger.chargeGroupId) {
-           const userInGroup = await prisma.chargeGroupUser.findUnique({
-             where: {
-               chargeGroupId_userId: {
-                 chargeGroupId: charger.chargeGroupId,
-                 userId: vcc.userId
-               }
-             }
-           });
-           if (!userInGroup) {
-             logger.warn(`Authorize rejected: User of EMAID ${idTag} is not in the required charge group ${charger.chargeGroupId}`);
-             isAuthorized = false;
-           }
-         }
+        // Verify charge group restrictions
+        const charger = await prisma.charger.findUnique({
+          where: { charger_id: chargerId },
+          select: { chargeGroupId: true },
+        });
+
+        if (charger?.chargeGroupId && vcc.userId) {
+          const userInGroup = await prisma.chargeGroupUser.findUnique({
+            where: {
+              chargeGroupId_userId: {
+                chargeGroupId: charger.chargeGroupId,
+                userId: vcc.userId,
+              },
+            },
+          });
+          if (!userInGroup) {
+            logger.warn(`Authorize rejected: User of ISO 15118 certificate ${vcc.emaid} is not in charge group ${charger.chargeGroupId}`);
+            isAuthorized = false;
+            authStatus = "Invalid";
+          }
+        }
       }
     } else {
-      userName = rfidUser.name || "";
-      // Check if charger belongs to a group and if user is in that group
-      const charger = await prisma.charger.findUnique({
-        where: { charger_id: chargerId },
-        select: { chargeGroupId: true }
+      // 2. Look up RFID tag in database
+      const rfidUser = await prisma.rfidUser.findUnique({
+        where: { rfid_tag: idTag },
       });
 
-      if (charger && charger.chargeGroupId) {
-        const userInGroup = await prisma.chargeGroupUser.findUnique({
-          where: {
-            chargeGroupId_userId: {
-              chargeGroupId: charger.chargeGroupId,
-              userId: rfidUser.owner_id
+      if (!rfidUser || !rfidUser.active) {
+        // If not an RFID user, check if it's a valid EMAID for Plug & Charge
+        const vcc = await prisma.vehicleContractCertificate.findUnique({
+          where: { emaid: idTag },
+          include: { user: true },
+        });
+
+        if (!vcc || vcc.status !== "Valid" || new Date(vcc.expirationDate) < new Date()) {
+          isAuthorized = false;
+          authStatus = vcc?.status === "Expired" || (vcc && new Date(vcc.expirationDate) < new Date()) ? "Expired" : "Invalid";
+        } else {
+          userName = vcc.user?.name || "";
+          // Also check charge group for Plug&Charge users
+          const charger = await prisma.charger.findUnique({
+            where: { charger_id: chargerId },
+            select: { chargeGroupId: true },
+          });
+
+          if (charger && charger.chargeGroupId) {
+            const userInGroup = await prisma.chargeGroupUser.findUnique({
+              where: {
+                chargeGroupId_userId: {
+                  chargeGroupId: charger.chargeGroupId,
+                  userId: vcc.userId,
+                },
+              },
+            });
+            if (!userInGroup) {
+              logger.warn(`Authorize rejected: User of EMAID ${idTag} is not in the required charge group ${charger.chargeGroupId}`);
+              isAuthorized = false;
+              authStatus = "Invalid";
             }
           }
+        }
+      } else {
+        userName = rfidUser.name || "";
+        // Check if charger belongs to a group and if user is in that group
+        const charger = await prisma.charger.findUnique({
+          where: { charger_id: chargerId },
+          select: { chargeGroupId: true },
         });
-        if (!userInGroup) {
-          logger.warn(`Authorize rejected: User of RFID tag ${idTag} is not in the required charge group ${charger.chargeGroupId}`);
-          isAuthorized = false;
+
+        if (charger && charger.chargeGroupId) {
+          const userInGroup = await prisma.chargeGroupUser.findUnique({
+            where: {
+              chargeGroupId_userId: {
+                chargeGroupId: charger.chargeGroupId,
+                userId: rfidUser.owner_id,
+              },
+            },
+          });
+          if (!userInGroup) {
+            logger.warn(`Authorize rejected: User of RFID tag ${idTag} is not in the required charge group ${charger.chargeGroupId}`);
+            isAuthorized = false;
+            authStatus = "Invalid";
+          }
         }
       }
     }
 
     if (!isAuthorized) {
-      logger.warn(`Authorize rejected: Identifier ${idTag} not authorized`);
-      let response: any = {};
-      response.idTokenInfo = { status: "Invalid" };
+      logger.warn(`Authorize rejected: Identifier ${idTag || "ISO15118"} not authorized (status: ${authStatus})`);
+      const response = { idTokenInfo: { status: authStatus } };
       await logOcppMessage(chargerId, "out", response);
       return response;
     }
 
-    logger.info(`Authorize accepted: Identifier ${idTag} (${userName})`);
-    let response: any = {};
-    response.idTokenInfo = { status: "Accepted" };
+    logger.info(`Authorize accepted: Identifier ${idTag || "ISO15118"} (${userName})`);
+    const response = { idTokenInfo: { status: "Accepted" } };
     await logOcppMessage(chargerId, "out", response);
     return response;
   } catch (error) {
     logger.error(`Error handling Authorize: ${error}`);
-    let errResponse: any = {};
-    errResponse.idTokenInfo = { status: "Invalid" };
-    return errResponse;
+    return { idTokenInfo: { status: "Invalid" } };
   }
 }
 
@@ -548,29 +585,208 @@ export async function handleNotifyEvent(
   }
 }
 
+/**
+ * Handle SignCertificate from charger (CSR certificate issuance)
+ */
+export async function handleSignCertificate(
+  chargerId: number,
+  payload: any
+): Promise<any> {
+  const csrPem = payload.csr;
+  const certificateType = payload.certificateType || "V2GCertificate";
+
+  try {
+    if (!csrPem) {
+      logger.warn(`SignCertificate from charger ${chargerId} missing CSR payload`);
+      return { status: "Rejected" };
+    }
+
+    const { PkiCertificateService } = await import("../../services/PkiCertificateService.js");
+    const signed = PkiCertificateService.signCsr(csrPem, undefined, undefined, 365, { certificateType });
+
+    // Store in installed certificates database
+    await prisma.installedCertificate.create({
+      data: {
+        chargerId,
+        certificateType,
+        certificatePem: signed.certificatePem,
+        serialNumber: signed.serialNumber,
+        validFrom: signed.validFrom,
+        validTo: signed.validTo,
+        status: "Accepted",
+        certificateHashData: signed.certificateHashData as any,
+      },
+    });
+
+    logger.info(
+      `SignCertificate processed for charger ${chargerId} (${certificateType}, SN: ${signed.serialNumber})`
+    );
+
+    // Asynchronously dispatch CertificateSigned frame to the charger
+    import("../remoteControl.js")
+      .then(({ certificateSigned }) => {
+        if (typeof certificateSigned === "function") {
+          certificateSigned(chargerId, certificateType, signed.certificateChain).catch((err) => {
+            logger.error(`Error sending CertificateSigned to charger ${chargerId}: ${err}`);
+          });
+        }
+      })
+      .catch((err) => logger.error(`Error importing remoteControl: ${err}`));
+
+    return { status: "Accepted" };
+  } catch (error) {
+    logger.error(`Error handling SignCertificate for charger ${chargerId}: ${error}`);
+    return { status: "Rejected" };
+  }
+}
+
+/**
+ * Handle GetInstalledCertificateIds query
+ */
+export async function handleGetInstalledCertificateIds(
+  chargerId: number,
+  payload: any
+): Promise<any> {
+  const certificateTypes: string[] | undefined = payload.certificateType;
+
+  try {
+    const whereClause: any = { chargerId };
+    if (certificateTypes && certificateTypes.length > 0) {
+      whereClause.certificateType = { in: certificateTypes };
+    }
+
+    const installed = await prisma.installedCertificate.findMany({
+      where: whereClause,
+    });
+
+    if (!installed || installed.length === 0) {
+      return {
+        status: "NotFound",
+        certificateHashDataChain: [],
+      };
+    }
+
+    const certificateHashDataChain = installed.map((cert) => ({
+      certificateType: cert.certificateType,
+      certificateHashData: cert.certificateHashData,
+    }));
+
+    return {
+      status: "Accepted",
+      certificateHashDataChain,
+    };
+  } catch (error) {
+    logger.error(`Error handling GetInstalledCertificateIds for charger ${chargerId}: ${error}`);
+    return { status: "NotFound", certificateHashDataChain: [] };
+  }
+}
+
+/**
+ * Handle InstallCertificate confirmation or ingestion
+ */
+export async function handleInstallCertificate(
+  chargerId: number,
+  payload: any
+): Promise<any> {
+  const certificateType = payload.certificateType || "CSMSRootCertificate";
+  const certificatePem = payload.certificate;
+
+  try {
+    if (!certificatePem) {
+      return { status: "Rejected" };
+    }
+
+    const { PkiCertificateService } = await import("../../services/PkiCertificateService.js");
+    const hashData = PkiCertificateService.compute15118CertificateHashData(certificatePem);
+
+    await prisma.installedCertificate.create({
+      data: {
+        chargerId,
+        certificateType,
+        certificatePem,
+        serialNumber: hashData.serialNumber,
+        status: "Accepted",
+        certificateHashData: hashData as any,
+      },
+    });
+
+    logger.info(`InstallCertificate processed for charger ${chargerId} (${certificateType})`);
+    return { status: "Accepted" };
+  } catch (error) {
+    logger.error(`Error handling InstallCertificate for charger ${chargerId}: ${error}`);
+    return { status: "Failed" };
+  }
+}
+
+/**
+ * Handle DeleteCertificate
+ */
+export async function handleDeleteCertificate(
+  chargerId: number,
+  payload: any
+): Promise<any> {
+  const hashData = payload.certificateHashData;
+
+  try {
+    if (!hashData || !hashData.serialNumber) {
+      return { status: "NotFound" };
+    }
+
+    const serialNumber = hashData.serialNumber.replace(/[:\s-]/g, "").trim().toUpperCase();
+
+    const deleted = await prisma.installedCertificate.deleteMany({
+      where: {
+        chargerId,
+        serialNumber,
+      },
+    });
+
+    if (deleted.count > 0) {
+      logger.info(`Deleted certificate ${serialNumber} for charger ${chargerId}`);
+      return { status: "Accepted" };
+    }
+
+    return { status: "NotFound" };
+  } catch (error) {
+    logger.error(`Error handling DeleteCertificate for charger ${chargerId}: ${error}`);
+    return { status: "Failed" };
+  }
+}
+
 export async function handleGet15118EVCertificate(chargerId: number, payload: any): Promise<any> {
   const emaid = payload.exiRequest || payload.emaid;
 
-  if (emaid) {
-    const vcc = await prisma.vehicleContractCertificate.findUnique({
-      where: { emaid: emaid as string }
-    });
-    if (vcc && vcc.status === "Valid" && vcc.expirationDate >= new Date()) {
-       return {
-         status: "Accepted",
-         exiResponse: vcc.contractCert || "dummy_cert_data"
-       };
+  try {
+    if (emaid) {
+      const vcc = await prisma.vehicleContractCertificate.findFirst({
+        where: {
+          OR: [
+            { emaid: emaid as string },
+            { serialNumber: emaid as string },
+          ],
+        },
+      });
+
+      if (vcc && vcc.status === "Valid" && new Date(vcc.expirationDate) >= new Date()) {
+        return {
+          status: "Accepted",
+          exiResponse: vcc.contractCertChain || vcc.contractCert || "dummy_cert_data",
+        };
+      } else {
+        return {
+          status: "Failed",
+          exiResponse: "Invalid or expired certificate",
+        };
+      }
     } else {
-       return {
-         status: "Failed",
-         exiResponse: "Invalid or expired certificate"
-       };
+      return {
+        status: "Failed",
+        exiResponse: "No EMAID provided",
+      };
     }
-  } else {
-    return {
-      status: "Failed",
-      exiResponse: "No EMAID provided"
-    };
+  } catch (error) {
+    logger.error(`Error in handleGet15118EVCertificate: ${error}`);
+    return { status: "Failed", exiResponse: "Error fetching EV certificate" };
   }
 }
 
@@ -622,6 +838,22 @@ export async function handleOcppMessage21(
     case "NotifyEvent":
       logger.debug(`Routing action ${actionName} -> handleNotifyEvent`);
       response = await handleNotifyEvent(chargerId, payload);
+      break;
+    case "SignCertificate":
+      logger.debug(`Routing action ${actionName} -> handleSignCertificate`);
+      response = await handleSignCertificate(chargerId, payload);
+      break;
+    case "GetInstalledCertificateIds":
+      logger.debug(`Routing action ${actionName} -> handleGetInstalledCertificateIds`);
+      response = await handleGetInstalledCertificateIds(chargerId, payload);
+      break;
+    case "InstallCertificate":
+      logger.debug(`Routing action ${actionName} -> handleInstallCertificate`);
+      response = await handleInstallCertificate(chargerId, payload);
+      break;
+    case "DeleteCertificate":
+      logger.debug(`Routing action ${actionName} -> handleDeleteCertificate`);
+      response = await handleDeleteCertificate(chargerId, payload);
       break;
     case "Get15118EVCertificate":
       logger.debug(`Routing action ${actionName} -> handleGet15118EVCertificate`);
