@@ -375,10 +375,18 @@ class OcppServer {
         clearTimeout(pending.timeout);
         pending.resolve(responsePayload);
         pendingRequests.delete(messageId);
-      } else {
-        // Publish to Redis for cross-cluster resolution
-        redisPublisher.publish("ocpp_callresults", JSON.stringify({ messageId, payload: responsePayload }));
       }
+
+      // Publish to distributed Redis response channel and cluster channel
+      const resultData = {
+        messageId,
+        status: "Accepted",
+        payload: responsePayload,
+        chargerId,
+        ...responsePayload,
+      };
+      redisPublisher.publish(`ocpp:res:${messageId}`, JSON.stringify(resultData));
+      redisPublisher.publish("ocpp_callresults", JSON.stringify(resultData));
       return;
     }
 
@@ -401,6 +409,18 @@ class OcppServer {
         pending.reject(new Error(`[${errorCode}${subCodeInfo}] ${errorDescription} - ${JSON.stringify(errorDetails || {})}`));
         pendingRequests.delete(messageId);
       }
+
+      // Publish to distributed Redis response channel and cluster channel
+      const errorData = {
+        messageId,
+        status: "Rejected",
+        errorCode,
+        error: errorDescription,
+        payload: errorDetails,
+        chargerId,
+      };
+      redisPublisher.publish(`ocpp:res:${messageId}`, JSON.stringify(errorData));
+      redisPublisher.publish("ocpp_callresults", JSON.stringify(errorData));
       return;
     }
 

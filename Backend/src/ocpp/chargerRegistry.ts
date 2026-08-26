@@ -39,6 +39,13 @@ class ChargerRegistry {
       else logger.info("Subscribed to ocpp_commands Redis channel");
     });
 
+    if (typeof (redisSubscriber as any).psubscribe === "function") {
+      (redisSubscriber as any).psubscribe("ocpp:cmd:*", (err: any) => {
+        if (err) logger.error(`Failed to psubscribe to ocpp:cmd:*: ${err}`);
+        else logger.info("Subscribed to ocpp:cmd:* Redis pattern");
+      });
+    }
+
     redisSubscriber.on("message", async (channel, message) => {
       if (channel === "ocpp_commands") {
         try {
@@ -50,8 +57,36 @@ class ChargerRegistry {
         } catch (error) {
           logger.error(`Error processing Redis pub/sub command: ${error}`);
         }
+      } else if (channel.startsWith("ocpp:cmd:")) {
+        try {
+          const chargerIdStr = channel.substring("ocpp:cmd:".length);
+          const chargerId = Number(chargerIdStr);
+          if (this.isConnected(chargerId)) {
+            const payload = JSON.parse(message);
+            await this.sendToCharger(chargerId, payload);
+          }
+        } catch (error) {
+          logger.error(`Error processing direct ocpp:cmd command: ${error}`);
+        }
       }
     });
+
+    if (typeof (redisSubscriber as any).on === "function") {
+      redisSubscriber.on("pmessage", async (pattern: string, channel: string, message: string) => {
+        if (pattern === "ocpp:cmd:*") {
+          try {
+            const chargerIdStr = channel.substring("ocpp:cmd:".length);
+            const chargerId = Number(chargerIdStr);
+            if (this.isConnected(chargerId)) {
+              const payload = JSON.parse(message);
+              await this.sendToCharger(chargerId, payload);
+            }
+          } catch (error) {
+            logger.error(`Error processing Redis pmessage command: ${error}`);
+          }
+        }
+      });
+    }
   }
 
   public getRedisKey(chargerId: number): string {

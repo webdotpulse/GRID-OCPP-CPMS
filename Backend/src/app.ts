@@ -133,7 +133,101 @@ export function createApp(): Application {
 }
 
 /**
- * Start all servers
+ * Start standalone API & Realtime Socket server pod
+ */
+export function startApiServer() {
+  const app = createApp();
+
+  const server = app.listen(config.port, () => {
+    logger.info(`🚀 [API Pod] Express API server listening on port ${config.port}`);
+  });
+
+  // Start OCPP logs WebSocket server
+  ocppLogsServer.start(server);
+
+  // Setup Socket.IO realtime server
+  setupRealtimeSocket(server);
+
+  const shutdown = async (signal: string) => {
+    logger.info(`Received ${signal}. Shutting down API pod gracefully...`);
+    ocppLogsServer.stop();
+    server.close(() => {
+      logger.info("API server HTTP listener closed");
+      process.exit(0);
+    });
+  };
+
+  process.on("SIGTERM", () => {
+    shutdown("SIGTERM").catch((err) => logger.error(`API shutdown error: ${err}`));
+  });
+  process.on("SIGINT", () => {
+    shutdown("SIGINT").catch((err) => logger.error(`API shutdown error: ${err}`));
+  });
+
+  return { app, server };
+}
+
+/**
+ * Start standalone OCPP WebSocket ingestion server pod
+ */
+export function startOcppServer() {
+  logger.info(`⚡ [OCPP Pod] Starting OCPP WebSocket server on port ${config.ocppPort}...`);
+  ocppServer.start();
+
+  const shutdown = (signal: string) => {
+    logger.info(`Received ${signal}. Shutting down OCPP pod gracefully...`);
+    ocppServer.stop();
+    process.exit(0);
+  };
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+
+  return ocppServer;
+}
+
+/**
+ * Start standalone background Worker server pod
+ */
+export async function startWorkerServer() {
+  logger.info("⚙️ [Worker Pod] Starting background job queues and schedulers...");
+
+  const { startWorkers, stopWorkers } = await import("./workers/index.js");
+  const { closeQueues } = await import("./queues/queueManager.js");
+  const { MeterValueService } = await import("./services/MeterValueService.js");
+  const { EpexSpotService } = await import("./services/EpexSpotService.js");
+  const { loadManagementService } = await import("./services/LoadManagementService.js");
+
+  startWorkers();
+  MeterValueService.startWorker();
+  EpexSpotService.startEpexWorker();
+  loadManagementService.startSmartChargingEngine();
+
+  // Start background crons
+  startAutoHealCron();
+  startReimbursementCron();
+
+  const shutdown = async (signal: string) => {
+    logger.info(`Received ${signal}. Shutting down Worker pod gracefully...`);
+    try {
+      await stopWorkers();
+      await closeQueues();
+    } catch (err) {
+      logger.error(`Error during workers shutdown: ${err}`);
+    }
+    process.exit(0);
+  };
+
+  process.on("SIGTERM", () => {
+    shutdown("SIGTERM").catch((err) => logger.error(`Worker shutdown error: ${err}`));
+  });
+  process.on("SIGINT", () => {
+    shutdown("SIGINT").catch((err) => logger.error(`Worker shutdown error: ${err}`));
+  });
+}
+
+/**
+ * Start all servers (Monolith mode)
  */
 export function startServers(): void {
   // Start OCPP WebSocket server
@@ -145,7 +239,7 @@ export function startServers(): void {
   const server = app.listen(config.port, () => {
     logger.info(`Express API server listening on port ${config.port}`);
     logger.info(`OCPP WebSocket server on port ${config.ocppPort}`);
-    logger.info("All servers started successfully");
+    logger.info("All servers started successfully in monolith mode");
   });
 
   // Start OCPP logs WebSocket server

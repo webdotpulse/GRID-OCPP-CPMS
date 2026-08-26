@@ -6,7 +6,13 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "dev:api": "tsx watch src/apiServer.ts",
+    "dev:ocpp": "tsx watch src/ocppServerEntry.ts",
+    "dev:worker": "tsx watch src/workerServer.ts",
     "start": "node --import tsx src/server.ts",
+    "start:api": "node --import tsx src/apiServer.ts",
+    "start:ocpp": "node --import tsx src/ocppServerEntry.ts",
+    "start:worker": "node --import tsx src/workerServer.ts",
     "build": "tsc",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
