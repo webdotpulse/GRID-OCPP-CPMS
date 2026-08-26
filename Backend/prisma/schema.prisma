@@ -43,6 +43,7 @@ model User {
   reimbursementContracts      ReimbursementContract[]
   vehicleEnergyProfile        VehicleEnergyProfile?
   vehicleContractCertificates VehicleContractCertificate[]
+  auditLogs                   AuditLog[]
 }
 
 model Company {
@@ -803,3 +804,18 @@ model HardwareAtRiskSetting {
   adminEmailAddress       String?
   updatedAt               DateTime @updatedAt
 }
+
+// Immutable Security & Operational Audit Log Ledger (SEC-02)
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String   // e.g. "CHARGER_RESET", "TARIFF_UPDATE", "UNLOCK_CONNECTOR", "STATION_CREATE", "REMOTE_START", "WEBHOOK_PROCESSED"
+  target    String   // e.g. "Charger", "Tariff", "ChargingStation", "Transaction", "Webhook"
+  targetId  String?  // e.g. "101", "STA-10", "TX-12345"
+  payload   Json?    // mutation payload or diff
+  ip        String   @default("127.0.0.1")
+  userAgent String?
+  createdAt DateTime @default(now())
+}
+

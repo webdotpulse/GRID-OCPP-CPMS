@@ -38,6 +38,7 @@ import mediaCampaignsRoutes from "./api/media-campaigns/media-campaigns.routes.j
 import vehiclesRoutes, { energyProfileRouter } from "./api/vehicles/vehicles.routes.js";
 import analyticsRoutes from "./api/analytics/analytics.routes.js";
 import reimbursementsRoutes from "./api/reimbursements/reimbursements.routes.js";
+import auditRoutes from "./api/audit/audit.routes.js";
 
 // Import OCPP servers
 import { ocppServer } from "./ocpp/ocppServer.js";
@@ -124,6 +125,7 @@ export function createApp(): Application {
   app.use("/api/vcc", authenticateToken, vehiclesRoutes);
   app.use("/api/analytics", analyticsRoutes);
   app.use("/api/reimbursements", reimbursementsRoutes);
+  app.use("/api/audit", auditRoutes);
 
   // Error handling
   app.use(notFoundHandler);
