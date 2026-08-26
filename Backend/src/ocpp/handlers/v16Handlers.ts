@@ -7,7 +7,7 @@ import { logger } from "../../utils/logger.js";
 import { loadManagementService } from "../../services/LoadManagementService.js";
 import { logOcppMessage } from "../messageHandlers.js";
 import { OcppError } from "../errors/OcppError.js";
-import { normalizeMeterValues } from "../quirkNormalizer.js";
+import { normalizeMeterValues, resolveMappedCardId } from "../quirkNormalizer.js";
 import { redisClient } from "../../config/redis.js";
 import { getTariffForTransaction } from "../../utils/tariffHelpers.js";
 import { DynamicTariffService } from "../../services/DynamicTariffService.js";
@@ -60,11 +60,7 @@ export async function handleBootNotification(
   payload: any,
   protocol?: string
 ): Promise<any> {
-  logger.info(`BootNotification received from charger ${chargerId} using protocol ${protocol || "ocpp1.6"}`, payload);
-
-  let vendor = payload.chargePointVendor;
-  let model = payload.chargePointModel;
-  let serialNumber = payload.chargePointSerialNumber;
+  const { chargePointVendor, chargePointModel, chargePointSerialNumber, firmwareVersion } = payload;
 
   try {
     // Check if charger exists in database
@@ -88,10 +84,10 @@ export async function handleBootNotification(
       data: {
         status: "active",
         last_heartbeat: new Date(),
-        manufacturer: vendor,
-        model: model,
-        serial_number: serialNumber,
-        firmware_version: payload.chargePointSerialNumber ? payload.firmwareVersion : payload.chargingStation?.firmwareVersion || payload.firmwareVersion || "Unknown",
+        manufacturer: chargePointVendor,
+        model: chargePointModel,
+        serial_number: chargePointSerialNumber,
+        firmware_version: firmwareVersion || "Unknown",
       },
     });
 
@@ -136,6 +132,7 @@ export async function handleHeartbeat(
     const response = {
       currentTime: new Date().toISOString(),
     };
+
     await logOcppMessage(chargerId, "out", response);
     return response;
   } catch (error) {
@@ -154,34 +151,51 @@ export async function handleAuthorize(
   payload: any,
   protocol?: string
 ): Promise<any> {
-  const idTag = payload.idToken?.idToken || payload.idTag;
+  const rawIdTag = payload.idToken?.idToken || payload.idTag;
 
   try {
     let isAuthorized = true;
     let userName = "";
 
-    // Look up RFID tag in database
-    const rfidUser = await prisma.rfidUser.findUnique({
-      where: { rfid_tag: idTag },
+    // Check Quirk Profile for card ID / solar mode mapping
+    const charger = await prisma.charger.findUnique({
+      where: { charger_id: chargerId },
+      include: { quirkProfile: true },
     });
+
+    const rules = charger?.quirkProfile?.rules as any;
+    const effectiveIdTag = resolveMappedCardId(rawIdTag, rules);
+
+    // Look up RFID tag in database (checking effective mapped tag first, fallback to raw tag)
+    let rfidUser = await prisma.rfidUser.findUnique({
+      where: { rfid_tag: effectiveIdTag },
+    });
+
+    if (!rfidUser && effectiveIdTag !== rawIdTag) {
+      rfidUser = await prisma.rfidUser.findUnique({
+        where: { rfid_tag: rawIdTag },
+      });
+    }
 
     if (!rfidUser || !rfidUser.active) {
       // If not an RFID user, check if it's a valid EMAID for Plug & Charge
-      const vcc = await prisma.vehicleContractCertificate.findUnique({
-        where: { emaid: idTag },
+      let vcc = await prisma.vehicleContractCertificate.findUnique({
+        where: { emaid: effectiveIdTag },
         include: { user: true }
       });
+
+      if (!vcc && effectiveIdTag !== rawIdTag) {
+        vcc = await prisma.vehicleContractCertificate.findUnique({
+          where: { emaid: rawIdTag },
+          include: { user: true }
+        });
+      }
 
       if (!vcc || vcc.status !== "Valid" || vcc.expirationDate < new Date()) {
          isAuthorized = false;
       } else {
          userName = vcc.user?.name || "";
          // Also check charge group for Plug&Charge users
-         const charger = await prisma.charger.findUnique({
-           where: { charger_id: chargerId },
-           select: { chargeGroupId: true }
-         });
-
          if (charger && charger.chargeGroupId) {
            const userInGroup = await prisma.chargeGroupUser.findUnique({
              where: {
@@ -192,7 +206,7 @@ export async function handleAuthorize(
              }
            });
            if (!userInGroup) {
-             logger.warn(`Authorize rejected: User of EMAID ${idTag} is not in the required charge group ${charger.chargeGroupId}`);
+             logger.warn(`Authorize rejected: User of EMAID ${effectiveIdTag} is not in the required charge group ${charger.chargeGroupId}`);
              isAuthorized = false;
            }
          }
@@ -200,11 +214,6 @@ export async function handleAuthorize(
     } else {
       userName = rfidUser.name || "";
       // Check if charger belongs to a group and if user is in that group
-      const charger = await prisma.charger.findUnique({
-        where: { charger_id: chargerId },
-        select: { chargeGroupId: true }
-      });
-
       if (charger && charger.chargeGroupId) {
         const userInGroup = await prisma.chargeGroupUser.findUnique({
           where: {
@@ -215,21 +224,21 @@ export async function handleAuthorize(
           }
         });
         if (!userInGroup) {
-          logger.warn(`Authorize rejected: User of RFID tag ${idTag} is not in the required charge group ${charger.chargeGroupId}`);
+          logger.warn(`Authorize rejected: User of RFID tag ${effectiveIdTag} is not in the required charge group ${charger.chargeGroupId}`);
           isAuthorized = false;
         }
       }
     }
 
     if (!isAuthorized) {
-      logger.warn(`Authorize rejected: RFID/EMAID tag ${idTag} not authorized`);
+      logger.warn(`Authorize rejected: RFID/EMAID tag ${rawIdTag} (effective: ${effectiveIdTag}) not authorized`);
       let response: any = {};
       response.idTagInfo = { status: "Invalid" };
       await logOcppMessage(chargerId, "out", response);
       return response;
     }
 
-    logger.info(`Authorize accepted: RFID/EMAID tag ${idTag} (${userName})`);
+    logger.info(`Authorize accepted: RFID/EMAID tag ${rawIdTag} (effective: ${effectiveIdTag}, ${userName})`);
     let response: any = {};
     response.idTagInfo = { status: "Accepted" };
     await logOcppMessage(chargerId, "out", response);
@@ -274,12 +283,21 @@ export async function handleStartTransaction(
        logger.debug(`[Quirk] Will ignore meterStart for transaction ${transactionId} and retroactively set via first MeterValue`);
     }
 
+    // Resolve mapped card ID for solar/quirk translation
+    const effectiveIdTag = idTag ? resolveMappedCardId(idTag, rules) : idTag;
+
     // Check if RFID tag is valid (if provided)
     let rfidUserId: number | undefined;
-    if (idTag) {
-      const rfidUser = await prisma.rfidUser.findUnique({
-        where: { rfid_tag: idTag },
+    if (effectiveIdTag) {
+      let rfidUser = await prisma.rfidUser.findUnique({
+        where: { rfid_tag: effectiveIdTag },
       });
+
+      if (!rfidUser && idTag && effectiveIdTag !== idTag) {
+        rfidUser = await prisma.rfidUser.findUnique({
+          where: { rfid_tag: idTag },
+        });
+      }
 
       let isAuthorized = true;
 
@@ -308,7 +326,7 @@ export async function handleStartTransaction(
       }
 
       if (!isAuthorized) {
-        logger.warn(`StartTransaction rejected: RFID tag ${idTag} not authorized`);
+        logger.warn(`StartTransaction rejected: RFID tag ${idTag} (effective: ${effectiveIdTag}) not authorized`);
         let response: any = {};
         response.idTagInfo = { status: "Invalid" };
         await logOcppMessage(chargerId, "out", response);
@@ -328,7 +346,7 @@ export async function handleStartTransaction(
         startTime: new Date(timestamp || new Date()),
         initialMeterValue: meterStart,
         status: "charging",
-        idTag,
+        idTag: effectiveIdTag || idTag,
       },
       include: { charger: true }
     });
@@ -429,6 +447,14 @@ export async function handleStopTransaction(
       });
     }
 
+    // Handle Quirk card ID resolution
+    const charger = await prisma.charger.findUnique({
+      where: { charger_id: chargerId },
+      include: { quirkProfile: true },
+    });
+    const rules = charger?.quirkProfile?.rules as any;
+    const effectiveIdTag = idTag ? resolveMappedCardId(idTag, rules) : idTag;
+
     // End transaction in registry memory/Redis immediately
     await chargerRegistry.endTransaction(chargerId, transactionId);
 
@@ -438,7 +464,7 @@ export async function handleStopTransaction(
       transactionId: String(transactionId),
       meterStop: typeof meterStop === "number" ? meterStop : (parseFloat(meterStop) || 0),
       timestamp: timestamp ? (timestamp instanceof Date ? timestamp.toISOString() : timestamp) : new Date().toISOString(),
-      idTag,
+      idTag: effectiveIdTag || idTag,
       reason,
     });
 

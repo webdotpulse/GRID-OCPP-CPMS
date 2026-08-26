@@ -4,14 +4,45 @@ import { prisma } from "../config/database.js";
 import { chargerRegistry } from "./chargerRegistry.js";
 import { handleOcppMessage } from "./messageHandlers.js";
 import { pendingRequests } from "./remoteControl.js";
+import { resolveMappedCardId } from "./quirkNormalizer.js";
 
 class ProxyRouter {
   private activeProxies: Map<number, WebSocket> = new Map();
   // Map of <chargerId> to <Map of MessageId -> Action> to track pending requests for interception
   private pendingStartTransactions: Map<number, Map<string, string>> = new Map();
+  // Cache for charger quirk rules: <chargerId> -> { rules, expiresAt }
+  private quirkRulesCache: Map<number, { rules: any; expiresAt: number }> = new Map();
 
   hasProxy(chargerId: number): boolean {
     return this.activeProxies.has(chargerId);
+  }
+
+  async getQuirkRulesForCharger(chargerId: number): Promise<any> {
+    const cached = this.quirkRulesCache.get(chargerId);
+    const now = Date.now();
+    if (cached && cached.expiresAt > now) {
+      return cached.rules;
+    }
+    try {
+      const charger = await prisma.charger.findUnique({
+        where: { charger_id: chargerId },
+        include: { quirkProfile: true },
+      });
+      const rules = charger?.quirkProfile?.rules || null;
+      this.quirkRulesCache.set(chargerId, { rules, expiresAt: now + 60000 });
+      return rules;
+    } catch (err) {
+      logger.error(`Error fetching quirk rules for proxy router (charger ${chargerId}): ${err}`);
+      return null;
+    }
+  }
+
+  clearQuirkRulesCache(chargerId?: number): void {
+    if (chargerId) {
+      this.quirkRulesCache.delete(chargerId);
+    } else {
+      this.quirkRulesCache.clear();
+    }
   }
 
   setupProxy(chargerId: number, url: string, protocol: string): void {
@@ -195,11 +226,61 @@ class ProxyRouter {
       }
     }
 
-    // Forward raw message to 3rd party backend
+    let messageToForward = message;
+
+    // Check if card ID translation is required before forwarding to third-party backend
+    if (message[0] === 2 && message[3]) {
+      try {
+        const rules = await this.getQuirkRulesForCharger(chargerId);
+        if (rules) {
+          const originalPayload = message[3];
+          const forwardedPayload = JSON.parse(JSON.stringify(originalPayload));
+          let modified = false;
+
+          // 1. OCPP 1.6 idTag translation (e.g. Authorize, StartTransaction, StopTransaction)
+          if (forwardedPayload.idTag && typeof forwardedPayload.idTag === "string") {
+            const mappedTag = resolveMappedCardId(forwardedPayload.idTag, rules);
+            if (mappedTag !== forwardedPayload.idTag) {
+              logger.info(`🔄 [PROXY] Translated idTag from "${forwardedPayload.idTag}" to "${mappedTag}" for charger ${chargerId} (action: ${message[2]})`);
+              forwardedPayload.idTag = mappedTag;
+              modified = true;
+            }
+          }
+
+          // 2. OCPP 2.0.1 / 2.1 idToken translation (e.g. Authorize, TransactionEvent)
+          if (forwardedPayload.idToken && typeof forwardedPayload.idToken === "object" && typeof forwardedPayload.idToken.idToken === "string") {
+            const mappedTag = resolveMappedCardId(forwardedPayload.idToken.idToken, rules);
+            if (mappedTag !== forwardedPayload.idToken.idToken) {
+              logger.info(`🔄 [PROXY] Translated idToken from "${forwardedPayload.idToken.idToken}" to "${mappedTag}" for charger ${chargerId} (action: ${message[2]})`);
+              forwardedPayload.idToken.idToken = mappedTag;
+              modified = true;
+            }
+          }
+
+          // 3. Nested idToken inside transactionInfo / event
+          if (forwardedPayload.transactionInfo?.idToken?.idToken && typeof forwardedPayload.transactionInfo.idToken.idToken === "string") {
+            const mappedTag = resolveMappedCardId(forwardedPayload.transactionInfo.idToken.idToken, rules);
+            if (mappedTag !== forwardedPayload.transactionInfo.idToken.idToken) {
+              logger.info(`🔄 [PROXY] Translated transactionInfo idToken from "${forwardedPayload.transactionInfo.idToken.idToken}" to "${mappedTag}" for charger ${chargerId}`);
+              forwardedPayload.transactionInfo.idToken.idToken = mappedTag;
+              modified = true;
+            }
+          }
+
+          if (modified) {
+            messageToForward = [message[0], message[1], message[2], forwardedPayload];
+          }
+        }
+      } catch (transErr) {
+        logger.error(`🔄 [PROXY] Error evaluating card ID translation for charger ${chargerId}: ${transErr}`);
+      }
+    }
+
+    // Forward message to 3rd party backend
     if (shouldForward) {
       if (remoteWs && remoteWs.readyState === WebSocket.OPEN) {
-        logger.info(`🔄 [PROXY] Forwarding local message from charger ${chargerId} to remote: ${JSON.stringify(message)}`);
-        remoteWs.send(JSON.stringify(message));
+        logger.info(`🔄 [PROXY] Forwarding local message from charger ${chargerId} to remote: ${JSON.stringify(messageToForward)}`);
+        remoteWs.send(JSON.stringify(messageToForward));
       } else {
         logger.warn(`🔄 [PROXY] Cannot forward message for charger ${chargerId}, remote socket not open`);
       }
@@ -245,3 +326,4 @@ class ProxyRouter {
 }
 
 export const proxyRouter = new ProxyRouter();
+

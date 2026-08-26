@@ -196,6 +196,9 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
             <div className="space-y-2">
               <Label htmlFor="thirdPartyBackendUrl">Third-Party Backend URL (Optional)</Label>
               <Input id="thirdPartyBackendUrl" {...register('thirdPartyBackendUrl')} placeholder="wss://example.com/ocpp" />
+              <p className="text-[11px] text-muted-foreground">
+                Proxy upstream endpoint. Quirk profiles with Card ID mappings will translate solar mode tags before forwarding.
+              </p>
               {errors.thirdPartyBackendUrl && <p className="text-sm text-destructive">{errors.thirdPartyBackendUrl.message}</p>}
             </div>
           </div>
@@ -239,6 +242,9 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Handles brand-specific anomalies, solar mode card ID translation, and meter start overrides.
+              </p>
             </div>
 
              <div className="space-y-2">

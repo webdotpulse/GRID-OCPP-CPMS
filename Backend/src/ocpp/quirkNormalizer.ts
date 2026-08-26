@@ -85,3 +85,64 @@ export async function normalizeMeterValues(
     return payload; // Return original payload on error
   }
 }
+
+/**
+ * Resolves a mapped card ID / idTag based on quirk profile rules.
+ * Supports:
+ * 1. Object format: rules.cardIdMapping = { "SOLAR_TAG": "REAL_TAG" } or rules.solarCardIdMapping = { ... }
+ * 2. Array format: rules.cardMappings = [{ from: "SOLAR_TAG", to: "REAL_TAG" }]
+ * 3. Case-insensitive lookup fallback
+ * 4. Fallback / Wildcard mapping: rules.cardIdMapping["*"] or rules.defaultForwardCardId
+ */
+export function resolveMappedCardId(originalCardId: string, rules?: any): string {
+  if (!originalCardId || !rules) {
+    return originalCardId;
+  }
+
+  const rawMappings = rules.cardIdMapping || rules.solarCardIdMapping || rules.cardMappings || rules.idTagMapping;
+  if (!rawMappings) {
+    return originalCardId;
+  }
+
+  // 1. Array of mappings: [{ from: "A", to: "B" }]
+  if (Array.isArray(rawMappings)) {
+    const match = rawMappings.find(
+      (m: any) => m && (m.from === originalCardId || (typeof m.from === "string" && m.from.toUpperCase() === originalCardId.toUpperCase()))
+    );
+    if (match && match.to) {
+      logger.debug(`[Quirk] Resolved card ID from ${originalCardId} to ${match.to}`);
+      return match.to;
+    }
+  }
+
+  // 2. Object of key-value pairs: { "A": "B" }
+  if (typeof rawMappings === "object" && !Array.isArray(rawMappings)) {
+    // Exact match
+    if (rawMappings[originalCardId]) {
+      logger.debug(`[Quirk] Resolved card ID from ${originalCardId} to ${rawMappings[originalCardId]}`);
+      return rawMappings[originalCardId];
+    }
+    // Case-insensitive match
+    const upperOriginal = originalCardId.toUpperCase();
+    for (const key of Object.keys(rawMappings)) {
+      if (key.toUpperCase() === upperOriginal && rawMappings[key]) {
+        logger.debug(`[Quirk] Resolved card ID (case-insensitive) from ${originalCardId} to ${rawMappings[key]}`);
+        return rawMappings[key];
+      }
+    }
+    // Wildcard match
+    if (rawMappings["*"]) {
+      logger.debug(`[Quirk] Resolved card ID via wildcard from ${originalCardId} to ${rawMappings["*"]}`);
+      return rawMappings["*"];
+    }
+  }
+
+  // 3. Fallback defaultForwardCardId if specified
+  if (rules.defaultForwardCardId) {
+    logger.debug(`[Quirk] Resolved card ID via defaultForwardCardId from ${originalCardId} to ${rules.defaultForwardCardId}`);
+    return rules.defaultForwardCardId;
+  }
+
+  return originalCardId;
+}
+

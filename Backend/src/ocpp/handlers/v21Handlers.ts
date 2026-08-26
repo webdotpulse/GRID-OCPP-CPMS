@@ -9,6 +9,7 @@ import { logOcppMessage } from "../messageHandlers.js";
 import { OcppError } from "../errors/OcppError.js";
 import { getTariffForTransaction } from "../../utils/tariffHelpers.js";
 import { DynamicTariffService } from "../../services/DynamicTariffService.js";
+import { resolveMappedCardId } from "../quirkNormalizer.js";
 import {
   handleGetVariables,
   handleSetVariables,
@@ -111,14 +112,14 @@ export async function handleHeartbeat(
 }
 
 /**
- * Handle Authorize request from charger (supports RFID, eMAID, and ISO 15118 Certificate Hash)
+ * Handle Authorize request from charger
  */
 export async function handleAuthorize(
   chargerId: number,
   payload: any,
   protocol?: string
 ): Promise<any> {
-  const idTag = payload.idToken?.idToken;
+  const rawIdTag = payload.idToken?.idToken;
   const hashData = payload.iso15118CertificateHashData || payload["15118CertificateHashData"] || payload.certificateHashData;
 
   try {
@@ -161,17 +162,38 @@ export async function handleAuthorize(
         }
       }
     } else {
-      // 2. Look up RFID tag in database
-      const rfidUser = await prisma.rfidUser.findUnique({
-        where: { rfid_tag: idTag },
+      // Look up Quirk Profile for card ID / solar mode mapping
+      const charger = await prisma.charger.findUnique({
+        where: { charger_id: chargerId },
+        include: { quirkProfile: true },
       });
+      const rules = charger?.quirkProfile?.rules as any;
+      const effectiveIdTag = rawIdTag ? resolveMappedCardId(rawIdTag, rules) : rawIdTag;
+
+      // 2. Look up RFID tag in database
+      let rfidUser = await prisma.rfidUser.findUnique({
+        where: { rfid_tag: effectiveIdTag },
+      });
+
+      if (!rfidUser && rawIdTag && effectiveIdTag !== rawIdTag) {
+        rfidUser = await prisma.rfidUser.findUnique({
+          where: { rfid_tag: rawIdTag },
+        });
+      }
 
       if (!rfidUser || !rfidUser.active) {
         // If not an RFID user, check if it's a valid EMAID for Plug & Charge
-        const vcc = await prisma.vehicleContractCertificate.findUnique({
-          where: { emaid: idTag },
+        let vcc = await prisma.vehicleContractCertificate.findUnique({
+          where: { emaid: effectiveIdTag },
           include: { user: true },
         });
+
+        if (!vcc && rawIdTag && effectiveIdTag !== rawIdTag) {
+          vcc = await prisma.vehicleContractCertificate.findUnique({
+            where: { emaid: rawIdTag },
+            include: { user: true },
+          });
+        }
 
         if (!vcc || vcc.status !== "Valid" || new Date(vcc.expirationDate) < new Date()) {
           isAuthorized = false;
@@ -179,11 +201,6 @@ export async function handleAuthorize(
         } else {
           userName = vcc.user?.name || "";
           // Also check charge group for Plug&Charge users
-          const charger = await prisma.charger.findUnique({
-            where: { charger_id: chargerId },
-            select: { chargeGroupId: true },
-          });
-
           if (charger && charger.chargeGroupId) {
             const userInGroup = await prisma.chargeGroupUser.findUnique({
               where: {
@@ -194,7 +211,7 @@ export async function handleAuthorize(
               },
             });
             if (!userInGroup) {
-              logger.warn(`Authorize rejected: User of EMAID ${idTag} is not in the required charge group ${charger.chargeGroupId}`);
+              logger.warn(`Authorize rejected: User of EMAID ${effectiveIdTag} is not in the required charge group ${charger.chargeGroupId}`);
               isAuthorized = false;
               authStatus = "Invalid";
             }
@@ -203,11 +220,6 @@ export async function handleAuthorize(
       } else {
         userName = rfidUser.name || "";
         // Check if charger belongs to a group and if user is in that group
-        const charger = await prisma.charger.findUnique({
-          where: { charger_id: chargerId },
-          select: { chargeGroupId: true },
-        });
-
         if (charger && charger.chargeGroupId) {
           const userInGroup = await prisma.chargeGroupUser.findUnique({
             where: {
@@ -218,7 +230,7 @@ export async function handleAuthorize(
             },
           });
           if (!userInGroup) {
-            logger.warn(`Authorize rejected: User of RFID tag ${idTag} is not in the required charge group ${charger.chargeGroupId}`);
+            logger.warn(`Authorize rejected: User of RFID tag ${effectiveIdTag} is not in the required charge group ${charger.chargeGroupId}`);
             isAuthorized = false;
             authStatus = "Invalid";
           }
@@ -227,13 +239,13 @@ export async function handleAuthorize(
     }
 
     if (!isAuthorized) {
-      logger.warn(`Authorize rejected: Identifier ${idTag || "ISO15118"} not authorized (status: ${authStatus})`);
+      logger.warn(`Authorize rejected: Identifier ${rawIdTag || "ISO15118"} not authorized (status: ${authStatus})`);
       const response = { idTokenInfo: { status: authStatus } };
       await logOcppMessage(chargerId, "out", response);
       return response;
     }
 
-    logger.info(`Authorize accepted: Identifier ${idTag || "ISO15118"} (${userName})`);
+    logger.info(`Authorize accepted: Identifier ${rawIdTag || "ISO15118"} (${userName})`);
     const response = { idTokenInfo: { status: "Accepted" } };
     await logOcppMessage(chargerId, "out", response);
     return response;
@@ -248,36 +260,59 @@ export async function handleAuthorize(
  */
 export async function handleStatusNotification(
   chargerId: number,
-  payload: any
+  payload: any,
+  protocol?: string
 ): Promise<any> {
-  const evseId = payload.evseId;
-  const connectorId = payload.connectorId;
-  const status = payload.connectorStatus;
-  const errorCode = payload.errorCode;
-  const timestamp = payload.timestamp || new Date();
-  const info = payload.info;
+  const { connectorId, connectorStatus, evseId, timestamp } = payload;
+  const targetConnectorId = connectorId ?? evseId ?? 1;
 
   try {
-    const resolvedConnectorId = connectorId !== undefined ? connectorId : (evseId !== undefined ? evseId : 0);
+    const connectorName = `Channel ${targetConnectorId}`;
 
-    // Update registry heartbeat immediately
-    await chargerRegistry.updateHeartbeat(chargerId);
-
-    // Enqueue status event to BullMQ background processor
-    await enqueueStatusEvent({
-      chargerId,
-      connectorId: resolvedConnectorId,
-      status,
-      errorCode,
-      info,
-      vendorId: payload.vendorId,
-      vendorErrorCode: payload.vendorErrorCode,
-      timestamp: timestamp ? (timestamp instanceof Date ? timestamp.toISOString() : timestamp) : new Date().toISOString(),
+    const evse = await prisma.evse.upsert({
+      where: {
+        charger_id_evse_id: {
+          charger_id: chargerId,
+          evse_id: targetConnectorId,
+        },
+      },
+      update: {},
+      create: {
+        charger_id: chargerId,
+        evse_id: targetConnectorId,
+      },
     });
 
-    logger.info(
-      `StatusNotification enqueued for charger ${chargerId}: connector ${resolvedConnectorId} status = ${status}`
-    );
+    await prisma.connector.upsert({
+      where: {
+        connector_id: evse.id,
+      },
+      update: {
+        status: connectorStatus,
+        updatedAt: new Date(),
+      },
+      create: {
+        connector_id: evse.id,
+        connector_name: connectorName,
+        status: connectorStatus,
+        current_type: "AC",
+        evse_id: evse.id,
+      },
+    });
+
+    await prisma.charger.update({
+      where: { charger_id: chargerId },
+      data: { status: "active", last_heartbeat: new Date() },
+    });
+
+    await chargerRegistry.updateHeartbeat(chargerId);
+
+    await enqueueStatusEvent({
+      chargerId,
+      connectorId: targetConnectorId,
+      status: connectorStatus,
+      timestamp: timestamp ? new Date(timestamp) : new Date(),
+    });
 
     const response = {};
     await logOcppMessage(chargerId, "out", response);
@@ -289,22 +324,30 @@ export async function handleStatusNotification(
 }
 
 /**
- * Handle TransactionEvent from charger (OCPP 2.1)
+ * Handle TransactionEvent from charger (OCPP 2.0.1 / 2.1)
  */
 export async function handleTransactionEvent(
   chargerId: number,
   payload: any,
   protocol?: string
 ): Promise<any> {
-  const { eventType, timestamp, transactionInfo, idToken, evse, meterValue } = payload;
+  const { eventType, timestamp, meterValue, transactionInfo, idToken, evse } = payload;
   const transactionId = transactionInfo?.transactionId;
   const connectorId = evse?.id;
-  const idTag = idToken?.idToken;
+  const rawIdTag = idToken?.idToken;
   const chargingState = transactionInfo?.chargingState;
 
   const isV2GDischarging = chargingState === "Discharging";
 
   try {
+    // Handle Quirk rules & card ID translation
+    const charger = await prisma.charger.findUnique({
+      where: { charger_id: chargerId },
+      include: { quirkProfile: true },
+    });
+    const rules = charger?.quirkProfile?.rules as any;
+    const idTag = rawIdTag ? resolveMappedCardId(rawIdTag, rules) : rawIdTag;
+
     if (eventType === "Started") {
       let meterStart = 0;
       if (meterValue && meterValue.length > 0 && meterValue[0].sampledValue && meterValue[0].sampledValue.length > 0) {
@@ -313,9 +356,15 @@ export async function handleTransactionEvent(
 
       let rfidUserId: number | undefined;
       if (idTag) {
-        const rfidUser = await prisma.rfidUser.findUnique({
+        let rfidUser = await prisma.rfidUser.findUnique({
           where: { rfid_tag: idTag },
         });
+
+        if (!rfidUser && rawIdTag && idTag !== rawIdTag) {
+          rfidUser = await prisma.rfidUser.findUnique({
+            where: { rfid_tag: rawIdTag },
+          });
+        }
 
         let isAuthorized = true;
 
@@ -323,16 +372,11 @@ export async function handleTransactionEvent(
           isAuthorized = false;
         } else {
           // Check if charger belongs to a group and if user is in that group
-          const chargerInfo = await prisma.charger.findUnique({
-            where: { charger_id: chargerId },
-            select: { chargeGroupId: true }
-          });
-
-          if (chargerInfo && chargerInfo.chargeGroupId) {
+          if (charger && charger.chargeGroupId) {
             const userInGroup = await prisma.chargeGroupUser.findUnique({
               where: {
                 chargeGroupId_userId: {
-                  chargeGroupId: chargerInfo.chargeGroupId,
+                  chargeGroupId: charger.chargeGroupId,
                   userId: rfidUser.owner_id
                 }
               }
@@ -344,7 +388,7 @@ export async function handleTransactionEvent(
         }
 
         if (!isAuthorized) {
-          logger.warn(`TransactionEvent (Started) rejected: RFID tag ${idTag} not authorized`);
+          logger.warn(`TransactionEvent (Started) rejected: RFID tag ${rawIdTag} (effective: ${idTag}) not authorized`);
           let response: any = {};
           response.idTokenInfo = { status: "Invalid" };
           await logOcppMessage(chargerId, "out", response);

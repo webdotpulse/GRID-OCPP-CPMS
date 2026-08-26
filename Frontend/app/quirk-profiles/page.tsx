@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { Plus, Trash, Download, Upload, Save, Edit, Zap } from "lucide-react";
+import { Plus, Trash, Download, Upload, Save, Edit, Sun, CreditCard, ArrowRight, ShieldAlert, Sparkles, Layers, Info } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+
+interface CardMapping {
+  from: string;
+  to: string;
+}
 
 interface QuirkProfile {
   id: number;
@@ -33,11 +39,15 @@ export default function QuirkProfilesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<QuirkProfile | null>(null);
 
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    rules: "{}",
-  });
+  // Form states
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [cardMappings, setCardMappings] = useState<CardMapping[]>([]);
+  const [ignoreMeterStart, setIgnoreMeterStart] = useState(false);
+  const [calculatePower, setCalculatePower] = useState(false);
+  const [estimateEnergy, setEstimateEnergy] = useState(false);
+  const [jsonRules, setJsonRules] = useState("{}");
+  const [activeTab, setActiveTab] = useState<"visual" | "json">("visual");
 
   const fetchProfiles = async () => {
     try {
@@ -54,43 +64,176 @@ export default function QuirkProfilesPage() {
     fetchProfiles();
   }, []);
 
+  const parseRulesToVisualState = (rulesObj: any) => {
+    const mappings: CardMapping[] = [];
+
+    // Parse object format: rules.cardIdMapping or rules.solarCardIdMapping
+    const rawMap = rulesObj?.cardIdMapping || rulesObj?.solarCardIdMapping || rulesObj?.idTagMapping;
+    if (rawMap && typeof rawMap === "object" && !Array.isArray(rawMap)) {
+      for (const [from, to] of Object.entries(rawMap)) {
+        if (typeof to === "string") {
+          mappings.push({ from, to });
+        }
+      }
+    } else if (Array.isArray(rulesObj?.cardMappings)) {
+      for (const m of rulesObj.cardMappings) {
+        if (m && m.from && m.to) {
+          mappings.push({ from: m.from, to: m.to });
+        }
+      }
+    }
+
+    setCardMappings(mappings);
+    setIgnoreMeterStart(Boolean(rulesObj?.ignoreMeterStart));
+    setCalculatePower(Boolean(rulesObj?.calculatePowerFromVoltageAndCurrent));
+    setEstimateEnergy(Boolean(rulesObj?.estimateEnergyFromPower));
+  };
+
+  const syncVisualStateToJson = (
+    mappings: CardMapping[],
+    ignoreStart: boolean,
+    calcPwr: boolean,
+    estEnergy: boolean
+  ) => {
+    let currentObj: any = {};
+    try {
+      currentObj = JSON.parse(jsonRules);
+    } catch {
+      currentObj = {};
+    }
+
+    // Build cardIdMapping map
+    if (mappings.length > 0) {
+      const mapObj: Record<string, string> = {};
+      mappings.forEach((m) => {
+        if (m.from.trim() && m.to.trim()) {
+          mapObj[m.from.trim()] = m.to.trim();
+        }
+      });
+      currentObj.cardIdMapping = mapObj;
+    } else {
+      delete currentObj.cardIdMapping;
+      delete currentObj.solarCardIdMapping;
+      delete currentObj.cardMappings;
+    }
+
+    if (ignoreStart) {
+      currentObj.ignoreMeterStart = true;
+    } else {
+      delete currentObj.ignoreMeterStart;
+    }
+
+    if (calcPwr) {
+      currentObj.calculatePowerFromVoltageAndCurrent = true;
+    } else {
+      delete currentObj.calculatePowerFromVoltageAndCurrent;
+    }
+
+    if (estEnergy) {
+      currentObj.estimateEnergyFromPower = true;
+    } else {
+      delete currentObj.estimateEnergyFromPower;
+    }
+
+    setJsonRules(JSON.stringify(currentObj, null, 2));
+  };
+
   const handleOpenDialog = (profile?: QuirkProfile) => {
     if (profile) {
       setEditingProfile(profile);
-      setFormData({
-        name: profile.name,
-        description: profile.description || "",
-        rules: JSON.stringify(profile.rules, null, 2),
-      });
+      setName(profile.name);
+      setDescription(profile.description || "");
+      const rules = profile.rules || {};
+      setJsonRules(JSON.stringify(rules, null, 2));
+      parseRulesToVisualState(rules);
     } else {
       setEditingProfile(null);
-      setFormData({
-        name: "",
-        description: "",
-        rules: "{\n  \n}",
-      });
+      setName("");
+      setDescription("");
+      setCardMappings([]);
+      setIgnoreMeterStart(false);
+      setCalculatePower(false);
+      setEstimateEnergy(false);
+      setJsonRules("{\n  \n}");
     }
+    setActiveTab("visual");
     setIsDialogOpen(true);
   };
 
+  const handleAddCardMapping = () => {
+    const updated = [...cardMappings, { from: "", to: "" }];
+    setCardMappings(updated);
+    syncVisualStateToJson(updated, ignoreMeterStart, calculatePower, estimateEnergy);
+  };
+
+  const handleUpdateCardMapping = (index: number, field: "from" | "to", value: string) => {
+    const updated = [...cardMappings];
+    updated[index][field] = value;
+    setCardMappings(updated);
+    syncVisualStateToJson(updated, ignoreMeterStart, calculatePower, estimateEnergy);
+  };
+
+  const handleRemoveCardMapping = (index: number) => {
+    const updated = cardMappings.filter((_, i) => i !== index);
+    setCardMappings(updated);
+    syncVisualStateToJson(updated, ignoreMeterStart, calculatePower, estimateEnergy);
+  };
+
+  const handleToggleIgnoreMeterStart = (val: boolean) => {
+    setIgnoreMeterStart(val);
+    syncVisualStateToJson(cardMappings, val, calculatePower, estimateEnergy);
+  };
+
+  const handleToggleCalculatePower = (val: boolean) => {
+    setCalculatePower(val);
+    syncVisualStateToJson(cardMappings, ignoreMeterStart, val, estimateEnergy);
+  };
+
+  const handleApplyTemplate = (templateName: string) => {
+    if (templateName === "solar") {
+      setName((prev) => prev || "Solar Mode Card ID Translation");
+      setDescription(
+        (prev) =>
+          prev ||
+          "Translates solar modus RFID tag emitted by charger into the customer card ID for 3rd-party backend proxying."
+      );
+      const newMappings = [{ from: "SOLAR_DEFAULT", to: "NL-MINT-00012345" }];
+      setCardMappings(newMappings);
+      syncVisualStateToJson(newMappings, ignoreMeterStart, calculatePower, estimateEnergy);
+      toast.success("Loaded Solar Mode Translation template");
+    } else if (templateName === "alfen") {
+      setName((prev) => prev || "Alfen Solar & Zero-TxId Quirk");
+      setDescription(
+        (prev) =>
+          prev ||
+          "Remaps solar smart charging tag to roaming tag and handles Alfen meterStart quirks."
+      );
+      const newMappings = [{ from: "EVE_SOLAR", to: "NL-ALL-99887766" }];
+      setCardMappings(newMappings);
+      setIgnoreMeterStart(true);
+      syncVisualStateToJson(newMappings, true, calculatePower, estimateEnergy);
+      toast.success("Loaded Alfen Quirk template");
+    }
+  };
+
   const handleSave = async () => {
-    if (!formData.name) {
+    if (!name.trim()) {
       toast.error("Name is required");
       return;
     }
 
     let parsedRules;
     try {
-      parsedRules = JSON.parse(formData.rules);
-    } catch (e) {
+      parsedRules = JSON.parse(jsonRules);
+    } catch {
       toast.error("Rules must be valid JSON");
       return;
     }
 
     try {
       const payload = {
-        name: formData.name,
-        description: formData.description,
+        name: name.trim(),
+        description: description.trim() || null,
         rules: parsedRules,
       };
 
@@ -122,9 +265,9 @@ export default function QuirkProfilesPage() {
 
   const handleExport = (profile: QuirkProfile) => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(profile, null, 2));
-    const downloadAnchorNode = document.createElement('a');
+    const downloadAnchorNode = document.createElement("a");
     downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `${profile.name.replace(/\s+/g, '_')}_quirk_profile.json`);
+    downloadAnchorNode.setAttribute("download", `${profile.name.replace(/\s+/g, "_")}_quirk_profile.json`);
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
@@ -139,9 +282,9 @@ export default function QuirkProfilesPage() {
       try {
         const json = JSON.parse(event.target?.result as string);
         if (Array.isArray(json)) {
-            await api.post("/quirk-profiles/import", json);
-            toast.success("Profiles imported successfully");
-            fetchProfiles();
+          await api.post("/quirk-profiles/import", json);
+          toast.success("Profiles imported successfully");
+          fetchProfiles();
         } else if (json.name && json.rules) {
           await api.post("/quirk-profiles", {
             name: `${json.name} (Imported)`,
@@ -158,18 +301,29 @@ export default function QuirkProfilesPage() {
       }
     };
     reader.readAsText(file);
-    // reset file input
-    e.target.value = '';
+    e.target.value = "";
   };
 
+  const getProfileMappingsCount = (rules: any) => {
+    const map = rules?.cardIdMapping || rules?.solarCardIdMapping || rules?.idTagMapping;
+    if (map && typeof map === "object" && !Array.isArray(map)) {
+      return Object.keys(map).length;
+    }
+    if (Array.isArray(rules?.cardMappings)) {
+      return rules.cardMappings.length;
+    }
+    return 0;
+  };
 
   return (
     <AppShell>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">Quirk Profiles</h2>
-            <p className="text-muted-foreground">Manage hardware quirk resolution profiles.</p>
+            <h2 className="text-2xl font-bold tracking-tight">Hardware Quirk Profiles</h2>
+            <p className="text-muted-foreground">
+              Configure brand-specific hardware quirks, solar mode charge card translations, and 3rd-party backend proxy rules.
+            </p>
           </div>
           <div className="flex gap-2">
             <Label htmlFor="import-profile" className="cursor-pointer">
@@ -188,36 +342,228 @@ export default function QuirkProfilesPage() {
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => handleOpenDialog()}><Plus className="w-4 h-4 mr-2" /> New Profile</Button>
+                <Button onClick={() => handleOpenDialog()}>
+                  <Plus className="w-4 h-4 mr-2" /> New Quirk Profile
+                </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>{editingProfile ? "Edit Profile" : "Create Profile"}</DialogTitle>
+                  <DialogTitle>{editingProfile ? "Edit Quirk Profile" : "Create Quirk Profile"}</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Profile Name</Label>
-                    <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Ignore Missing MeterStart" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Description</Label>
-                    <Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Optional description..." />
+                <div className="space-y-5 py-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Profile Name</Label>
+                      <Input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g. Alfen Solar Mode Card Translation"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Description</Label>
+                      <Input
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Optional description..."
+                      />
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Rules (JSON)</Label>
-                    <Textarea
-                      value={formData.rules}
-                      onChange={(e) => setFormData({ ...formData, rules: e.target.value })}
-                      placeholder='{ "ignoreMeterStart": true }'
-                      rows={10}
-                      className="font-mono"
-                    />
+                  {/* Preset Templates */}
+                  <div className="p-3 bg-muted/40 rounded-lg border border-border/50 flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Quick Templates:
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs bg-background/50 hover:bg-background"
+                      onClick={() => handleApplyTemplate("solar")}
+                    >
+                      <Sun className="w-3 h-3 mr-1 text-amber-500" /> Solar Mode Translation
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs bg-background/50 hover:bg-background"
+                      onClick={() => handleApplyTemplate("alfen")}
+                    >
+                      <Layers className="w-3 h-3 mr-1 text-sky-500" /> Alfen Eve Quirk
+                    </Button>
                   </div>
 
-                  <div className="pt-4 flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                    <Button onClick={handleSave}><Save className="w-4 h-4 mr-2" /> Save Profile</Button>
+                  {/* Tabs: Visual Builder vs Raw JSON */}
+                  <div className="flex border-b border-border">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("visual")}
+                      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                        activeTab === "visual"
+                          ? "border-primary text-primary"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Visual Rule Builder
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab("json");
+                      }}
+                      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                        activeTab === "json"
+                          ? "border-primary text-primary"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Advanced JSON Editor
+                    </button>
+                  </div>
+
+                  {activeTab === "visual" ? (
+                    <div className="space-y-6">
+                      {/* Solar Card ID / Hardware Card Translation Section */}
+                      <div className="p-4 border rounded-xl bg-card/60 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
+                              <CreditCard className="w-4 h-4 text-amber-500" />
+                              Solar Mode & Charge Card ID Translation
+                            </h4>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              When a charger emits an internal solar mode card ID, CPMS translates it to the forwarded card ID before sending to the 3rd-party backend URL.
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            onClick={handleAddCardMapping}
+                            className="h-8 text-xs"
+                          >
+                            <Plus className="w-3.5 h-3.5 mr-1" /> Add Card Mapping
+                          </Button>
+                        </div>
+
+                        {cardMappings.length === 0 ? (
+                          <div className="text-xs text-muted-foreground border border-dashed rounded-lg p-4 text-center">
+                            No card ID mappings configured. Click <strong>Add Card Mapping</strong> to remap solar tags to customer card IDs.
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-muted-foreground px-1">
+                              <div className="col-span-5">Source Card ID (Solar Mode / Hardware Tag)</div>
+                              <div className="col-span-1 text-center"></div>
+                              <div className="col-span-5">Forwarded Target Card ID (Upstream / Roaming)</div>
+                              <div className="col-span-1"></div>
+                            </div>
+                            {cardMappings.map((mapping, idx) => (
+                              <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                                <div className="col-span-5">
+                                  <Input
+                                    value={mapping.from}
+                                    onChange={(e) => handleUpdateCardMapping(idx, "from", e.target.value)}
+                                    placeholder="e.g. SOLAR_DEFAULT or EVE001"
+                                    className="h-8 text-xs font-mono"
+                                  />
+                                </div>
+                                <div className="col-span-1 flex justify-center text-muted-foreground">
+                                  <ArrowRight className="w-4 h-4" />
+                                </div>
+                                <div className="col-span-5">
+                                  <Input
+                                    value={mapping.to}
+                                    onChange={(e) => handleUpdateCardMapping(idx, "to", e.target.value)}
+                                    placeholder="e.g. NL-MINT-00012345"
+                                    className="h-8 text-xs font-mono"
+                                  />
+                                </div>
+                                <div className="col-span-1 flex justify-center">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleRemoveCardMapping(idx)}
+                                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                  >
+                                    <Trash className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Additional Standard Quirk Toggles */}
+                      <div className="space-y-2 pt-1">
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          Hardware Fixes & Workarounds
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <label className="flex items-start gap-2.5 p-3 rounded-lg border bg-card/40 cursor-pointer hover:bg-card/70 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={ignoreMeterStart}
+                              onChange={(e) => handleToggleIgnoreMeterStart(e.target.checked)}
+                              className="mt-0.5 rounded text-primary focus:ring-primary"
+                            />
+                            <div>
+                              <div className="text-xs font-medium">Ignore Missing MeterStart</div>
+                              <div className="text-[11px] text-muted-foreground">
+                                Retroactively populates meterStart from the first MeterValue sample.
+                              </div>
+                            </div>
+                          </label>
+
+                          <label className="flex items-start gap-2.5 p-3 rounded-lg border bg-card/40 cursor-pointer hover:bg-card/70 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={calculatePower}
+                              onChange={(e) => handleToggleCalculatePower(e.target.checked)}
+                              className="mt-0.5 rounded text-primary focus:ring-primary"
+                            />
+                            <div>
+                              <div className="text-xs font-medium">Calculate Power from V & A</div>
+                              <div className="text-[11px] text-muted-foreground">
+                                Computes 3-phase and single-phase wattage if hardware omits Power.Active.Import.
+                              </div>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label>Rules Configuration (JSON)</Label>
+                      <Textarea
+                        value={jsonRules}
+                        onChange={(e) => {
+                          setJsonRules(e.target.value);
+                          try {
+                            const parsed = JSON.parse(e.target.value);
+                            parseRulesToVisualState(parsed);
+                          } catch {
+                            // wait for valid JSON
+                          }
+                        }}
+                        placeholder='{ "cardIdMapping": { "SOLAR_TAG": "TARGET_TAG" }, "ignoreMeterStart": true }'
+                        rows={12}
+                        className="font-mono text-xs"
+                      />
+                    </div>
+                  )}
+
+                  <div className="pt-4 flex justify-end gap-2 border-t">
+                    <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSave}>
+                      <Save className="w-4 h-4 mr-2" /> Save Profile
+                    </Button>
                   </div>
                 </div>
               </DialogContent>
@@ -226,40 +572,101 @@ export default function QuirkProfilesPage() {
         </div>
 
         {loading ? (
-          <div>Loading profiles...</div>
+          <div className="py-12 text-center text-muted-foreground">Loading quirk profiles...</div>
         ) : profiles.length === 0 ? (
           <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              No quirk profiles found. Create one to handle hardware anomalies.
+            <CardContent className="py-12 text-center text-muted-foreground space-y-3">
+              <ShieldAlert className="w-10 h-10 mx-auto text-muted-foreground/60" />
+              <div>No quirk profiles found. Create one to handle solar card translation and hardware quirks.</div>
+              <Button onClick={() => handleOpenDialog()}>
+                <Plus className="w-4 h-4 mr-2" /> Create First Profile
+              </Button>
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {profiles.map((profile) => (
-              <Card key={profile.id}>
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-lg">{profile.name}</CardTitle>
-                      {profile.description && <CardDescription>{profile.description}</CardDescription>}
+            {profiles.map((profile) => {
+              const mappingsCount = getProfileMappingsCount(profile.rules);
+              const hasSolarMapping = mappingsCount > 0;
+              const hasIgnoreMeterStart = Boolean(profile.rules?.ignoreMeterStart);
+              const hasPowerCalc = Boolean(profile.rules?.calculatePowerFromVoltageAndCurrent);
+
+              return (
+                <Card key={profile.id} className="flex flex-col justify-between hover:border-border/80 transition-colors">
+                  <CardHeader className="pb-3">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <CardTitle className="text-base font-semibold">{profile.name}</CardTitle>
+                        {profile.description && (
+                          <CardDescription className="text-xs line-clamp-2">
+                            {profile.description}
+                          </CardDescription>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    <Button size="sm" variant="outline" onClick={() => handleOpenDialog(profile)}>
-                      <Edit className="w-4 h-4 mr-1" /> Edit
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleExport(profile)}>
-                      <Download className="w-4 h-4 mr-1" /> Export
-                    </Button>
-                    <Button size="sm" variant="destructive" onClick={() => handleDelete(profile.id)}>
-                      <Trash className="w-4 h-4 mr-1" /> Delete
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardHeader>
+
+                  <CardContent className="space-y-4 flex-1 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        {hasSolarMapping && (
+                          <Badge variant="secondary" className="bg-amber-500/15 text-amber-600 dark:text-amber-400 text-xs border border-amber-500/20">
+                            <Sun className="w-3 h-3 mr-1" />
+                            Card Translation ({mappingsCount})
+                          </Badge>
+                        )}
+                        {hasIgnoreMeterStart && (
+                          <Badge variant="outline" className="text-xs">
+                            Ignore MeterStart
+                          </Badge>
+                        )}
+                        {hasPowerCalc && (
+                          <Badge variant="outline" className="text-xs">
+                            Power Calc
+                          </Badge>
+                        )}
+                      </div>
+
+                      {hasSolarMapping && (
+                        <div className="p-2.5 bg-muted/40 rounded-lg text-xs space-y-1 font-mono text-muted-foreground">
+                          <div className="text-[10px] font-sans font-medium uppercase tracking-wider text-muted-foreground/80">
+                            Active Mappings:
+                          </div>
+                          {(() => {
+                            const rawMap =
+                              profile.rules?.cardIdMapping ||
+                              profile.rules?.solarCardIdMapping ||
+                              profile.rules?.idTagMapping;
+                            if (rawMap && typeof rawMap === "object") {
+                              return Object.entries(rawMap).slice(0, 2).map(([from, to], i) => (
+                                <div key={i} className="truncate flex items-center gap-1.5">
+                                  <span className="text-amber-500 font-semibold">{from}</span>
+                                  <span>→</span>
+                                  <span className="text-emerald-500 font-semibold">{String(to)}</span>
+                                </div>
+                              ));
+                            }
+                            return null;
+                          })()}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 pt-2 border-t">
+                      <Button size="sm" variant="outline" onClick={() => handleOpenDialog(profile)} className="h-8 text-xs">
+                        <Edit className="w-3.5 h-3.5 mr-1" /> Edit
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleExport(profile)} className="h-8 text-xs">
+                        <Download className="w-3.5 h-3.5 mr-1" /> Export
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => handleDelete(profile.id)} className="h-8 text-xs">
+                        <Trash className="w-3.5 h-3.5 mr-1" /> Delete
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
