@@ -242,6 +242,41 @@ export async function processBillingJob(
       logger.info(`[eventWorker] RfidSession ${rfidSession.id} finalized. Amount due: ${(amountDue / 100).toFixed(2)}`);
     }
 
+    // Process OCPI roaming session & compile CDR if applicable
+    const roamingSession = prisma.roamingSession
+      ? await prisma.roamingSession.findFirst({
+          where: { transactionId: String(transactionId) },
+        })
+      : null;
+
+    if (roamingSession) {
+      const initialMeter = transaction?.initialMeterValue || 0;
+      await prisma.roamingSession.update({
+        where: { id: roamingSession.id },
+        data: {
+          endTime: new Date(timestamp || new Date()),
+          energyConsumed: meterStop - initialMeter,
+          wholesaleCost: (totalCost || 0) / 100,
+          status: "completed",
+        },
+      });
+
+      // Compile and dispatch OCPI CDR asynchronously
+      import("../services/OcpiService.js")
+        .then(({ OcpiService }) => {
+          OcpiService.compileCdrForTransaction(transactionId, roamingSession.partnerId)
+            .then((cdr) => {
+              if (cdr) {
+                OcpiService.dispatchCdrToPartner(cdr.cdrId, roamingSession.partnerId).catch((err) =>
+                  logger.error(`[eventWorker] Error dispatching roaming CDR: ${err}`)
+                );
+              }
+            })
+            .catch((err) => logger.error(`[eventWorker] Error compiling roaming CDR: ${err}`));
+        })
+        .catch(() => {});
+    }
+
     logger.info(`[eventWorker] Billing and session completion processed for tx ${transactionId}`);
   } catch (error) {
     logger.error(`[eventWorker] Failed to process billing job ${job.id}: ${error}`);
