@@ -1,5 +1,7 @@
 import { WebSocket, WebSocketServer } from "ws";
 import * as http from "http";
+import * as https from "https";
+import * as fs from "fs";
 import { config } from "../config/index.js";
 import { prisma } from "../config/database.js";
 import { logger } from "../utils/logger.js";
@@ -24,13 +26,101 @@ function isIpRateLimited(ip: string): boolean {
   return entry.count > MAX_UPGRADES_PER_MINUTE;
 }
 
+/**
+ * Verify client certificate during mTLS TLS handshake (OCPP Security Profile 3)
+ */
+export function verifyMtlsClientCertificate(
+  request: http.IncomingMessage,
+  chargerIdStr: string,
+  charger?: any
+): { valid: boolean; error?: string; statusCode?: number; cn?: string } {
+  const socket = request.socket as any;
+  const getPeerCertificate = socket.getPeerCertificate;
+  const clientCert = typeof getPeerCertificate === "function" ? socket.getPeerCertificate(true) : null;
+  const isAuthorized = socket.authorized !== false;
+
+  // 1. If mTLS is globally enabled
+  if (config.mtlsEnabled) {
+    if (!clientCert || Object.keys(clientCert).length === 0) {
+      return {
+        valid: false,
+        statusCode: 401,
+        error: "mTLS Certificate Required: No client certificate presented during TLS handshake",
+      };
+    }
+
+    if (!isAuthorized) {
+      return {
+        valid: false,
+        statusCode: 401,
+        error: `mTLS Certificate Invalid or Untrusted: ${socket.authorizationError || "Unauthorized"}`,
+      };
+    }
+  }
+
+  // 2. If a client certificate was presented (mandatory in mTLS or optional client-cert)
+  if (clientCert && Object.keys(clientCert).length > 0) {
+    const certCn = clientCert.subject?.CN;
+    if (!certCn) {
+      return {
+        valid: false,
+        statusCode: 403,
+        error: "mTLS Certificate Subject Common Name (CN) is missing",
+      };
+    }
+
+    const expectedNames = [
+      chargerIdStr.toLowerCase(),
+      charger?.name?.toLowerCase(),
+      String(charger?.charger_id),
+      charger?.serial_number?.toLowerCase(),
+    ].filter(Boolean);
+
+    const certCnLower = certCn.toLowerCase();
+    const isMatch = expectedNames.some(
+      (expected) => certCnLower === expected || certCnLower.includes(expected) || expected.includes(certCnLower)
+    );
+
+    if (!isMatch) {
+      return {
+        valid: false,
+        statusCode: 403,
+        cn: certCn,
+        error: `mTLS CN Mismatch: Client certificate CN '${certCn}' does not match charger identity '${chargerIdStr}'`,
+      };
+    }
+
+    return { valid: true, cn: certCn };
+  }
+
+  return { valid: true };
+}
+
 class OcppServer {
   private wss: WebSocketServer | null = null;
-  private httpServer: http.Server | null = null;
+  private httpServer: http.Server | https.Server | null = null;
   private pingInterval: NodeJS.Timeout | null = null;
 
   start(): void {
-    this.httpServer = http.createServer();
+    if (config.mtlsEnabled && config.tlsCertPath && config.tlsKeyPath) {
+      try {
+        const httpsOptions: https.ServerOptions = {
+          cert: fs.readFileSync(config.tlsCertPath),
+          key: fs.readFileSync(config.tlsKeyPath),
+          ca: config.tlsCaPath && fs.existsSync(config.tlsCaPath) ? [fs.readFileSync(config.tlsCaPath)] : undefined,
+          requestCert: true,
+          rejectUnauthorized: false,
+        };
+        this.httpServer = https.createServer(httpsOptions);
+        logger.info("OCPP WebSocket server initialized with TLS / mTLS (Security Profile 3)");
+      } catch (err) {
+        logger.warn(`Failed to initialize HTTPS/mTLS server: ${err}. Falling back to HTTP.`);
+        this.httpServer = http.createServer();
+      }
+    } else {
+      this.httpServer = http.createServer();
+    }
+
     this.wss = new WebSocketServer({
       noServer: true,
       maxPayload: 1024 * 1024, // 1MB maximum payload per frame for security
@@ -43,7 +133,7 @@ class OcppServer {
       },
     });
 
-    // Handle the upgrade event to implement optional authentication
+    // Handle the upgrade event to implement authentication and mTLS
     this.httpServer.on("upgrade", async (request, socket, head) => {
       try {
         const clientIp = request.socket.remoteAddress || "unknown";
@@ -101,6 +191,16 @@ class OcppServer {
           }
 
           socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+
+        // mTLS X.509 Client Certificate Verification
+        const mtlsResult = verifyMtlsClientCertificate(request, chargerIdStr, charger);
+        if (!mtlsResult.valid) {
+          logger.warn(`[mTLS] Rejected connection for charger ${chargerIdStr}: ${mtlsResult.error}`);
+          const status = mtlsResult.statusCode || 401;
+          socket.write(`HTTP/1.1 ${status} ${status === 403 ? "Forbidden" : "Unauthorized"}\r\n\r\n`);
           socket.destroy();
           return;
         }

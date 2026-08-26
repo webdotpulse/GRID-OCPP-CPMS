@@ -35,6 +35,12 @@ export const config = {
 
   // Email Verification
   requireEmailVerification: process.env.REQUIRE_EMAIL_VERIFICATION === "true",
+
+  // Mutual TLS (mTLS) Security Profile 3
+  mtlsEnabled: process.env.MTLS_ENABLED === "true",
+  tlsCertPath: process.env.TLS_CERT_PATH,
+  tlsKeyPath: process.env.TLS_KEY_PATH,
+  tlsCaPath: process.env.TLS_CA_PATH,
 };
 
 export const logLevels = ["error", "warn", "info", "debug"] as const;
