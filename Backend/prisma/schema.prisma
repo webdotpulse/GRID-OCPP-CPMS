@@ -44,6 +44,7 @@ model User {
   vehicleEnergyProfile        VehicleEnergyProfile?
   vehicleContractCertificates VehicleContractCertificate[]
   auditLogs                   AuditLog[]
+  invoices                    Invoice[]
 }
 
 model Company {
@@ -53,6 +54,7 @@ model Company {
   updatedAt DateTime @updatedAt
   users     User[]
   mollieConfig MollieConfig?
+  invoices  Invoice[]
 }
 
 model MollieConfig {
@@ -266,12 +268,15 @@ model Transaction {
   stopReason        String?
   idTag             String?
   totalCost         Float?
+  invoiceId         Int?
+  invoice           Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
   @@index([charger_id])
   @@index([status])
   @@index([status, startTime])
+  @@index([invoiceId])
 }
 
 // OCPP message logging for debugging
@@ -817,5 +822,58 @@ model AuditLog {
   ip        String   @default("127.0.0.1")
   userAgent String?
   createdAt DateTime @default(now())
+}
+
+// Automated Monthly Invoicing & Multi-Tax Engine (FIN-01)
+model Invoice {
+  id             Int           @id @default(autoincrement())
+  invoiceNumber  String        @unique
+  companyId      Int?
+  company        Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  userId         Int?
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  recipientName  String?
+  recipientEmail String?
+  billingAddress String?
+  taxNumber      String?
+  country        String?       @default("NL")
+  periodStart    DateTime?
+  periodEnd      DateTime?
+  subtotal       Float
+  vatAmount      Float
+  totalAmount    Float
+  vatRate        Float         @default(21.0)
+  currency       String        @default("EUR")
+  status         String        @default("issued")
+  pdfUrl         String?
+  dueDate        DateTime
+  paidAt         DateTime?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  items          InvoiceItem[]
+  transactions   Transaction[]
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model InvoiceItem {
+  id          Int      @id @default(autoincrement())
+  invoiceId   Int
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Float    @default(1)
+  unitPrice   Float
+  vatRate     Float    @default(21.0)
+  vatAmount   Float    @default(0)
+  amount      Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([invoiceId])
 }
 

@@ -14,8 +14,14 @@ const parseTemplate = (template: string, variables: Record<string, string>): str
   return parsed;
 };
 
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer | string;
+  contentType?: string;
+}
+
 /**
- * Send email based on template type or fallback strings.
+ * Send email based on template type or fallback strings with optional attachments.
  */
 export const sendEmail = async (
   to: string,
@@ -24,7 +30,8 @@ export const sendEmail = async (
   htmlFallback?: string,
   templateType?: string,
   language: string = "en",
-  variables?: Record<string, string>
+  variables?: Record<string, string>,
+  attachments?: EmailAttachment[]
 ) => {
   try {
     let finalSubject = subjectFallback;
@@ -52,6 +59,9 @@ export const sendEmail = async (
       logger.info(`--- EMAIL START ---`);
       logger.info(`To: ${to}`);
       logger.info(`Subject: ${finalSubject}`);
+      if (attachments?.length) {
+        logger.info(`Attachments: ${attachments.map(a => a.filename).join(', ')}`);
+      }
       logger.info(`Text Body:\n${finalText}`);
       logger.info(`--- EMAIL END ---`);
       return null;
@@ -67,13 +77,17 @@ export const sendEmail = async (
       },
     });
 
-    const mailOptions = {
+    const mailOptions: any = {
       from: mailConfig.fromAddress,
       to,
       subject: finalSubject,
       text: finalText,
       html: finalHtml,
     };
+
+    if (attachments && attachments.length > 0) {
+      mailOptions.attachments = attachments;
+    }
 
     const info = await transporter.sendMail(mailOptions);
     logger.info(`Message sent: ${info.messageId}`);

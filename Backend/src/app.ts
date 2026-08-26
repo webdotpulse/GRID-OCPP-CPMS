@@ -39,6 +39,7 @@ import vehiclesRoutes, { energyProfileRouter } from "./api/vehicles/vehicles.rou
 import analyticsRoutes from "./api/analytics/analytics.routes.js";
 import reimbursementsRoutes from "./api/reimbursements/reimbursements.routes.js";
 import auditRoutes from "./api/audit/audit.routes.js";
+import invoicesRoutes from "./api/invoices/invoices.routes.js";
 
 // Import OCPP servers
 import { ocppServer } from "./ocpp/ocppServer.js";
@@ -46,6 +47,7 @@ import { ocppLogsServer } from "./ocpp/logsWebSocket.js";
 import { setupRealtimeSocket } from "./ocpp/realtime.socket.js";
 import { startAutoHealCron } from "./cron/autoHealCron.js";
 import { startReimbursementCron } from "./cron/reimbursementCron.js";
+import { startInvoiceCron } from "./cron/invoiceCron.js";
 import "./cron/predictiveBalancingCron.js";
 
 /**
@@ -126,6 +128,7 @@ export function createApp(): Application {
   app.use("/api/analytics", analyticsRoutes);
   app.use("/api/reimbursements", reimbursementsRoutes);
   app.use("/api/audit", auditRoutes);
+  app.use("/api/invoices", authenticateToken, invoicesRoutes);
 
   // Error handling
   app.use(notFoundHandler);
@@ -208,6 +211,7 @@ export async function startWorkerServer() {
   // Start background crons
   startAutoHealCron();
   startReimbursementCron();
+  startInvoiceCron();
 
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}. Shutting down Worker pod gracefully...`);
@@ -253,6 +257,7 @@ export function startServers(): void {
   // Start background crons
   startAutoHealCron();
   startReimbursementCron();
+  startInvoiceCron();
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {
