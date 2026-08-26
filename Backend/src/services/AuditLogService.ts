@@ -26,6 +26,10 @@ export class AuditLogService {
   /**
    * Record an immutable audit log entry
    */
+  public static logAction(params: RecordLogParams): Promise<any> {
+    return this.recordLog(params);
+  }
+
   public static async recordLog(params: RecordLogParams): Promise<any> {
     try {
       const { userId, action, target, targetId, payload, ip, userAgent } = params;

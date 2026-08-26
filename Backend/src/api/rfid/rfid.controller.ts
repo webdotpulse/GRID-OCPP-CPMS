@@ -178,6 +178,12 @@ export const createRfidUser = async (req: Request, res: Response) => {
 
 
     logger.info(`RFID user created: ${rfidUser.name} (${rfidUser.rfid_tag})`);
+
+    // Auto-sync Local Authorization List to all chargers
+    import("../../services/LocalAuthListService.js")
+      .then(({ LocalAuthListService }) => LocalAuthListService.syncAllChargers())
+      .catch(() => {});
+
     res.status(201).json({ success: true, data: { ...rfidUser, owner: rfidUser.owner ? sanitizeUser(rfidUser.owner) : rfidUser.owner } });
   } catch (error) {
     logger.error(`Error creating RFID user: ${error}`);
@@ -234,6 +240,12 @@ export const updateRfidUser = async (req: Request, res: Response) => {
     });
 
     logger.info(`RFID user updated: ${rfidUser.name}`);
+
+    // Auto-sync Local Authorization List to all chargers
+    import("../../services/LocalAuthListService.js")
+      .then(({ LocalAuthListService }) => LocalAuthListService.syncAllChargers())
+      .catch(() => {});
+
     res.json({ success: true, data: { ...rfidUser, owner: rfidUser.owner ? sanitizeUser(rfidUser.owner) : rfidUser.owner } });
   } catch (error) {
     logger.error(`Error updating RFID user: ${error}`);
@@ -299,6 +311,12 @@ export const toggleRfidUserStatus = async (req: Request, res: Response) => {
     logger.info(
       `RFID user ${rfidUser.name} ${active === "true" ? "activated" : "deactivated"}`
     );
+
+    // Auto-sync Local Authorization List to all chargers
+    import("../../services/LocalAuthListService.js")
+      .then(({ LocalAuthListService }) => LocalAuthListService.syncAllChargers())
+      .catch(() => {});
+
     res.json({ success: true, data: { ...rfidUser, owner: rfidUser.owner ? sanitizeUser(rfidUser.owner) : rfidUser.owner } });
   } catch (error) {
     logger.error(`Error toggling RFID user: ${error}`);
@@ -351,6 +369,12 @@ export const deleteRfidUser = async (req: Request, res: Response) => {
     });
 
     logger.info(`RFID user deleted: ID ${rfidUserId}`);
+
+    // Auto-sync Local Authorization List to all chargers
+    import("../../services/LocalAuthListService.js")
+      .then(({ LocalAuthListService }) => LocalAuthListService.syncAllChargers())
+      .catch(() => {});
+
     res.json({ success: true, message: "RFID user deleted" });
   } catch (error) {
     logger.error(`Error deleting RFID user: ${error}`);

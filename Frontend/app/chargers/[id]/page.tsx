@@ -19,6 +19,7 @@ import { PredictiveLoadMap } from "@/components/chargers/PredictiveLoadMap";
 import { ManualSpeedOverridePanel } from "@/components/chargers/ManualSpeedOverridePanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadManagementOverview } from "@/components/dashboard/LoadManagementOverview";
+import { LocalAuthListPanel } from "@/components/chargers/LocalAuthListPanel";
 import { useMemo } from "react";
 import { ChargerTransactionsTable } from "@/components/chargers/ChargerTransactionsTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -194,6 +195,7 @@ export default function ChargerDetailPage() {
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
           <TabsTrigger value="configuration">Configuration Parameters</TabsTrigger>
           <TabsTrigger value="profiles">Configuration Profiles</TabsTrigger>
+          <TabsTrigger value="local-auth">Local Authorization List</TabsTrigger>
           <TabsTrigger value="predictive">Predictive Load</TabsTrigger>
         </TabsList>
 
@@ -387,6 +389,11 @@ export default function ChargerDetailPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="local-auth">
+          <div className="mb-6">
+            <LocalAuthListPanel chargerId={charger.charger_id} isOnline={charger.status !== "offline"} />
+          </div>
         </TabsContent>
         <TabsContent value="predictive">
           <div className="mb-6">

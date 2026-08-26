@@ -10,10 +10,6 @@ import { OcppError } from "../errors/OcppError.js";
 import { getTariffForTransaction } from "../../utils/tariffHelpers.js";
 import { DynamicTariffService } from "../../services/DynamicTariffService.js";
 import {
-  enqueueStatusEvent,
-  enqueueBillingEvent,
-} from "../../queues/queueManager.js";
-import {
   handleGetVariables,
   handleSetVariables,
   handleGetBaseReport,
@@ -262,24 +258,10 @@ export async function handleStatusNotification(
   const info = payload.info;
 
   try {
-<<<<<<< HEAD
+    const resolvedConnectorId = connectorId !== undefined ? connectorId : (evseId !== undefined ? evseId : 0);
+
     // Update registry heartbeat immediately
     await chargerRegistry.updateHeartbeat(chargerId);
-
-    // Enqueue status event to BullMQ statusEventsQueue
-    await enqueueStatusEvent({
-      chargerId,
-      connectorId: connectorId ?? evseId ?? 0,
-      status,
-      errorCode,
-      info,
-      timestamp: timestamp ? (timestamp instanceof Date ? timestamp.toISOString() : timestamp) : new Date().toISOString(),
-    });
-
-    logger.info(
-      `StatusNotification received from charger ${chargerId}: channel ${connectorId} status = ${status} (enqueued)`
-=======
-    const resolvedConnectorId = connectorId !== undefined ? connectorId : (evseId !== undefined ? evseId : 0);
 
     // Enqueue status event to BullMQ background processor
     await enqueueStatusEvent({
@@ -290,12 +272,11 @@ export async function handleStatusNotification(
       info,
       vendorId: payload.vendorId,
       vendorErrorCode: payload.vendorErrorCode,
-      timestamp,
+      timestamp: timestamp ? (timestamp instanceof Date ? timestamp.toISOString() : timestamp) : new Date().toISOString(),
     });
 
     logger.info(
       `StatusNotification enqueued for charger ${chargerId}: connector ${resolvedConnectorId} status = ${status}`
->>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
     );
 
     const response = {};
@@ -429,6 +410,11 @@ export async function handleTransactionEvent(
           .catch(err => logger.error(`Error balancing charge group load: ${err}`));
       }
 
+      // Consume active reservation
+      import("../../services/ReservationService.js")
+        .then(({ ReservationService }) => ReservationService.consumeReservation(chargerId, connectorId, idTag))
+        .catch(() => {});
+
       let response: any = { idTokenInfo: { status: "Accepted" } };
       await logOcppMessage(chargerId, "out", response, transactionId);
       return response;
@@ -534,20 +520,12 @@ export async function handleTransactionEvent(
 
       await chargerRegistry.endTransaction(chargerId, transactionId);
 
-<<<<<<< HEAD
-      await enqueueBillingEvent({
-        chargerId,
-        transactionId: String(transactionId),
-        meterStop,
-        timestamp: timestamp ? (timestamp instanceof Date ? timestamp.toISOString() : timestamp) : new Date().toISOString(),
-=======
       // Enqueue billing and cost computation to BullMQ background worker
       await enqueueBillingJob({
         chargerId,
         transactionId: String(transactionId),
         meterStop,
-        timestamp: timestamp || new Date(),
->>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
+        timestamp: timestamp ? (timestamp instanceof Date ? timestamp.toISOString() : timestamp) : new Date().toISOString(),
         idTag,
         isV2GDischarging,
       });

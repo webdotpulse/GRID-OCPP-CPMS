@@ -41,6 +41,9 @@ import reimbursementsRoutes from "./api/reimbursements/reimbursements.routes.js"
 import auditRoutes from "./api/audit/audit.routes.js";
 import invoicesRoutes from "./api/invoices/invoices.routes.js";
 import sepaRoutes from "./api/sepa/sepa.routes.js";
+import localAuthListRoutes from "./api/localAuthList/localAuthList.routes.js";
+import reservationsRoutes from "./api/reservations/reservations.routes.js";
+import securityRoutes from "./api/security/security.routes.js";
 
 // Import OCPP servers
 import { ocppServer } from "./ocpp/ocppServer.js";
@@ -48,11 +51,9 @@ import { ocppLogsServer } from "./ocpp/logsWebSocket.js";
 import { setupRealtimeSocket } from "./ocpp/realtime.socket.js";
 import { startAutoHealCron } from "./cron/autoHealCron.js";
 import { startReimbursementCron } from "./cron/reimbursementCron.js";
-<<<<<<< HEAD
 import { startInvoiceCron } from "./cron/invoiceCron.js";
-=======
+import { startReservationCron } from "./cron/reservationCron.js";
 import { stopWorkers } from "./workers/workerManager.js";
->>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
 import "./cron/predictiveBalancingCron.js";
 
 /**
@@ -135,6 +136,9 @@ export function createApp(): Application {
   app.use("/api/audit", auditRoutes);
   app.use("/api/invoices", authenticateToken, invoicesRoutes);
   app.use("/api/sepa", authenticateToken, sepaRoutes);
+  app.use("/api/chargers", authenticateToken, localAuthListRoutes);
+  app.use("/api/reservations", authenticateToken, reservationsRoutes);
+  app.use("/api/security", authenticateToken, securityRoutes);
 
   // Error handling
   app.use(notFoundHandler);
@@ -218,6 +222,7 @@ export async function startWorkerServer() {
   startAutoHealCron();
   startReimbursementCron();
   startInvoiceCron();
+  startReservationCron();
 
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}. Shutting down Worker pod gracefully...`);
@@ -264,6 +269,7 @@ export function startServers(): void {
   startAutoHealCron();
   startReimbursementCron();
   startInvoiceCron();
+  startReservationCron();
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {
@@ -291,15 +297,10 @@ export function startServers(): void {
     process.exit(0);
   };
 
-<<<<<<< HEAD
   process.on("SIGTERM", () => {
     shutdown("SIGTERM").catch((err) => logger.error(`Shutdown error: ${err}`));
   });
   process.on("SIGINT", () => {
     shutdown("SIGINT").catch((err) => logger.error(`Shutdown error: ${err}`));
   });
-=======
-  process.on("SIGTERM", () => { void shutdown("SIGTERM"); });
-  process.on("SIGINT", () => { void shutdown("SIGINT"); });
->>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
 }

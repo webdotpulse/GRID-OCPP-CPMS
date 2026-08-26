@@ -46,6 +46,7 @@ model User {
   auditLogs                   AuditLog[]
   invoices                    Invoice[]
   sepaMandates                SepaMandate[]
+  reservations                Reservation[]
 }
 
 model Company {
@@ -148,6 +149,9 @@ model Charger {
   quirkProfile   ChargerQuirkProfile?   @relation(fields: [quirkProfileId], references: [id], onDelete: SetNull)
   schedulePlans  ChargingSchedulePlan[]
   installedCertificates InstalledCertificate[]
+  certificateRequests   CertificateRequest[]
+  localAuthList         LocalAuthList?
+  reservations          Reservation[]
 }
 
 model ChargerQuirkProfile {
@@ -217,6 +221,7 @@ model RfidUser {
   vehicleEnergyProfile   VehicleEnergyProfile?
   vehicleCertificates    VehicleContractCertificate[]
   reimbursementContracts ReimbursementContract[]
+  reservations           Reservation[]
 }
 
 // RFID post-paid charging sessions
@@ -901,4 +906,80 @@ model SepaMandate {
   @@index([userId])
   @@index([companyId])
 }
+
+// Local Authorization List for Offline Resilience (OCPP SendLocalList)
+model LocalAuthList {
+  id           Int                  @id @default(autoincrement())
+  chargerId    Int                  @unique
+  listVersion  Int                  @default(0)
+  status       String               @default("Synchronized") // "Synchronized", "Outdated", "Syncing", "Failed"
+  lastSyncedAt DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  charger      Charger              @relation(fields: [chargerId], references: [charger_id], onDelete: Cascade)
+  entries      LocalAuthListEntry[]
+
+  @@index([chargerId])
+}
+
+model LocalAuthListEntry {
+  id              Int           @id @default(autoincrement())
+  localAuthListId Int
+  idTag           String
+  status          String        @default("Accepted") // "Accepted", "Blocked", "Expired", "Invalid", "ConcurrentTx"
+  parentIdTag     String?
+  expiryDate      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  localAuthList   LocalAuthList @relation(fields: [localAuthListId], references: [id], onDelete: Cascade)
+
+  @@unique([localAuthListId, idTag])
+  @@index([localAuthListId])
+  @@index([idTag])
+}
+
+// EVSE Connector Reservations (OCPP ReserveNow / CancelReservation)
+model Reservation {
+  id            Int       @id @default(autoincrement())
+  reservationId Int       @unique
+  chargerId     Int
+  connectorId   Int
+  idTag         String
+  parentIdTag   String?
+  expiryDate    DateTime
+  status        String    @default("Active") // "Active", "Expired", "Consumed", "Cancelled"
+  userId        Int?
+  rfidUserId    Int?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  charger       Charger   @relation(fields: [chargerId], references: [charger_id], onDelete: Cascade)
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  rfidUser      RfidUser? @relation(fields: [rfidUserId], references: [rfid_user_id], onDelete: SetNull)
+
+  @@index([chargerId])
+  @@index([status])
+  @@index([expiryDate])
+  @@index([idTag])
+}
+
+// Certificate Signing Requests (CSR) for OCPP 1.6 Security & OCPP 2.0.1/2.1 PKI
+model CertificateRequest {
+  id                Int      @id @default(autoincrement())
+  chargerId         Int
+  certificateType   String   // "V2GRootCertificate", "MORootCertificate", "CSMSRootCertificate", "ManufacturerRootCertificate", "ChargeStationCertificate"
+  csr               String   @db.Text
+  status            String   @default("Pending") // "Pending", "Signed", "Rejected", "Installed"
+  signedCertificate String?  @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  charger           Charger  @relation(fields: [chargerId], references: [charger_id], onDelete: Cascade)
+
+  @@index([chargerId])
+  @@index([status])
+}
+
 

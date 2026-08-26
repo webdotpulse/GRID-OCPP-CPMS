@@ -1,142 +1,23 @@
 import { jest } from '@jest/globals';
-
-const mockPrismaChargerUpdate = jest.fn() as any;
-const mockPrismaChargerFindUnique = jest.fn() as any;
-const mockPrismaRfidFindUnique = jest.fn() as any;
-const mockPrismaTxCreate = jest.fn() as any;
-const mockPrismaTxUpdate = jest.fn() as any;
-const mockPrismaTxFindFirst = jest.fn() as any;
-const mockPrismaTxUpdateMany = jest.fn() as any;
-const mockPrismaRfidSessionCreate = jest.fn() as any;
-const mockPrismaRfidSessionFindFirst = jest.fn() as any;
-const mockPrismaRfidSessionUpdate = jest.fn() as any;
-const mockPrismaConnectorFindFirst = jest.fn() as any;
-const mockPrismaConnectorUpdate = jest.fn() as any;
-const mockPrismaConnectorCreate = jest.fn() as any;
-const mockPrismaMeterValueFindFirst = jest.fn() as any;
-const mockPrismaMeterValueFindMany = jest.fn() as any;
-const mockPrismaTariffFindFirst = jest.fn() as any;
-const mockEnqueueMeterValue = jest.fn() as any;
-const mockEnqueueStatusEvent = jest.fn() as any;
-const mockEnqueueBillingEvent = jest.fn() as any;
-
-<<<<<<< HEAD
-jest.mock('../../config/database.js', () => ({
-=======
-const mockEnqueueMeterValue = jest.fn() as any;
-const mockEnqueueStatusEvent = jest.fn() as any;
-const mockEnqueueBillingJob = jest.fn() as any;
-
-const mockPrisma = {
->>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
-  prisma: {
-    charger: {
-      update: mockPrismaChargerUpdate,
-      findUnique: mockPrismaChargerFindUnique,
-    },
-    rfidUser: {
-      findUnique: mockPrismaRfidFindUnique,
-    },
-    transaction: {
-      create: mockPrismaTxCreate,
-      update: mockPrismaTxUpdate,
-      findFirst: mockPrismaTxFindFirst,
-      updateMany: mockPrismaTxUpdateMany,
-    },
-    rfidSession: {
-      create: mockPrismaRfidSessionCreate,
-      findFirst: mockPrismaRfidSessionFindFirst,
-      update: mockPrismaRfidSessionUpdate,
-    },
-    connector: {
-      findFirst: mockPrismaConnectorFindFirst,
-      update: mockPrismaConnectorUpdate,
-      create: mockPrismaConnectorCreate,
-    },
-    ocppLog: {
-      create: jest.fn().mockResolvedValue({} as never),
-    },
-    chargeGroupUser: {
-      findUnique: jest.fn().mockResolvedValue(null as never),
-    },
-    meterValue: {
-      createMany: jest.fn().mockResolvedValue({} as never),
-      findFirst: mockPrismaMeterValueFindFirst,
-      findMany: mockPrismaMeterValueFindMany,
-    },
-    tariff: {
-      findFirst: mockPrismaTariffFindFirst,
-    },
-  },
-};
-
-jest.unstable_mockModule('../../queues/queueManager', () => ({
-  enqueueMeterValue: mockEnqueueMeterValue,
-  enqueueStatusEvent: mockEnqueueStatusEvent,
-  enqueueBillingJob: mockEnqueueBillingJob,
-}));
-jest.unstable_mockModule('../../queues/queueManager.js', () => ({
-  enqueueMeterValue: mockEnqueueMeterValue,
-  enqueueStatusEvent: mockEnqueueStatusEvent,
-  enqueueBillingJob: mockEnqueueBillingJob,
-}));
-
-<<<<<<< HEAD
-jest.mock('../../config/redis.js', () => ({
-=======
-jest.unstable_mockModule('../../config/database', () => mockPrisma);
-jest.unstable_mockModule('../../config/database.js', () => mockPrisma);
-
-const mockRedis = {
->>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
-  redisClient: {
-    get: jest.fn().mockResolvedValue(null as never),
-    set: jest.fn().mockResolvedValue("OK" as never),
-    del: jest.fn().mockResolvedValue(1 as never),
-    scan: jest.fn().mockResolvedValue(["0", []] as never),
-    keys: jest.fn().mockResolvedValue([] as never),
-    hset: jest.fn().mockResolvedValue(1 as never),
-    hgetall: jest.fn().mockResolvedValue({} as never),
-    expire: jest.fn().mockResolvedValue(1 as never),
-    publish: jest.fn().mockResolvedValue(1 as never),
-    rpush: jest.fn().mockResolvedValue(1 as never),
-    ltrim: jest.fn().mockResolvedValue("OK" as never),
-  },
-  redisSubscriber: {
-    subscribe: jest.fn(),
-    on: jest.fn(),
-  },
-  redisPublisher: {
-    publish: jest.fn().mockResolvedValue(1 as never),
-  },
-};
-
-<<<<<<< HEAD
-jest.mock('../../queues/queueManager.js', () => ({
-  enqueueMeterValue: mockEnqueueMeterValue,
-  enqueueStatusEvent: mockEnqueueStatusEvent,
-  enqueueBillingEvent: mockEnqueueBillingEvent,
-}));
-=======
-jest.unstable_mockModule('../../config/redis', () => mockRedis);
-jest.unstable_mockModule('../../config/redis.js', () => mockRedis);
->>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
+import { prisma } from '../../config/database.js';
+import * as queueManager from '../../queues/queueManager.js';
+import * as v16Handlers from '../../ocpp/handlers/v16Handlers.js';
 
 describe("OCPP 1.6 Lifecycle Handlers", () => {
-  let v16Handlers: any;
-
-  beforeAll(async () => {
-    v16Handlers = await import('../../ocpp/handlers/v16Handlers.js');
-  });
-
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(prisma.ocppLog, 'create').mockResolvedValue({} as any);
   });
 
   describe("handleBootNotification", () => {
     it("should accept boot notification and update charger status", async () => {
-      mockPrismaChargerFindUnique.mockResolvedValue({ charger_id: 1, name: "CP-001" });
-      mockPrismaChargerUpdate.mockResolvedValue({ charger_id: 1, name: "CP-001" });
+      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
+        charger_id: 1,
+        name: "CP-001",
+        chargeGroupId: null,
+        quirkProfile: null,
+      } as any);
+      const updateSpy = jest.spyOn(prisma.charger, 'update').mockResolvedValue({ charger_id: 1, name: "CP-001" } as any);
 
       const response = await v16Handlers.handleBootNotification(1, {
         chargePointVendor: "TestVendor",
@@ -146,7 +27,7 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
 
       expect(response.status).toBe("Accepted");
       expect(response.interval || response.heartbeatInterval).toBeGreaterThan(0);
-      expect(mockPrismaChargerUpdate).toHaveBeenCalledWith(
+      expect(updateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { charger_id: 1 },
           data: expect.objectContaining({
@@ -161,12 +42,16 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
 
   describe("handleAuthorize", () => {
     it("should return Accepted for a valid RFID tag", async () => {
-      mockPrismaChargerFindUnique.mockResolvedValue({ charger_id: 1, chargeGroupId: null });
-      mockPrismaRfidFindUnique.mockResolvedValue({
+      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
+        charger_id: 1,
+        chargeGroupId: null,
+        quirkProfile: null,
+      } as any);
+      jest.spyOn(prisma.rfidUser, 'findUnique').mockResolvedValue({
         rfid_tag: "TAG123456",
         active: true,
         name: "Test User",
-      });
+      } as any);
 
       const response = await v16Handlers.handleAuthorize(1, {
         idTag: "TAG123456",
@@ -176,8 +61,13 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
     });
 
     it("should return Invalid for an unknown RFID tag", async () => {
-      mockPrismaChargerFindUnique.mockResolvedValue({ charger_id: 1, chargeGroupId: null });
-      mockPrismaRfidFindUnique.mockResolvedValue(null);
+      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
+        charger_id: 1,
+        chargeGroupId: null,
+        quirkProfile: null,
+      } as any);
+      jest.spyOn(prisma.rfidUser, 'findUnique').mockResolvedValue(null);
+      jest.spyOn(prisma.vehicleContractCertificate, 'findUnique').mockResolvedValue(null);
 
       const response = await v16Handlers.handleAuthorize(1, {
         idTag: "UNKNOWN_TAG",
@@ -189,19 +79,25 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
 
   describe("handleStartTransaction", () => {
     it("should start transaction and link rfidUserId and parsed connectorId", async () => {
-      mockPrismaChargerFindUnique.mockResolvedValue({ charger_id: 1 });
-      mockPrismaRfidFindUnique.mockResolvedValue({
+      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
+        charger_id: 1,
+        chargeGroupId: null,
+        quirkProfile: null,
+        charging_station_id: null,
+      } as any);
+      jest.spyOn(prisma.rfidUser, 'findUnique').mockResolvedValue({
         rfid_user_id: 42,
         rfid_tag: "TAG123",
         active: true,
-      });
-      mockPrismaTxCreate.mockResolvedValue({
+      } as any);
+      const txCreateSpy = jest.spyOn(prisma.transaction, 'create').mockResolvedValue({
         id: 10,
         transactionId: "12345",
-        charger: { charger_id: 1 },
-      });
-      mockPrismaConnectorFindFirst.mockResolvedValue({ connector_id: 1 });
-      mockPrismaConnectorUpdate.mockResolvedValue({});
+        charger: { charger_id: 1, charging_station_id: null, chargeGroupId: null },
+      } as any);
+      jest.spyOn(prisma.rfidSession, 'create').mockResolvedValue({ id: 1 } as any);
+      jest.spyOn(prisma.connector, 'findFirst').mockResolvedValue({ connector_id: 1 } as any);
+      jest.spyOn(prisma.connector, 'update').mockResolvedValue({} as any);
 
       const response = await v16Handlers.handleStartTransaction(1, {
         connectorId: 1,
@@ -211,7 +107,7 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
       });
 
       expect(response.idTagInfo.status).toBe("Accepted");
-      expect(mockPrismaTxCreate).toHaveBeenCalledWith(
+      expect(txCreateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             connectorName: "Channel 1",
@@ -225,24 +121,21 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
   });
 
   describe("handleStopTransaction (OCPP-01)", () => {
-<<<<<<< HEAD
-    it("should correctly accept StopTransaction and enqueue billing event", async () => {
-      mockEnqueueBillingEvent.mockResolvedValue("job-bill-1");
-=======
     it("should acknowledge stop transaction and enqueue billing calculation", async () => {
->>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
-      mockPrismaTxFindFirst.mockResolvedValue({
+      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
+        charger_id: 1,
+        chargeGroupId: null,
+        quirkProfile: null,
+      } as any);
+      jest.spyOn(prisma.transaction, 'findFirst').mockResolvedValue({
         id: 10,
         transactionId: "12345",
         connectorName: "Channel 1",
         initialMeterValue: 1000,
         startTime: new Date(Date.now() - 3600000),
         charger_id: 1,
-      });
-<<<<<<< HEAD
-=======
-      mockEnqueueBillingJob.mockResolvedValue(undefined);
->>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
+      } as any);
+      const billingSpy = jest.spyOn(queueManager, 'enqueueBillingJob').mockResolvedValue(undefined as any);
 
       const response = await v16Handlers.handleStopTransaction(1, {
         transactionId: 12345,
@@ -257,30 +150,30 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
       });
 
       expect(response.idTagInfo.status).toBe("Accepted");
-<<<<<<< HEAD
-      expect(mockEnqueueBillingEvent).toHaveBeenCalledWith(
-=======
-      expect(mockEnqueueBillingJob).toHaveBeenCalledWith(
->>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
+      expect(billingSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           chargerId: 1,
           transactionId: "12345",
           meterStop: 5000,
-<<<<<<< HEAD
         })
       );
     });
 
     it("should correctly handle StopTransaction without final meter values", async () => {
-      mockEnqueueBillingEvent.mockResolvedValue("job-bill-2");
-      mockPrismaTxFindFirst.mockResolvedValue({
+      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
+        charger_id: 1,
+        chargeGroupId: null,
+        quirkProfile: null,
+      } as any);
+      const billingSpy = jest.spyOn(queueManager, 'enqueueBillingJob').mockResolvedValue(undefined as any);
+      jest.spyOn(prisma.transaction, 'findFirst').mockResolvedValue({
         id: 11,
         transactionId: "67890",
         connectorName: "Connector 2",
         initialMeterValue: 0,
         startTime: new Date(Date.now() - 1800000),
         charger_id: 1,
-      });
+      } as any);
 
       const response = await v16Handlers.handleStopTransaction(1, {
         transactionId: 67890,
@@ -289,13 +182,11 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
       });
 
       expect(response.idTagInfo.status).toBe("Accepted");
-      expect(mockEnqueueBillingEvent).toHaveBeenCalledWith(
+      expect(billingSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           chargerId: 1,
           transactionId: "67890",
           meterStop: 2500,
-=======
->>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
         })
       );
     });

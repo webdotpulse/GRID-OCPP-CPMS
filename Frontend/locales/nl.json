@@ -15,10 +15,13 @@
       "payments": "Betalingen",
       "reimbursements": "Vergoedingen",
       "invoices": "Facturen",
+      "reservations": "Reserveringen",
       "hardwareAtRisk": "Onderhoud",
       "v2g": "V2G Orkestratie",
       "vehicleIdentity": "Voertuigbeheer",
       "settings": "Instellingen",
+      "auditTrail": "Auditlogboek",
+      "pkiCertificates": "Beveiliging & PKI",
       "ocppConsole": "OCPP Console"
     },
     "topbar": {

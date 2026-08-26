@@ -1,45 +1,4 @@
 import { Worker, Job } from "bullmq";
-<<<<<<< HEAD
-import { prisma } from "../config/database.js";
-import { logger } from "../utils/logger.js";
-import {
-  MeterValueJobData,
-  QUEUE_NAMES,
-  createRedisConnection,
-} from "../queues/queueManager.js";
-
-let workerInstance: Worker<MeterValueJobData> | null = null;
-
-/**
- * Process a single meter value ingestion job.
- */
-export async function processMeterValueJob(
-  job: Job<MeterValueJobData>
-): Promise<void> {
-  const p = job.data;
-
-  try {
-    // 1. High temperature alert diagnostics
-    if (p.temperatureValue && p.temperatureValue > 80) {
-      try {
-        await prisma.diagnosticEvent.create({
-          data: {
-            chargerId: p.chargerId,
-            connectorId: p.connectorId,
-            type: "HighTemperature",
-            description: `Temperature exceeded threshold: ${p.temperatureValue}°C`,
-          },
-        });
-      } catch (diagErr) {
-        logger.error(`Error logging high temperature diagnostic event: ${diagErr}`);
-      }
-    }
-
-    // 2. Insert telemetry record into MeterValue table
-    await prisma.meterValue.create({
-      data: {
-        transactionId: p.transactionId,
-=======
 import { getBullMqRedisConnection, MeterValueJobData } from "../queues/queueManager.js";
 import { prisma } from "../config/database.js";
 import { logger } from "../utils/logger.js";
@@ -74,7 +33,6 @@ export async function processMeterValueJob(job: Job<MeterValueJobData>): Promise
     data: [
       {
         transactionId: String(p.transactionId),
->>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
         chargerId: p.chargerId,
         connectorId: p.connectorId,
         energy: p.energyValue ?? null,
@@ -90,26 +48,6 @@ export async function processMeterValueJob(job: Job<MeterValueJobData>): Promise
         voltage_L3: p.voltage_L3 ?? null,
         timestamp: new Date(p.timestamp),
       },
-<<<<<<< HEAD
-    });
-
-    // 3. Update active transaction and rfid session metrics
-    let sessionEnergy: number | undefined = undefined;
-    if (p.energyValue !== undefined && p.energyValue !== null) {
-      const tx = await prisma.transaction.findFirst({
-        where: { transactionId: p.transactionId },
-        select: { initialMeterValue: true },
-      });
-      sessionEnergy = Math.max(0, p.energyValue - (tx?.initialMeterValue || 0));
-    }
-
-    const txUpdateData = {
-      ...(sessionEnergy !== undefined && { energyConsumed: sessionEnergy }),
-      ...(p.powerValue !== undefined && p.powerValue !== null && { currentPower: p.powerValue }),
-      ...(p.socValue !== null && p.socValue !== undefined && { soc: p.socValue }),
-      ...(p.currentValue !== null && p.currentValue !== undefined && { current: p.currentValue }),
-      ...(p.voltageValue !== null && p.voltageValue !== undefined && { voltage: p.voltageValue }),
-=======
     ],
     skipDuplicates: true,
   });
@@ -236,52 +174,22 @@ export async function processMeterValuesBatch(payloads: MeterValueJobData[]): Pr
       ...(latest.socValue !== null && latest.socValue !== undefined && { soc: latest.socValue }),
       ...(latest.currentValue !== null && latest.currentValue !== undefined && { current: latest.currentValue }),
       ...(latest.voltageValue !== null && latest.voltageValue !== undefined && { voltage: latest.voltageValue }),
->>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
       status: "charging",
     };
 
     await prisma.transaction.updateMany({
-<<<<<<< HEAD
-      where: { transactionId: p.transactionId, status: { not: "completed" } },
-=======
       where: { transactionId, status: { not: "completed" } },
->>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
       data: txUpdateData,
     });
 
     await prisma.rfidSession.updateMany({
-<<<<<<< HEAD
-      where: { transactionId: p.transactionId, status: { not: "completed" } },
-      data: txUpdateData,
-    });
-
-    logger.debug(`[meterValuesWorker] Processed meter value for tx ${p.transactionId}`);
-  } catch (error) {
-    logger.error(`[meterValuesWorker] Job ${job.id} failed: ${error}`);
-    throw error; // Re-throw to trigger BullMQ exponential backoff retry
-=======
       where: { transactionId, status: { not: "completed" } },
       data: txUpdateData,
     });
->>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
   }
 }
 
 /**
-<<<<<<< HEAD
- * Start the BullMQ meter values worker.
- */
-export function startMeterValuesWorker(): Worker<MeterValueJobData> {
-  if (workerInstance) return workerInstance;
-
-  const connection = createRedisConnection();
-
-  workerInstance = new Worker<MeterValueJobData>(
-    QUEUE_NAMES.METER_VALUES,
-    processMeterValueJob,
-    {
-      connection,
-=======
  * Creates and returns the BullMQ Worker for meter values
  */
 export function createMeterValuesWorker(): Worker<MeterValueJobData> {
@@ -293,7 +201,6 @@ export function createMeterValuesWorker(): Worker<MeterValueJobData> {
     },
     {
       connection: workerConnection,
->>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
       concurrency: 50,
       limiter: {
         max: 500,
@@ -302,33 +209,6 @@ export function createMeterValuesWorker(): Worker<MeterValueJobData> {
     }
   );
 
-<<<<<<< HEAD
-  workerInstance.on("completed", (job) => {
-    logger.debug(`[meterValuesWorker] Job ${job.id} completed successfully`);
-  });
-
-  workerInstance.on("failed", (job, err) => {
-    logger.warn(`[meterValuesWorker] Job ${job?.id} failed on attempt ${job?.attemptsMade}: ${err.message}`);
-  });
-
-  workerInstance.on("error", (err) => {
-    logger.error(`[meterValuesWorker] Worker error: ${err}`);
-  });
-
-  logger.info("BullMQ meterValuesWorker started (concurrency: 50).");
-  return workerInstance;
-}
-
-/**
- * Stop the BullMQ meter values worker.
- */
-export async function stopMeterValuesWorker(): Promise<void> {
-  if (workerInstance) {
-    await workerInstance.close();
-    workerInstance = null;
-    logger.info("BullMQ meterValuesWorker stopped.");
-  }
-=======
   worker.on("completed", (job) => {
     logger.debug(`Meter value job ${job.id} completed for TX: ${job.data?.transactionId}`);
   });
@@ -342,5 +222,4 @@ export async function stopMeterValuesWorker(): Promise<void> {
   });
 
   return worker;
->>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
 }

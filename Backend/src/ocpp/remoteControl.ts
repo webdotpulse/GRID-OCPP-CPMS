@@ -481,3 +481,121 @@ export async function getCompositeSchedule(
     return { status: "Rejected", error: "Failed to get composite schedule" };
   }
 }
+
+/**
+ * Send SendLocalList request to charger (OCPP 1.6 / 2.0.1)
+ */
+export async function sendLocalList(
+  chargerId: number,
+  listVersion: number,
+  updateType: "Full" | "Differential",
+  localAuthorizationList: Array<{
+    idTag: string;
+    idTagInfo?: {
+      status: "Accepted" | "Blocked" | "Expired" | "Invalid" | "ConcurrentTx";
+      expiryDate?: string;
+      parentIdTag?: string;
+    };
+  }>
+): Promise<{ status: string; error?: string }> {
+  try {
+    const payload = {
+      listVersion,
+      updateType,
+      localAuthorizationList,
+    };
+
+    const result = await sendDistributedOcppCall(
+      chargerId,
+      "SendLocalList",
+      payload,
+      15000
+    );
+    return { ...result, status: result.status || "Accepted" };
+  } catch (error) {
+    logger.error(`Error in sendLocalList for charger ${chargerId}: ${error}`);
+    return { status: "Failed", error: "Failed to send SendLocalList" };
+  }
+}
+
+/**
+ * Send GetLocalListVersion request to charger (OCPP 1.6 / 2.0.1)
+ */
+export async function getLocalListVersion(
+  chargerId: number
+): Promise<{ status: string; listVersion?: number; error?: string }> {
+  try {
+    const result = await sendDistributedOcppCall(
+      chargerId,
+      "GetLocalListVersion",
+      {},
+      10000
+    );
+    return {
+      status: result.status || "Accepted",
+      listVersion: typeof result.listVersion === "number" ? result.listVersion : 0,
+      error: result.error,
+    };
+  } catch (error) {
+    logger.error(`Error in getLocalListVersion for charger ${chargerId}: ${error}`);
+    return { status: "Failed", listVersion: 0, error: "Failed to get local list version" };
+  }
+}
+
+/**
+ * Send ReserveNow request to charger (OCPP 1.6 / 2.0.1)
+ */
+export async function reserveNow(
+  chargerId: number,
+  connectorId: number,
+  expiryDate: string,
+  idTag: string,
+  reservationId: number,
+  parentIdTag?: string
+): Promise<{ status: string; error?: string }> {
+  try {
+    const payload: any = {
+      connectorId,
+      expiryDate,
+      idTag,
+      reservationId,
+    };
+    if (parentIdTag) {
+      payload.parentIdTag = parentIdTag;
+    }
+
+    const result = await sendDistributedOcppCall(
+      chargerId,
+      "ReserveNow",
+      payload,
+      15000
+    );
+    return { ...result, status: result.status || "Accepted" };
+  } catch (error) {
+    logger.error(`Error in reserveNow for charger ${chargerId}: ${error}`);
+    return { status: "Rejected", error: "Failed to send ReserveNow" };
+  }
+}
+
+/**
+ * Send CancelReservation request to charger (OCPP 1.6 / 2.0.1)
+ */
+export async function cancelReservation(
+  chargerId: number,
+  reservationId: number
+): Promise<{ status: string; error?: string }> {
+  try {
+    const payload = { reservationId };
+    const result = await sendDistributedOcppCall(
+      chargerId,
+      "CancelReservation",
+      payload,
+      10000
+    );
+    return { ...result, status: result.status || "Accepted" };
+  } catch (error) {
+    logger.error(`Error in cancelReservation for charger ${chargerId}: ${error}`);
+    return { status: "Rejected", error: "Failed to send CancelReservation" };
+  }
+}
+

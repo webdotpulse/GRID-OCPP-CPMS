@@ -15,10 +15,13 @@
       "payments": "Payments",
       "reimbursements": "Reimbursements",
       "invoices": "Invoices",
+      "reservations": "Reservations",
       "hardwareAtRisk": "Maintenance",
       "v2g": "V2G Orchestration",
       "vehicleIdentity": "Vehicle Management",
       "settings": "Settings",
+      "auditTrail": "Audit Trail",
+      "pkiCertificates": "Security & PKI",
       "ocppConsole": "OCPP Console"
     },
     "topbar": {
