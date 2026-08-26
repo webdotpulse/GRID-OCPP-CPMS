@@ -48,7 +48,11 @@ import { ocppLogsServer } from "./ocpp/logsWebSocket.js";
 import { setupRealtimeSocket } from "./ocpp/realtime.socket.js";
 import { startAutoHealCron } from "./cron/autoHealCron.js";
 import { startReimbursementCron } from "./cron/reimbursementCron.js";
+<<<<<<< HEAD
 import { startInvoiceCron } from "./cron/invoiceCron.js";
+=======
+import { stopWorkers } from "./workers/workerManager.js";
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
 import "./cron/predictiveBalancingCron.js";
 
 /**
@@ -265,8 +269,15 @@ export function startServers(): void {
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}. Shutting down gracefully...`);
 
+    try {
+      await stopWorkers();
+    } catch (err) {
+      logger.error(`Error stopping BullMQ workers during shutdown: ${err}`);
+    }
+
     ocppServer.stop();
     ocppLogsServer.stop();
+    server.close();
 
     try {
       const { stopWorkers } = await import("./workers/index.js");
@@ -280,10 +291,15 @@ export function startServers(): void {
     process.exit(0);
   };
 
+<<<<<<< HEAD
   process.on("SIGTERM", () => {
     shutdown("SIGTERM").catch((err) => logger.error(`Shutdown error: ${err}`));
   });
   process.on("SIGINT", () => {
     shutdown("SIGINT").catch((err) => logger.error(`Shutdown error: ${err}`));
   });
+=======
+  process.on("SIGTERM", () => { void shutdown("SIGTERM"); });
+  process.on("SIGINT", () => { void shutdown("SIGINT"); });
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
 }

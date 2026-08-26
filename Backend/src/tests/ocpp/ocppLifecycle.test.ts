@@ -20,7 +20,15 @@ const mockEnqueueMeterValue = jest.fn() as any;
 const mockEnqueueStatusEvent = jest.fn() as any;
 const mockEnqueueBillingEvent = jest.fn() as any;
 
+<<<<<<< HEAD
 jest.mock('../../config/database.js', () => ({
+=======
+const mockEnqueueMeterValue = jest.fn() as any;
+const mockEnqueueStatusEvent = jest.fn() as any;
+const mockEnqueueBillingJob = jest.fn() as any;
+
+const mockPrisma = {
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
   prisma: {
     charger: {
       update: mockPrismaChargerUpdate,
@@ -60,9 +68,27 @@ jest.mock('../../config/database.js', () => ({
       findFirst: mockPrismaTariffFindFirst,
     },
   },
+};
+
+jest.unstable_mockModule('../../queues/queueManager', () => ({
+  enqueueMeterValue: mockEnqueueMeterValue,
+  enqueueStatusEvent: mockEnqueueStatusEvent,
+  enqueueBillingJob: mockEnqueueBillingJob,
+}));
+jest.unstable_mockModule('../../queues/queueManager.js', () => ({
+  enqueueMeterValue: mockEnqueueMeterValue,
+  enqueueStatusEvent: mockEnqueueStatusEvent,
+  enqueueBillingJob: mockEnqueueBillingJob,
 }));
 
+<<<<<<< HEAD
 jest.mock('../../config/redis.js', () => ({
+=======
+jest.unstable_mockModule('../../config/database', () => mockPrisma);
+jest.unstable_mockModule('../../config/database.js', () => mockPrisma);
+
+const mockRedis = {
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
   redisClient: {
     get: jest.fn().mockResolvedValue(null as never),
     set: jest.fn().mockResolvedValue("OK" as never),
@@ -83,13 +109,18 @@ jest.mock('../../config/redis.js', () => ({
   redisPublisher: {
     publish: jest.fn().mockResolvedValue(1 as never),
   },
-}));
+};
 
+<<<<<<< HEAD
 jest.mock('../../queues/queueManager.js', () => ({
   enqueueMeterValue: mockEnqueueMeterValue,
   enqueueStatusEvent: mockEnqueueStatusEvent,
   enqueueBillingEvent: mockEnqueueBillingEvent,
 }));
+=======
+jest.unstable_mockModule('../../config/redis', () => mockRedis);
+jest.unstable_mockModule('../../config/redis.js', () => mockRedis);
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
 
 describe("OCPP 1.6 Lifecycle Handlers", () => {
   let v16Handlers: any;
@@ -194,8 +225,12 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
   });
 
   describe("handleStopTransaction (OCPP-01)", () => {
+<<<<<<< HEAD
     it("should correctly accept StopTransaction and enqueue billing event", async () => {
       mockEnqueueBillingEvent.mockResolvedValue("job-bill-1");
+=======
+    it("should acknowledge stop transaction and enqueue billing calculation", async () => {
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
       mockPrismaTxFindFirst.mockResolvedValue({
         id: 10,
         transactionId: "12345",
@@ -204,6 +239,10 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
         startTime: new Date(Date.now() - 3600000),
         charger_id: 1,
       });
+<<<<<<< HEAD
+=======
+      mockEnqueueBillingJob.mockResolvedValue(undefined);
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
 
       const response = await v16Handlers.handleStopTransaction(1, {
         transactionId: 12345,
@@ -218,11 +257,16 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
       });
 
       expect(response.idTagInfo.status).toBe("Accepted");
+<<<<<<< HEAD
       expect(mockEnqueueBillingEvent).toHaveBeenCalledWith(
+=======
+      expect(mockEnqueueBillingJob).toHaveBeenCalledWith(
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
         expect.objectContaining({
           chargerId: 1,
           transactionId: "12345",
           meterStop: 5000,
+<<<<<<< HEAD
         })
       );
     });
@@ -250,6 +294,8 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
           chargerId: 1,
           transactionId: "67890",
           meterStop: 2500,
+=======
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
         })
       );
     });

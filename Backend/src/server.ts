@@ -1,8 +1,20 @@
 import "dotenv/config";
 import { startServers } from "./app.js";
 import { logger } from "./utils/logger.js";
+import { startWorkers } from "./workers/workerManager.js";
 import { MeterValueService } from "./services/MeterValueService.js";
+<<<<<<< HEAD
 import { startWorkers } from "./workers/index.js";
+=======
+
+// Start all servers
+startServers();
+
+// Start BullMQ background workers
+startWorkers();
+MeterValueService.startWorker();
+
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
 import { EpexSpotService } from "./services/EpexSpotService.js";
 import { loadManagementService } from "./services/LoadManagementService.js";
 

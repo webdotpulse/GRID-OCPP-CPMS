@@ -1,4 +1,5 @@
 import { Worker, Job } from "bullmq";
+<<<<<<< HEAD
 import { prisma } from "../config/database.js";
 import { logger } from "../utils/logger.js";
 import { redisPublisher } from "../config/redis.js";
@@ -25,6 +26,23 @@ export async function processStatusEventJob(
 
   try {
     // 1. Diagnostic event logging for faults
+=======
+import { getBullMqRedisConnection, StatusEventJobData } from "../queues/queueManager.js";
+import { prisma } from "../config/database.js";
+import { logger } from "../utils/logger.js";
+
+export const STATUS_EVENTS_QUEUE_NAME = "status-events-queue";
+
+/**
+ * Process a status notification / connector state event from BullMQ
+ */
+export async function processStatusEventJob(job: Job<StatusEventJobData>): Promise<void> {
+  const { chargerId, connectorId, status, errorCode, info } = job.data;
+  if (!chargerId) return;
+
+  try {
+    // 1. Handle Fault Diagnostics & Consecutive Errors
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
     if (status === "Faulted" || status === "SuspendedEVSE") {
       try {
         await prisma.diagnosticEvent.create({
@@ -32,7 +50,11 @@ export async function processStatusEventJob(
             chargerId,
             connectorId,
             type: "FaultedState",
+<<<<<<< HEAD
             description: `Charger reported status: ${status} (ErrorCode: ${errorCode || "Unknown"})`,
+=======
+            description: `Charger reported status: ${status} (ErrorCode: ${errorCode || "Unknown"}, Info: ${info || "None"})`,
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
           },
         });
 
@@ -42,8 +64,13 @@ export async function processStatusEventJob(
             data: { consecutiveErrors: { increment: 1 } },
           });
         }
+<<<<<<< HEAD
       } catch (err) {
         logger.error(`[eventWorker] Error creating fault diagnostic event: ${err}`);
+=======
+      } catch (e) {
+        logger.error(`Error recording diagnostic event in statusWorker: ${e}`);
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
       }
     } else if (status === "Available" || status === "Charging") {
       try {
@@ -51,6 +78,7 @@ export async function processStatusEventJob(
           where: { charger_id: chargerId },
           data: { consecutiveErrors: 0 },
         });
+<<<<<<< HEAD
       } catch (err) {
         logger.error(`[eventWorker] Error resetting consecutive errors: ${err}`);
       }
@@ -59,11 +87,25 @@ export async function processStatusEventJob(
     // 2. Channel & EVSE update in DB
     const connectorName = `Channel ${connectorId}`;
     if (connectorId > 0) {
+=======
+      } catch (e) {
+        logger.error(`Error resetting consecutive errors in statusWorker: ${e}`);
+      }
+    }
+
+    // 2. Update / Create EVSE Connector status in Database
+    if (connectorId > 0) {
+      const connectorName = `Channel ${connectorId}`;
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
       let evse = await prisma.evse.findUnique({
         where: {
           charger_id_evse_id: {
             charger_id: chargerId,
+<<<<<<< HEAD
             evse_id: 1,
+=======
+            evse_id: 1, // Default EVSE for single-station representation
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
           },
         },
       });
@@ -99,16 +141,25 @@ export async function processStatusEventJob(
             updatedAt: new Date(),
           },
         });
+<<<<<<< HEAD
         logger.info(`[eventWorker] Auto-created channel ${connectorName} for charger ${chargerId}`);
       }
     }
 
     // 3. Mark charger active with timestamp
+=======
+        logger.info(`Auto-created connector ${connectorName} for charger ${chargerId} in eventWorker`);
+      }
+    }
+
+    // 3. Update Charger heartbeat & active status
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
     await prisma.charger.update({
       where: { charger_id: chargerId },
       data: { status: "active", last_heartbeat: new Date() },
     });
 
+<<<<<<< HEAD
     // 4. Broadcast realtime status update
     await redisPublisher.publish(
       "charger_status_updates",
@@ -127,11 +178,17 @@ export async function processStatusEventJob(
     logger.debug(`[eventWorker] StatusNotification processed for charger ${chargerId}, channel ${connectorId}: ${status}`);
   } catch (error) {
     logger.error(`[eventWorker] Failed to process status event job ${job.id}: ${error}`);
+=======
+    logger.debug(`Status event processed for charger ${chargerId}, connector ${connectorId} -> ${status}`);
+  } catch (error) {
+    logger.error(`Error processing status event for charger ${chargerId}: ${error}`);
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
     throw error;
   }
 }
 
 /**
+<<<<<<< HEAD
  * Process a transaction completion and billing event asynchronously.
  */
 export async function processBillingJob(
@@ -363,4 +420,34 @@ export async function stopEventWorkers(): Promise<void> {
   }
   await Promise.all(promises);
   logger.info("BullMQ statusEventsWorker and billingWorker stopped.");
+=======
+ * Creates and returns the BullMQ Worker for status events
+ */
+export function createStatusEventsWorker(): Worker<StatusEventJobData> {
+  const workerConnection = getBullMqRedisConnection();
+  const worker = new Worker<StatusEventJobData>(
+    STATUS_EVENTS_QUEUE_NAME,
+    async (job: Job<StatusEventJobData>) => {
+      await processStatusEventJob(job);
+    },
+    {
+      connection: workerConnection,
+      concurrency: 20,
+    }
+  );
+
+  worker.on("completed", (job) => {
+    logger.debug(`Status event job ${job.id} completed for charger: ${job.data?.chargerId}`);
+  });
+
+  worker.on("failed", (job, err) => {
+    logger.error(`Status event job ${job?.id} failed: ${err.message}`);
+  });
+
+  worker.on("error", (err) => {
+    logger.error(`Status events worker error: ${err.message}`);
+  });
+
+  return worker;
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
 }

@@ -2,6 +2,7 @@ import { config } from "../../config/index.js";
 import { prisma } from "../../config/database.js";
 import { chargerRegistry } from "../chargerRegistry.js";
 import { MeterValueService } from "../../services/MeterValueService.js";
+import { enqueueMeterValue, enqueueStatusEvent, enqueueBillingJob } from "../../queues/queueManager.js";
 import { logger } from "../../utils/logger.js";
 import { loadManagementService } from "../../services/LoadManagementService.js";
 import { logOcppMessage } from "../messageHandlers.js";
@@ -257,10 +258,11 @@ export async function handleStatusNotification(
   const connectorId = payload.connectorId;
   const status = payload.connectorStatus;
   const errorCode = payload.errorCode;
-  const timestamp = payload.timestamp;
+  const timestamp = payload.timestamp || new Date();
   const info = payload.info;
 
   try {
+<<<<<<< HEAD
     // Update registry heartbeat immediately
     await chargerRegistry.updateHeartbeat(chargerId);
 
@@ -276,6 +278,24 @@ export async function handleStatusNotification(
 
     logger.info(
       `StatusNotification received from charger ${chargerId}: channel ${connectorId} status = ${status} (enqueued)`
+=======
+    const resolvedConnectorId = connectorId !== undefined ? connectorId : (evseId !== undefined ? evseId : 0);
+
+    // Enqueue status event to BullMQ background processor
+    await enqueueStatusEvent({
+      chargerId,
+      connectorId: resolvedConnectorId,
+      status,
+      errorCode,
+      info,
+      vendorId: payload.vendorId,
+      vendorErrorCode: payload.vendorErrorCode,
+      timestamp,
+    });
+
+    logger.info(
+      `StatusNotification enqueued for charger ${chargerId}: connector ${resolvedConnectorId} status = ${status}`
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
     );
 
     const response = {};
@@ -514,11 +534,20 @@ export async function handleTransactionEvent(
 
       await chargerRegistry.endTransaction(chargerId, transactionId);
 
+<<<<<<< HEAD
       await enqueueBillingEvent({
         chargerId,
         transactionId: String(transactionId),
         meterStop,
         timestamp: timestamp ? (timestamp instanceof Date ? timestamp.toISOString() : timestamp) : new Date().toISOString(),
+=======
+      // Enqueue billing and cost computation to BullMQ background worker
+      await enqueueBillingJob({
+        chargerId,
+        transactionId: String(transactionId),
+        meterStop,
+        timestamp: timestamp || new Date(),
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
         idTag,
         isV2GDischarging,
       });

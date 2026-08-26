@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 
+<<<<<<< HEAD
 const mockRedisRpush = jest.fn() as any;
 const mockRedisLtrim = jest.fn() as any;
 const mockRedisExists = jest.fn() as any;
@@ -48,6 +49,24 @@ jest.mock('../../config/database.js', () => ({
 jest.mock('../../queues/queueManager.js', () => ({
   enqueueMeterValue: mockEnqueueMeterValue,
 }));
+=======
+const mockEnqueueMeterValue = jest.fn() as any;
+const mockProcessMeterValuesBatch = jest.fn() as any;
+
+jest.unstable_mockModule('../../queues/queueManager', () => ({
+  enqueueMeterValue: mockEnqueueMeterValue,
+}));
+jest.unstable_mockModule('../../queues/queueManager.js', () => ({
+  enqueueMeterValue: mockEnqueueMeterValue,
+}));
+
+jest.unstable_mockModule('../../workers/meterValuesWorker', () => ({
+  processMeterValuesBatch: mockProcessMeterValuesBatch,
+}));
+jest.unstable_mockModule('../../workers/meterValuesWorker.js', () => ({
+  processMeterValuesBatch: mockProcessMeterValuesBatch,
+}));
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
 
 describe("MeterValueService", () => {
   let MeterValueService: any;
@@ -62,8 +81,13 @@ describe("MeterValueService", () => {
   });
 
   describe("addMeterValue", () => {
+<<<<<<< HEAD
     it("should enqueue payload to BullMQ meter values queue", async () => {
       mockEnqueueMeterValue.mockResolvedValue("job-100");
+=======
+    it("should push payload to BullMQ meter values queue", async () => {
+      mockEnqueueMeterValue.mockResolvedValue(undefined);
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
 
       const payload = {
         transactionId: "TX-100",
@@ -76,6 +100,7 @@ describe("MeterValueService", () => {
 
       await MeterValueService.addMeterValue(payload);
 
+<<<<<<< HEAD
       expect(mockEnqueueMeterValue).toHaveBeenCalledWith(
         expect.objectContaining({
           transactionId: "TX-100",
@@ -85,51 +110,33 @@ describe("MeterValueService", () => {
           voltageValue: 230,
         })
       );
+=======
+      expect(mockEnqueueMeterValue).toHaveBeenCalledWith(payload);
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
     });
   });
 
-  describe("processMeterValuesBatch (OCPP-02)", () => {
-    it("should calculate net session energy consumed by subtracting initialMeterValue", async () => {
-      mockRedisExists.mockResolvedValue(1);
-      mockRedisRename.mockResolvedValue("OK");
-      mockRedisLrange.mockResolvedValue([
-        JSON.stringify({
+  describe("processMeterValuesBatch", () => {
+    it("should delegate to worker batch processor", async () => {
+      mockProcessMeterValuesBatch.mockResolvedValue(undefined);
+
+      const payloads = [
+        {
           transactionId: "TX-999",
           chargerId: 1,
           connectorId: 1,
-          energyValue: 2455000, // Absolute cumulative meter reading in Wh
+          energyValue: 2455000,
           powerValue: 11000,
           socValue: 75,
-          timestamp: new Date().toISOString(),
-        }),
-      ]);
-      mockRedisDel.mockResolvedValue(1);
-      mockPrismaMeterValueCreateMany.mockResolvedValue({ count: 1 });
-      mockPrismaTxFindFirst.mockResolvedValue({
-        initialMeterValue: 2450000, // Initial meter reading at session start
-      });
-      mockPrismaTxUpdateMany.mockResolvedValue({ count: 1 });
+          currentValue: 16,
+          voltageValue: 230,
+          timestamp: new Date(),
+        },
+      ];
 
-      await MeterValueService.processMeterValuesBatch();
+      await MeterValueService.processMeterValuesBatch(payloads);
 
-      expect(mockPrismaTxFindFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { transactionId: "TX-999" },
-          select: { initialMeterValue: true },
-        })
-      );
-      // Net session energy = 2455000 - 2450000 = 5000 Wh (5 kWh)
-      expect(mockPrismaTxUpdateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { transactionId: "TX-999", status: { not: "completed" } },
-          data: expect.objectContaining({
-            energyConsumed: 5000,
-            currentPower: 11000,
-            soc: 75,
-            status: "charging",
-          }),
-        })
-      );
+      expect(mockProcessMeterValuesBatch).toHaveBeenCalledWith(payloads);
     });
   });
 });

@@ -1,13 +1,21 @@
+<<<<<<< HEAD
 import { jest } from "@jest/globals";
 
 const mockPrismaChargerUpdate = jest.fn() as any;
 const mockPrismaChargerFindUnique = jest.fn() as any;
 const mockPrismaDiagnosticEventCreate = jest.fn() as any;
+=======
+import { jest } from '@jest/globals';
+
+const mockPrismaDiagnosticEventCreate = jest.fn() as any;
+const mockPrismaChargerUpdate = jest.fn() as any;
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
 const mockPrismaEvseFindUnique = jest.fn() as any;
 const mockPrismaEvseCreate = jest.fn() as any;
 const mockPrismaConnectorFindFirst = jest.fn() as any;
 const mockPrismaConnectorUpdate = jest.fn() as any;
 const mockPrismaConnectorCreate = jest.fn() as any;
+<<<<<<< HEAD
 const mockPrismaTxFindFirst = jest.fn() as any;
 const mockPrismaTxUpdate = jest.fn() as any;
 const mockPrismaTariffFindFirst = jest.fn() as any;
@@ -24,6 +32,17 @@ jest.mock("../../config/database.js", () => ({
     diagnosticEvent: {
       create: mockPrismaDiagnosticEventCreate,
     },
+=======
+
+jest.unstable_mockModule('../../config/database.js', () => ({
+  prisma: {
+    diagnosticEvent: {
+      create: mockPrismaDiagnosticEventCreate,
+    },
+    charger: {
+      update: mockPrismaChargerUpdate,
+    },
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
     evse: {
       findUnique: mockPrismaEvseFindUnique,
       create: mockPrismaEvseCreate,
@@ -33,6 +52,7 @@ jest.mock("../../config/database.js", () => ({
       update: mockPrismaConnectorUpdate,
       create: mockPrismaConnectorCreate,
     },
+<<<<<<< HEAD
     transaction: {
       findFirst: mockPrismaTxFindFirst,
       update: mockPrismaTxUpdate,
@@ -96,12 +116,35 @@ describe("BullMQ eventWorker", () => {
 
   beforeAll(async () => {
     eventWorkerModule = await import("../../workers/eventWorker.js");
+=======
+  },
+}));
+
+jest.unstable_mockModule('../../queues/queueManager.js', () => ({
+  getBullMqRedisConnection: jest.fn().mockReturnValue({}),
+}));
+
+jest.unstable_mockModule('bullmq', () => ({
+  Queue: jest.fn(),
+  Worker: jest.fn().mockImplementation(() => ({
+    on: jest.fn(),
+    close: jest.fn(),
+  })),
+}));
+
+describe('EventWorker', () => {
+  let eventWorkerModule: any;
+
+  beforeAll(async () => {
+    eventWorkerModule = await import('../../workers/eventWorker.js');
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
+<<<<<<< HEAD
   describe("processStatusEventJob", () => {
     it("should process Faulted status and increment consecutive errors", async () => {
       mockPrismaDiagnosticEventCreate.mockResolvedValue({ id: 1 });
@@ -229,5 +272,89 @@ describe("BullMQ eventWorker", () => {
         })
       );
     });
+=======
+  it('should process a Faulted status event and increment consecutive errors', async () => {
+    mockPrismaDiagnosticEventCreate.mockResolvedValue({ id: 1 });
+    mockPrismaChargerUpdate.mockResolvedValue({});
+    mockPrismaEvseFindUnique.mockResolvedValue({ id: 10 });
+    mockPrismaConnectorFindFirst.mockResolvedValue({ connector_id: 20 });
+    mockPrismaConnectorUpdate.mockResolvedValue({});
+
+    const job: any = {
+      id: 'job-fault-1',
+      data: {
+        chargerId: 5,
+        connectorId: 1,
+        status: 'Faulted',
+        errorCode: 'GroundFailure',
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    await eventWorkerModule.processStatusEventJob(job);
+
+    expect(mockPrismaDiagnosticEventCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          chargerId: 5,
+          type: 'FaultedState',
+        }),
+      })
+    );
+
+    expect(mockPrismaChargerUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { charger_id: 5 },
+        data: expect.objectContaining({
+          consecutiveErrors: { increment: 1 },
+        }),
+      })
+    );
+
+    expect(mockPrismaConnectorUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { connector_id: 20 },
+        data: expect.objectContaining({ status: 'Faulted' }),
+      })
+    );
+  });
+
+  it('should process Available status and reset consecutive errors', async () => {
+    mockPrismaChargerUpdate.mockResolvedValue({});
+    mockPrismaEvseFindUnique.mockResolvedValue(null);
+    mockPrismaEvseCreate.mockResolvedValue({ id: 15 });
+    mockPrismaConnectorFindFirst.mockResolvedValue(null);
+    mockPrismaConnectorCreate.mockResolvedValue({ connector_id: 30 });
+
+    const job: any = {
+      id: 'job-avail-1',
+      data: {
+        chargerId: 7,
+        connectorId: 1,
+        status: 'Available',
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    await eventWorkerModule.processStatusEventJob(job);
+
+    expect(mockPrismaChargerUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { charger_id: 7 },
+        data: expect.objectContaining({
+          consecutiveErrors: 0,
+        }),
+      })
+    );
+
+    expect(mockPrismaConnectorCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'Available',
+          connector_name: 'Channel 1',
+        }),
+      })
+    );
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
   });
 });

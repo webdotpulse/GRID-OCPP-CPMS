@@ -1,10 +1,49 @@
+<<<<<<< HEAD
 import { Queue, JobsOptions } from "bullmq";
+=======
+import { Queue, QueueOptions, JobsOptions } from "bullmq";
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
 import { Redis } from "ioredis";
 import { config } from "../config/index.js";
 import { logger } from "../utils/logger.js";
 
 const isTestEnv = process.env.NODE_ENV === "test";
 
+<<<<<<< HEAD
+=======
+/**
+ * Creates an ioredis client instance configured specifically for BullMQ.
+ * BullMQ requires maxRetriesPerRequest to be null.
+ */
+export function getBullMqRedisConnection(): Redis {
+  return new Redis(config.redisUrl, {
+    maxRetriesPerRequest: null,
+    lazyConnect: isTestEnv,
+    enableOfflineQueue: !isTestEnv,
+    retryStrategy(times: number) {
+      if (isTestEnv) return null;
+      return Math.min(times * 50, 2000);
+    },
+  });
+}
+
+const defaultJobOptions: JobsOptions = {
+  attempts: 3,
+  backoff: {
+    type: "exponential",
+    delay: 1000,
+  },
+  removeOnComplete: {
+    count: 5000,
+    age: 3600, // 1 hour
+  },
+  removeOnFail: {
+    count: 10000,
+    age: 86400, // 24 hours
+  },
+};
+
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
 export interface MeterValueJobData {
   transactionId: string;
   chargerId: number;
@@ -30,8 +69,14 @@ export interface StatusEventJobData {
   status: string;
   errorCode?: string;
   info?: string;
+<<<<<<< HEAD
   timestamp?: string | Date;
   vendorId?: string;
+=======
+  vendorId?: string;
+  vendorErrorCode?: string;
+  timestamp: string | Date;
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
 }
 
 export interface BillingJobData {
@@ -44,6 +89,7 @@ export interface BillingJobData {
   isV2GDischarging?: boolean;
 }
 
+<<<<<<< HEAD
 export const QUEUE_NAMES = {
   METER_VALUES: "meter-values-queue",
   STATUS_EVENTS: "status-events-queue",
@@ -131,10 +177,59 @@ export async function enqueueMeterValue(
   } catch (error) {
     logger.error(`Failed to enqueue meter value: ${error}`);
     return undefined;
+=======
+const queueConnection = getBullMqRedisConnection();
+queueConnection.on("error", (err) => {
+  if (!isTestEnv) logger.error(`BullMQ queue Redis connection error: ${err.message}`);
+});
+
+const commonQueueOptions: QueueOptions = {
+  connection: queueConnection,
+  defaultJobOptions,
+};
+
+// Initialize typed BullMQ queues
+export const meterValuesQueue = new Queue<MeterValueJobData>("meter-values-queue", commonQueueOptions);
+export const statusEventsQueue = new Queue<StatusEventJobData>("status-events-queue", commonQueueOptions);
+export const billingQueue = new Queue<BillingJobData>("billing-queue", commonQueueOptions);
+
+// Log queue errors
+meterValuesQueue.on("error", (err) => {
+  if (!isTestEnv) logger.error(`meterValuesQueue error: ${err.message}`);
+});
+statusEventsQueue.on("error", (err) => {
+  if (!isTestEnv) logger.error(`statusEventsQueue error: ${err.message}`);
+});
+billingQueue.on("error", (err) => {
+  if (!isTestEnv) logger.error(`billingQueue error: ${err.message}`);
+});
+
+/**
+ * Enqueue one or more meter value payloads to BullMQ
+ */
+export async function enqueueMeterValue(
+  data: MeterValueJobData | MeterValueJobData[]
+): Promise<void> {
+  try {
+    if (Array.isArray(data)) {
+      if (data.length === 0) return;
+      const jobs = data.map((item) => ({
+        name: "meter-value-batch",
+        data: item,
+        opts: defaultJobOptions,
+      }));
+      await meterValuesQueue.addBulk(jobs);
+    } else {
+      await meterValuesQueue.add("meter-value", data, defaultJobOptions);
+    }
+  } catch (error) {
+    logger.error(`Failed to enqueue meter value to BullMQ: ${error}`);
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
   }
 }
 
 /**
+<<<<<<< HEAD
  * Enqueue a charger status notification event.
  */
 export async function enqueueStatusEvent(
@@ -150,10 +245,20 @@ export async function enqueueStatusEvent(
   } catch (error) {
     logger.error(`Failed to enqueue status event: ${error}`);
     return undefined;
+=======
+ * Enqueue a status notification or connector event to BullMQ
+ */
+export async function enqueueStatusEvent(data: StatusEventJobData): Promise<void> {
+  try {
+    await statusEventsQueue.add("status-event", data, defaultJobOptions);
+  } catch (error) {
+    logger.error(`Failed to enqueue status event to BullMQ: ${error}`);
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
   }
 }
 
 /**
+<<<<<<< HEAD
  * Enqueue a transaction completion & billing event.
  */
 export async function enqueueBillingEvent(
@@ -169,11 +274,24 @@ export async function enqueueBillingEvent(
   } catch (error) {
     logger.error(`Failed to enqueue billing event: ${error}`);
     return undefined;
+=======
+ * Enqueue a transaction finalization and billing calculation job to BullMQ
+ */
+export async function enqueueBillingJob(data: BillingJobData): Promise<void> {
+  try {
+    await billingQueue.add("billing-job", data, defaultJobOptions);
+  } catch (error) {
+    logger.error(`Failed to enqueue billing job to BullMQ: ${error}`);
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
   }
 }
 
 /**
+<<<<<<< HEAD
  * Gracefully close all BullMQ queues.
+=======
+ * Gracefully close all BullMQ queue connections
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
  */
 export async function closeQueues(): Promise<void> {
   try {
@@ -182,8 +300,13 @@ export async function closeQueues(): Promise<void> {
       statusEventsQueue.close(),
       billingQueue.close(),
     ]);
+<<<<<<< HEAD
     await queueConnection.quit();
     logger.info("All BullMQ queues closed successfully.");
+=======
+    await queueConnection.quit().catch(() => {});
+    logger.info("BullMQ queues closed successfully.");
+>>>>>>> 482a712 (feat: implement asynchronous background worker architecture using BullMQ for billing, metering, and event management)
   } catch (error) {
     logger.error(`Error closing BullMQ queues: ${error}`);
   }
