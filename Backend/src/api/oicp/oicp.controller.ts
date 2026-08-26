@@ -242,3 +242,89 @@ export const testEndpoint = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Manually trigger Hubject EVSE master data push for a station
+ */
+export const triggerPushEvseData = async (req: Request, res: Response) => {
+  try {
+    const stationId = parseInt(String(req.params.stationId), 10);
+    if (isNaN(stationId)) {
+      return res.status(400).json({ success: false, message: "Invalid station ID" });
+    }
+
+    const { HubjectOicpService } = await import("../../services/HubjectOicpService.js");
+    const result = await HubjectOicpService.pushEvseData(stationId);
+
+    if (result.success) {
+      return res.json({ success: true, message: `Pushed ${result.count} EVSE records to Hubject`, data: result });
+    } else {
+      return res.status(500).json({ success: false, message: result.error || "Failed to push EVSE data" });
+    }
+  } catch (error: any) {
+    logger.error(`Error in triggerPushEvseData: ${error.message}`);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Manually trigger Hubject EVSE status push
+ */
+export const triggerPushEvseStatus = async (req: Request, res: Response) => {
+  try {
+    const { chargerId, connectorId, status, errorCode } = req.body;
+    if (!chargerId || !status) {
+      return res.status(400).json({ success: false, message: "chargerId and status are required" });
+    }
+
+    const { HubjectOicpService } = await import("../../services/HubjectOicpService.js");
+    const result = await HubjectOicpService.pushEvseStatus(
+      parseInt(chargerId),
+      connectorId ? parseInt(connectorId) : 1,
+      status,
+      errorCode
+    );
+
+    return res.json({ success: result.success, data: result });
+  } catch (error: any) {
+    logger.error(`Error in triggerPushEvseStatus: ${error.message}`);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Real-time driver authorization check against Hubject
+ */
+export const triggerAuthorizeStart = async (req: Request, res: Response) => {
+  try {
+    const { idTag, evseId } = req.body;
+    if (!idTag) {
+      return res.status(400).json({ success: false, message: "idTag is required" });
+    }
+
+    const { HubjectOicpService } = await import("../../services/HubjectOicpService.js");
+    const result = await HubjectOicpService.authorizeStart(idTag, evseId);
+
+    return res.json({ success: result.authorized, data: result });
+  } catch (error: any) {
+    logger.error(`Error in triggerAuthorizeStart: ${error.message}`);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Manually trigger Hubject CDR submission for a transaction
+ */
+export const triggerSendCdr = async (req: Request, res: Response) => {
+  try {
+    const transactionId = String(req.params.transactionId);
+
+    const { HubjectOicpService } = await import("../../services/HubjectOicpService.js");
+    const result = await HubjectOicpService.sendChargeDetailRecord(transactionId);
+
+    return res.json({ success: result.success, data: result });
+  } catch (error: any) {
+    logger.error(`Error in triggerSendCdr: ${error.message}`);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+

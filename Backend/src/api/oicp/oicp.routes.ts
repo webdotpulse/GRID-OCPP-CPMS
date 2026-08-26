@@ -4,7 +4,11 @@ import {
   createEndpoint,
   updateEndpoint,
   deleteEndpoint,
-  testEndpoint
+  testEndpoint,
+  triggerPushEvseData,
+  triggerPushEvseStatus,
+  triggerAuthorizeStart,
+  triggerSendCdr,
 } from "./oicp.controller.js";
 import { authenticateToken, requireAdmin } from "../../middleware/auth.js";
 
@@ -20,5 +24,10 @@ router.put("/endpoints/:id", updateEndpoint);
 router.delete("/endpoints/:id", deleteEndpoint);
 router.post("/endpoints/:id/test", testEndpoint);
 
-export default router;
+// Hubject OICP Actions
+router.post("/push-evse-data/:stationId", triggerPushEvseData);
+router.post("/push-evse-status", triggerPushEvseStatus);
+router.post("/authorize-start", triggerAuthorizeStart);
+router.post("/cdr/:transactionId", triggerSendCdr);
 
+export default router;

@@ -115,6 +115,15 @@ export async function processStatusEventJob(
       JSON.stringify({ chargerId, connectorId, status })
     );
 
+    // 5. Asynchronously synchronize dynamic EVSE status to Hubject OICP
+    import("../services/HubjectOicpService.js")
+      .then(({ HubjectOicpService }) => {
+        HubjectOicpService.pushEvseStatus(chargerId, connectorId, status, errorCode).catch((err) =>
+          logger.warn(`[eventWorker] Hubject status push failed: ${err}`)
+        );
+      })
+      .catch(() => {});
+
     logger.debug(`[eventWorker] StatusNotification processed for charger ${chargerId}, channel ${connectorId}: ${status}`);
   } catch (error) {
     logger.error(`[eventWorker] Failed to process status event job ${job.id}: ${error}`);
@@ -276,6 +285,15 @@ export async function processBillingJob(
         })
         .catch(() => {});
     }
+
+    // Also submit OICP CDR to Hubject if applicable
+    import("../services/HubjectOicpService.js")
+      .then(({ HubjectOicpService }) => {
+        HubjectOicpService.sendChargeDetailRecord(transactionId).catch((err) =>
+          logger.warn(`[eventWorker] Hubject CDR submit failed: ${err}`)
+        );
+      })
+      .catch(() => {});
 
     logger.info(`[eventWorker] Billing and session completion processed for tx ${transactionId}`);
   } catch (error) {
