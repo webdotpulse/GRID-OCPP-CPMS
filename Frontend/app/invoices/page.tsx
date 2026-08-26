@@ -14,6 +14,14 @@ import {
   sendInvoiceEmail,
   updateInvoiceStatus,
 } from "@/lib/invoices";
+import {
+  SepaMandate,
+  getMandates,
+  createOrUpdateMandate,
+  deleteMandate,
+  exportDirectDebitXml,
+  validateIbanBic,
+} from "@/lib/sepa";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +65,10 @@ import {
   Eye,
   Check,
   Zap,
+  CreditCard,
+  ShieldCheck,
+  Trash2,
+  FileCode2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -88,11 +100,33 @@ export default function InvoicesPage() {
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
   const [detailLoading, setDetailLoading] = useState<boolean>(false);
 
-  // Generate Dialog state
+  // Generate Invoices Dialog state
   const [isGenerateOpen, setIsGenerateOpen] = useState<boolean>(false);
   const [generateMonth, setGenerateMonth] = useState<string>((new Date().getMonth() + 1).toString());
   const [generateYear, setGenerateYear] = useState<string>(new Date().getFullYear().toString());
   const [generating, setGenerating] = useState<boolean>(false);
+
+  // SEPA Direct Debit Export Dialog state
+  const [isSepaExportOpen, setIsSepaExportOpen] = useState<boolean>(false);
+  const [sepaMonth, setSepaMonth] = useState<string>((new Date().getMonth() + 1).toString());
+  const [sepaYear, setSepaYear] = useState<string>(new Date().getFullYear().toString());
+  const [sepaScheme, setSepaScheme] = useState<"CORE" | "B2B">("CORE");
+  const [sepaSeqType, setSepaSeqType] = useState<"FRST" | "RCUR">("RCUR");
+  const [sepaDate, setSepaDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [exportingSepa, setExportingSepa] = useState<boolean>(false);
+
+  // SEPA Mandates Modal state
+  const [isMandatesOpen, setIsMandatesOpen] = useState<boolean>(false);
+  const [mandates, setMandates] = useState<SepaMandate[]>([]);
+  const [loadingMandates, setLoadingMandates] = useState<boolean>(false);
+
+  // New Mandate Form state
+  const [isNewMandateOpen, setIsNewMandateOpen] = useState<boolean>(false);
+  const [mandateDebtorName, setMandateDebtorName] = useState<string>("");
+  const [mandateIban, setMandateIban] = useState<string>("");
+  const [mandateBic, setMandateBic] = useState<string>("");
+  const [mandateScheme, setMandateScheme] = useState<"CORE" | "B2B">("CORE");
+  const [savingMandate, setSavingMandate] = useState<boolean>(false);
 
   // Action loading states
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
@@ -122,6 +156,19 @@ export default function InvoicesPage() {
       toast.error("Failed to load invoices");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMandates = async () => {
+    setLoadingMandates(true);
+    try {
+      const data = await getMandates();
+      setMandates(data);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Failed to load SEPA mandates");
+    } finally {
+      setLoadingMandates(false);
     }
   };
 
@@ -207,6 +254,76 @@ export default function InvoicesPage() {
     }
   };
 
+  const handleExportSepa = async () => {
+    setExportingSepa(true);
+    try {
+      await exportDirectDebitXml({
+        year: Number(sepaYear),
+        month: Number(sepaMonth),
+        mandateType: sepaScheme,
+        sequenceType: sepaSeqType,
+        collectionDate: sepaDate,
+      });
+
+      toast.success("SEPA Direct Debit pain.008 XML batch exported successfully");
+      setIsSepaExportOpen(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.error || "Failed to generate SEPA Direct Debit batch");
+    } finally {
+      setExportingSepa(false);
+    }
+  };
+
+  const handleCreateMandate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingMandate(true);
+    try {
+      // Validate locally first
+      const validation = await validateIbanBic(mandateIban, mandateBic || undefined);
+      if (!validation.ibanValid) {
+        toast.error(validation.ibanError || "Invalid IBAN checksum");
+        setSavingMandate(false);
+        return;
+      }
+      if (mandateBic && !validation.bicValid) {
+        toast.error(validation.bicError || "Invalid BIC format");
+        setSavingMandate(false);
+        return;
+      }
+
+      await createOrUpdateMandate({
+        debtorName: mandateDebtorName,
+        iban: mandateIban,
+        bic: mandateBic || null,
+        mandateType: mandateScheme,
+      });
+
+      toast.success("SEPA Direct Debit Mandate registered successfully");
+      setIsNewMandateOpen(false);
+      setMandateDebtorName("");
+      setMandateIban("");
+      setMandateBic("");
+      fetchMandates();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.error || "Failed to register mandate");
+    } finally {
+      setSavingMandate(false);
+    }
+  };
+
+  const handleDeleteMandate = async (id: number) => {
+    try {
+      await deleteMandate(id);
+      toast.success("Mandate deleted");
+      setMandates((prev) => prev.filter((m) => m.id !== id));
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Failed to delete mandate");
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "paid":
@@ -234,11 +351,11 @@ export default function InvoicesPage() {
               <h1 className="text-2xl font-bold tracking-tight text-white">Invoicing & Billing</h1>
             </div>
             <p className="text-sm text-slate-400 mt-1">
-              Automated monthly billing engine with EU VAT compliance, itemized charging sessions, and vector PDF exports.
+              Automated monthly billing engine with EU VAT compliance, vector PDF invoices, and ISO 20022 SEPA Direct Debit collections.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -250,15 +367,40 @@ export default function InvoicesPage() {
               Refresh
             </Button>
 
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                fetchMandates();
+                setIsMandatesOpen(true);
+              }}
+              className="bg-white/5 border-white/10 hover:bg-white/10 text-slate-200"
+            >
+              <CreditCard className="size-4 mr-1.5 text-[#54a8c7]" />
+              SEPA Mandates
+            </Button>
+
             {isAdmin && (
-              <Button
-                size="sm"
-                onClick={() => setIsGenerateOpen(true)}
-                className="bg-gradient-to-r from-[#54a8c7] to-[#3f78e0] hover:from-[#4596b4] hover:to-[#3568c8] text-white shadow-md shadow-[#54a8c7]/20"
-              >
-                <PlusCircle className="size-4 mr-1.5" />
-                Generate Monthly Invoices
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsSepaExportOpen(true)}
+                  className="bg-white/5 border-white/10 hover:bg-white/10 text-slate-200"
+                >
+                  <FileCode2 className="size-4 mr-1.5 text-emerald-400" />
+                  SEPA Direct Debit (pain.008)
+                </Button>
+
+                <Button
+                  size="sm"
+                  onClick={() => setIsGenerateOpen(true)}
+                  className="bg-gradient-to-r from-[#54a8c7] to-[#3f78e0] hover:from-[#4596b4] hover:to-[#3568c8] text-white shadow-md shadow-[#54a8c7]/20"
+                >
+                  <PlusCircle className="size-4 mr-1.5" />
+                  Generate Invoices
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -816,6 +958,313 @@ export default function InvoicesPage() {
                 )}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* SEPA Direct Debit Export Dialog */}
+        <Dialog open={isSepaExportOpen} onOpenChange={setIsSepaExportOpen}>
+          <DialogContent className="max-w-md bg-[#1e2228] border-white/10 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                <FileCode2 className="size-5 text-emerald-400" />
+                Export SEPA Direct Debit XML
+              </DialogTitle>
+              <DialogDescription className="text-slate-400 text-xs">
+                Generate an ISO 20022 pain.008.001.02 XML direct debit file for bank collection.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-3 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Target Month</label>
+                  <Select value={sepaMonth} onValueChange={setSepaMonth}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                        <SelectItem key={m} value={m.toString()}>
+                          {new Date(2026, m - 1).toLocaleString("default", { month: "long" })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Target Year</label>
+                  <Select value={sepaYear} onValueChange={setSepaYear}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                      <SelectItem value="2026">2026</SelectItem>
+                      <SelectItem value="2025">2025</SelectItem>
+                      <SelectItem value="2024">2024</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Mandate Scheme</label>
+                  <Select value={sepaScheme} onValueChange={(val: any) => setSepaScheme(val)}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                      <SelectItem value="CORE">CORE (Standard / B2C)</SelectItem>
+                      <SelectItem value="B2B">B2B (Business-to-Business)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Sequence Type</label>
+                  <Select value={sepaSeqType} onValueChange={(val: any) => setSepaSeqType(val)}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                      <SelectItem value="RCUR">RCUR (Recurring)</SelectItem>
+                      <SelectItem value="FRST">FRST (First Collection)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300">Requested Collection Date</label>
+                <Input
+                  type="date"
+                  value={sepaDate}
+                  onChange={(e) => setSepaDate(e.target.value)}
+                  className="bg-white/5 border-white/10 text-white h-9"
+                />
+              </div>
+
+              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300">
+                <p className="font-semibold mb-1 flex items-center gap-1">
+                  <ShieldCheck className="size-3.5" />
+                  Banking Protocol Validation
+                </p>
+                <p className="text-slate-400">
+                  Outputs valid XML conforming to ISO 20022 pain.008.001.02 with XML entity escaping and CDATA protection. Unpaid invoices linked to active SEPA mandates will be included.
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsSepaExportOpen(false)}
+                className="bg-white/5 border-white/10 text-white hover:bg-white/10"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={exportingSepa}
+                onClick={handleExportSepa}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white"
+              >
+                {exportingSepa ? (
+                  <>
+                    <RefreshCw className="size-4 mr-1.5 animate-spin" />
+                    Exporting XML...
+                  </>
+                ) : (
+                  <>
+                    <Download className="size-4 mr-1.5" />
+                    Download pain.008 XML
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* SEPA Mandates Registry Modal */}
+        <Dialog open={isMandatesOpen} onOpenChange={setIsMandatesOpen}>
+          <DialogContent className="max-w-3xl bg-[#1e2228] border-white/10 text-white max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                    <CreditCard className="size-5 text-[#54a8c7]" />
+                    SEPA Direct Debit Mandates
+                  </DialogTitle>
+                  <DialogDescription className="text-slate-400 text-xs mt-0.5">
+                    Manage European direct debit mandates for automatic invoice collections.
+                  </DialogDescription>
+                </div>
+
+                <Button
+                  size="sm"
+                  onClick={() => setIsNewMandateOpen(true)}
+                  className="bg-[#54a8c7] hover:bg-[#4596b4] text-white"
+                >
+                  <PlusCircle className="size-4 mr-1.5" />
+                  New Mandate
+                </Button>
+              </div>
+            </DialogHeader>
+
+            <div className="py-2">
+              {loadingMandates ? (
+                <div className="py-8 text-center text-slate-400">
+                  <RefreshCw className="size-6 animate-spin mx-auto mb-2 text-[#54a8c7]" />
+                  Loading SEPA mandates...
+                </div>
+              ) : mandates.length === 0 ? (
+                <div className="py-8 text-center text-slate-400">
+                  <CreditCard className="size-8 mx-auto mb-2 text-slate-500 opacity-50" />
+                  No SEPA mandates registered yet.
+                </div>
+              ) : (
+                <div className="rounded-lg border border-white/10 overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-white/5">
+                      <TableRow className="border-white/10">
+                        <TableHead className="text-xs text-slate-300">Mandate Ref</TableHead>
+                        <TableHead className="text-xs text-slate-300">Debtor Name</TableHead>
+                        <TableHead className="text-xs text-slate-300">IBAN</TableHead>
+                        <TableHead className="text-xs text-slate-300">Scheme</TableHead>
+                        <TableHead className="text-xs text-slate-300">Signed Date</TableHead>
+                        <TableHead className="text-xs text-slate-300 text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {mandates.map((m) => (
+                        <TableRow key={m.id} className="border-white/5 text-xs">
+                          <TableCell className="font-mono font-semibold text-[#54a8c7]">
+                            {m.mandateRef}
+                          </TableCell>
+                          <TableCell className="font-medium text-white">{m.debtorName}</TableCell>
+                          <TableCell className="font-mono text-slate-300">{m.iban}</TableCell>
+                          <TableCell>
+                            <Badge className={m.mandateType === "B2B" ? "bg-purple-500/15 text-purple-400" : "bg-blue-500/15 text-blue-400"}>
+                              {m.mandateType}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-slate-400">
+                            {new Date(m.signatureDate).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteMandate(m.id)}
+                              className="size-7 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsMandatesOpen(false)}
+                className="bg-white/5 border-white/10 text-white hover:bg-white/10"
+              >
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* New Mandate Dialog */}
+        <Dialog open={isNewMandateOpen} onOpenChange={setIsNewMandateOpen}>
+          <DialogContent className="max-w-md bg-[#1e2228] border-white/10 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                <PlusCircle className="size-5 text-[#54a8c7]" />
+                Register SEPA Mandate
+              </DialogTitle>
+              <DialogDescription className="text-slate-400 text-xs">
+                Authorizes direct debit collections from the customer bank account.
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleCreateMandate} className="space-y-4 py-2 text-sm">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300">Debtor / Account Holder Name *</label>
+                <Input
+                  required
+                  placeholder="e.g. Acme Fleet B.V."
+                  value={mandateDebtorName}
+                  onChange={(e) => setMandateDebtorName(e.target.value)}
+                  className="bg-white/5 border-white/10 text-white h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300">IBAN *</label>
+                <Input
+                  required
+                  placeholder="e.g. NL91ABNA0417164300"
+                  value={mandateIban}
+                  onChange={(e) => setMandateIban(e.target.value.toUpperCase())}
+                  className="font-mono bg-white/5 border-white/10 text-white h-9"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">BIC / SWIFT (Optional)</label>
+                  <Input
+                    placeholder="e.g. ABNANL2A"
+                    value={mandateBic}
+                    onChange={(e) => setMandateBic(e.target.value.toUpperCase())}
+                    className="font-mono bg-white/5 border-white/10 text-white h-9"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Mandate Scheme</label>
+                  <Select value={mandateScheme} onValueChange={(val: any) => setMandateScheme(val)}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                      <SelectItem value="CORE">CORE (Standard)</SelectItem>
+                      <SelectItem value="B2B">B2B (Enterprise)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <DialogFooter className="pt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsNewMandateOpen(false)}
+                  className="bg-white/5 border-white/10 text-white hover:bg-white/10"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={savingMandate}
+                  className="bg-[#54a8c7] hover:bg-[#4596b4] text-white"
+                >
+                  {savingMandate ? "Saving..." : "Save Mandate"}
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>

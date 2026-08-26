@@ -40,6 +40,7 @@ import analyticsRoutes from "./api/analytics/analytics.routes.js";
 import reimbursementsRoutes from "./api/reimbursements/reimbursements.routes.js";
 import auditRoutes from "./api/audit/audit.routes.js";
 import invoicesRoutes from "./api/invoices/invoices.routes.js";
+import sepaRoutes from "./api/sepa/sepa.routes.js";
 
 // Import OCPP servers
 import { ocppServer } from "./ocpp/ocppServer.js";
@@ -129,6 +130,7 @@ export function createApp(): Application {
   app.use("/api/reimbursements", reimbursementsRoutes);
   app.use("/api/audit", auditRoutes);
   app.use("/api/invoices", authenticateToken, invoicesRoutes);
+  app.use("/api/sepa", authenticateToken, sepaRoutes);
 
   // Error handling
   app.use(notFoundHandler);

@@ -45,6 +45,7 @@ model User {
   vehicleContractCertificates VehicleContractCertificate[]
   auditLogs                   AuditLog[]
   invoices                    Invoice[]
+  sepaMandates                SepaMandate[]
 }
 
 model Company {
@@ -55,6 +56,7 @@ model Company {
   users     User[]
   mollieConfig MollieConfig?
   invoices  Invoice[]
+  sepaMandates SepaMandate[]
 }
 
 model MollieConfig {
@@ -875,5 +877,27 @@ model InvoiceItem {
   updatedAt   DateTime @updatedAt
 
   @@index([invoiceId])
+}
+
+// SEPA Direct Debit Mandate & ISO 20022 Direct Debit (FIN-02)
+model SepaMandate {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId     Int?
+  company       Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  debtorName    String
+  iban          String
+  bic           String?
+  mandateRef    String   @unique
+  signatureDate DateTime @default(now())
+  mandateType   String   @default("CORE") // "CORE" or "B2B"
+  sequenceType  String   @default("RCUR") // "FRST", "RCUR", "FNAL", "OOFF"
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([companyId])
 }
 
