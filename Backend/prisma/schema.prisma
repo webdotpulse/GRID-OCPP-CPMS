@@ -180,6 +180,7 @@ model Connector {
   mac_address    String?
   format         String   @default("SOCKET")
   max_voltage    Float    @default(400)
+  phaseConnection String   @default("L1-L2-L3")
   evse_id        Int
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -349,6 +350,8 @@ model ChargeGroup {
   description         String?
   maxPower            Float? // Maximum allowed capacity in kW/Amps
   maxAmperage         Float?
+  maxPhaseCurrent     Float    @default(80.0)
+  maxPhaseUnbalance   Float    @default(16.0)
   phaseUnbalanceLimit Float?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

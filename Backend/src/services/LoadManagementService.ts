@@ -57,6 +57,9 @@ export class LoadManagementService {
           await this.balanceChargeGroupLoadWithData(group, activeTransactions).catch((err: any) =>
             logger.error(`Smart Charging engine error for group ${group.id}: ${err}`)
           );
+          await this.balancePhasesForGroup(group.id).catch((err: any) =>
+            logger.error(`Phase balancing error for group ${group.id}: ${err}`)
+          );
         }
       }
     } catch (error) {
@@ -525,6 +528,290 @@ export class LoadManagementService {
       throw error;
     }
   }
+
+  /**
+   * 3-Phase Dynamic Load Balancing & Phase Unbalance Mitigation (ENG-01)
+   */
+  async balancePhasesForGroup(groupId: number): Promise<any> {
+    try {
+      const group = await prisma.chargeGroup.findUnique({
+        where: { id: groupId },
+      });
+
+      if (!group) {
+        logger.warn(`Phase balancing skipped: ChargeGroup ${groupId} not found`);
+        return { balanced: true, groupId, error: "Group not found" };
+      }
+
+      const maxPhaseCurrent = (group as any).maxPhaseCurrent ?? 80.0;
+      const maxPhaseUnbalance = (group as any).maxPhaseUnbalance ?? group.phaseUnbalanceLimit ?? 16.0;
+
+      // Fetch active transactions and their associated charger & connectors
+      const activeTransactions = await prisma.transaction.findMany({
+        where: {
+          status: { in: ["initiated", "charging"] },
+          charger: { chargeGroupId: groupId },
+        },
+        include: {
+          charger: {
+            include: {
+              evses: {
+                include: {
+                  connectors: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (activeTransactions.length === 0) {
+        return {
+          balanced: true,
+          groupId,
+          phaseLoads: { L1: 0, L2: 0, L3: 0 },
+          maxPhase: "L1",
+          unbalance: 0,
+          isOverCurrent: false,
+          isUnbalanced: false,
+          actionsTaken: [],
+        };
+      }
+
+      // 1. Calculate per-phase currents for each active transaction
+      const txPhaseData: Array<{
+        tx: any;
+        chargerId: number;
+        phaseConnection: string;
+        currentL1: number;
+        currentL2: number;
+        currentL3: number;
+        totalCurrent: number;
+      }> = [];
+
+      let totalL1 = 0;
+      let totalL2 = 0;
+      let totalL3 = 0;
+
+      for (const tx of activeTransactions) {
+        // Resolve connector phase mapping
+        let phaseConnection = "L1-L2-L3";
+        for (const evse of tx.charger.evses || []) {
+          const matchingConn = (evse.connectors || []).find(
+            (c: any) =>
+              c.connector_name === tx.connectorName ||
+              String(c.connector_id) === tx.connectorName ||
+              String(evse.evse_id) === tx.connectorName ||
+              (evse.connectors && evse.connectors.length === 1)
+          );
+          if (matchingConn && (matchingConn as any).phaseConnection) {
+            phaseConnection = (matchingConn as any).phaseConnection;
+            break;
+          }
+        }
+
+        // Fetch latest meter telemetry for accurate phase current
+        const latestMeter = await prisma.meterValue.findFirst({
+          where: { transactionId: tx.transactionId },
+          orderBy: { timestamp: "desc" },
+        });
+
+        let l1 = 0;
+        let l2 = 0;
+        let l3 = 0;
+
+        if (
+          latestMeter &&
+          (latestMeter.current_L1 !== null ||
+            latestMeter.current_L2 !== null ||
+            latestMeter.current_L3 !== null)
+        ) {
+          l1 = latestMeter.current_L1 || 0;
+          l2 = latestMeter.current_L2 || 0;
+          l3 = latestMeter.current_L3 || 0;
+        } else {
+          const rawCurrent = tx.current || latestMeter?.current || 16;
+          const connUpper = phaseConnection.toUpperCase();
+
+          if (connUpper === "L1") {
+            l1 = rawCurrent;
+          } else if (connUpper === "L2") {
+            l2 = rawCurrent;
+          } else if (connUpper === "L3") {
+            l3 = rawCurrent;
+          } else {
+            // 3-Phase balanced
+            l1 = rawCurrent;
+            l2 = rawCurrent;
+            l3 = rawCurrent;
+          }
+        }
+
+        totalL1 += l1;
+        totalL2 += l2;
+        totalL3 += l3;
+
+        txPhaseData.push({
+          tx,
+          chargerId: tx.charger_id,
+          phaseConnection,
+          currentL1: l1,
+          currentL2: l2,
+          currentL3: l3,
+          totalCurrent: Math.max(l1, l2, l3),
+        });
+      }
+
+      totalL1 = Math.round(totalL1 * 10) / 10;
+      totalL2 = Math.round(totalL2 * 10) / 10;
+      totalL3 = Math.round(totalL3 * 10) / 10;
+
+      const maxCurrent = Math.max(totalL1, totalL2, totalL3);
+      const minCurrent = Math.min(totalL1, totalL2, totalL3);
+      const unbalance = Math.round((maxCurrent - minCurrent) * 10) / 10;
+
+      const maxPhase: "L1" | "L2" | "L3" =
+        totalL1 === maxCurrent ? "L1" : totalL2 === maxCurrent ? "L2" : "L3";
+
+      const isOverCurrent = totalL1 > maxPhaseCurrent || totalL2 > maxPhaseCurrent || totalL3 > maxPhaseCurrent;
+      const isUnbalanced = unbalance > maxPhaseUnbalance;
+
+      logger.info(
+        `[3-Phase DLB] Group ${groupId} Phase Loads -> L1: ${totalL1}A, L2: ${totalL2}A, L3: ${totalL3}A | Unbalance: ${unbalance}A (Max Allowed: ${maxPhaseUnbalance}A, Max Phase Limit: ${maxPhaseCurrent}A)`
+      );
+
+      // 2. Clear phase throttling profiles if site is balanced and safe
+      if (!isOverCurrent && !isUnbalanced) {
+        const chargerIds = activeTransactions.map((tx) => tx.charger_id);
+        const existingPhaseProfiles = await prisma.chargingProfile.findMany({
+          where: { chargerId: { in: chargerIds }, chargingProfileId: 102 },
+        });
+
+        if (existingPhaseProfiles.length > 0) {
+          logger.info(`[3-Phase DLB] Group ${groupId} is balanced. Clearing phase unbalance profiles.`);
+          for (const p of existingPhaseProfiles) {
+            await this.clearLoadManagementProfile(p.chargerId, 102).catch((err) =>
+              logger.error(`Error clearing phase profile on charger ${p.chargerId}: ${err}`)
+            );
+          }
+        }
+
+        return {
+          balanced: true,
+          groupId,
+          phaseLoads: { L1: totalL1, L2: totalL2, L3: totalL3 },
+          maxPhase,
+          unbalance,
+          isOverCurrent: false,
+          isUnbalanced: false,
+          actionsTaken: [],
+        };
+      }
+
+      // 3. Mitigate over-current or phase unbalance by throttling transactions on the highest phase
+      logger.warn(
+        `[3-Phase DLB] Phase unbalance/overload detected on group ${groupId}! Mitigating load on phase ${maxPhase}...`
+      );
+
+      const safeCap = maxPhaseCurrent * 0.95;
+      const unbalanceCap = minCurrent + maxPhaseUnbalance;
+      const targetPhaseMax = Math.min(safeCap, unbalanceCap);
+      const reductionRequired = Math.max(0, maxCurrent - targetPhaseMax);
+
+      // Find transactions contributing current to the overloaded phase
+      const contributingTxs = txPhaseData.filter((item) => {
+        if (maxPhase === "L1") return item.currentL1 > 0;
+        if (maxPhase === "L2") return item.currentL2 > 0;
+        if (maxPhase === "L3") return item.currentL3 > 0;
+        return false;
+      });
+
+      // Sort single-phase vehicles on maxPhase first (they are the root cause of unbalance)
+      contributingTxs.sort((a, b) => {
+        const aSingle = a.phaseConnection.toUpperCase() === maxPhase ? 1 : 0;
+        const bSingle = b.phaseConnection.toUpperCase() === maxPhase ? 1 : 0;
+        if (aSingle !== bSingle) return bSingle - aSingle;
+        return b.totalCurrent - a.totalCurrent;
+      });
+
+      const actionsTaken: Array<{
+        chargerId: number;
+        transactionId: string;
+        phaseConnection: string;
+        originalCurrent: number;
+        newLimitAmps: number;
+      }> = [];
+
+      let remainingReduction = reductionRequired;
+
+      for (const item of contributingTxs) {
+        if (remainingReduction <= 0) break;
+
+        const currentDrawn =
+          maxPhase === "L1"
+            ? item.currentL1
+            : maxPhase === "L2"
+            ? item.currentL2
+            : item.currentL3;
+
+        // Calculate throttled current limit (minimum 6A)
+        const proposedLimit = Math.max(6, Math.floor(currentDrawn - remainingReduction));
+        const delta = currentDrawn - proposedLimit;
+
+        if (delta > 0) {
+          remainingReduction -= delta;
+
+          const profileRequest: SetChargingProfileRequest = {
+            chargerId: item.chargerId,
+            connectorId: 0,
+            csChargingProfiles: {
+              chargingProfileId: 102, // 102 = 3-Phase DLB Unbalance Mitigation Profile
+              stackLevel: 3, // Highest priority to immediately protect grid breakers
+              chargingProfilePurpose: "TxDefaultProfile",
+              chargingProfileKind: "Absolute",
+              chargingSchedule: {
+                chargingRateUnit: "A",
+                chargingSchedulePeriod: [
+                  {
+                    startPeriod: 0,
+                    limit: proposedLimit,
+                  },
+                ],
+              },
+            },
+          };
+
+          await this.dispatchChargingProfiles(profileRequest).catch((err) =>
+            logger.error(`Error dispatching phase throttle profile to charger ${item.chargerId}: ${err}`)
+          );
+
+          actionsTaken.push({
+            chargerId: item.chargerId,
+            transactionId: item.tx.transactionId,
+            phaseConnection: item.phaseConnection,
+            originalCurrent: currentDrawn,
+            newLimitAmps: proposedLimit,
+          });
+        }
+      }
+
+      return {
+        balanced: false,
+        groupId,
+        phaseLoads: { L1: totalL1, L2: totalL2, L3: totalL3 },
+        maxPhase,
+        unbalance,
+        isOverCurrent,
+        isUnbalanced,
+        reductionRequired,
+        actionsTaken,
+      };
+    } catch (error: any) {
+      logger.error(`Error in balancePhasesForGroup for group ${groupId}: ${error}`);
+      return { balanced: false, groupId, error: error.message || "Phase balancing failure" };
+    }
+  }
 }
 
 export const loadManagementService = new LoadManagementService();
+
