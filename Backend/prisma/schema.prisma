@@ -586,6 +586,7 @@ model ParkingSpot {
   width     Float    @default(100)
   height    Float    @default(200)
   rotation  Float    @default(0)
+  metadata  Json?    // Electrical topology properties: sourceNodeId, targetNodeId, maxCapacityKw, maxCurrentAmps, cableType, etc.
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

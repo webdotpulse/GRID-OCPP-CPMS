@@ -397,6 +397,7 @@ export const updateParkingSpots = async (req: Request, res: Response) => {
             width: spot.width,
             height: spot.height,
             rotation: spot.rotation || 0,
+            metadata: spot.metadata || null,
           }
         });
 
@@ -418,5 +419,221 @@ export const updateParkingSpots = async (req: Request, res: Response) => {
   } catch (error) {
     logger.error(`Error updating parking spots: ${error}`);
     res.status(500).json({ success: false, error: "Failed to update parking spots" });
+  }
+};
+
+/**
+ * GET /api/stations/:id/topology - Get live electrical topology, feeder cable loading, and 3-phase telemetry
+ */
+export const getStationTopology = async (req: Request, res: Response) => {
+  try {
+    const stationId = parseId(req.params.id);
+    if (!stationId) {
+      return res.status(400).json({ success: false, error: "Invalid station ID" });
+    }
+
+    const station = await prisma.chargingStation.findUnique({
+      where: { id: stationId },
+      include: {
+        parkingSpots: {
+          include: {
+            connector: {
+              include: {
+                evse: {
+                  include: {
+                    charger: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        chargers: {
+          include: {
+            evses: {
+              include: {
+                connectors: true,
+              },
+            },
+            meterValues: {
+              orderBy: { timestamp: "desc" },
+              take: 1,
+            },
+            transactions: {
+              where: { status: "charging" },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    if (!station) {
+      return res.status(404).json({ success: false, error: "Station not found" });
+    }
+
+    // Build charger phase telemetry map
+    const chargerTelemetryMap = new Map();
+    let totalStationCurrentL1 = 0;
+    let totalStationCurrentL2 = 0;
+    let totalStationCurrentL3 = 0;
+    let totalStationPowerKw = 0;
+
+    for (const charger of station.chargers) {
+      const latestMeter = charger.meterValues[0];
+      const activeTx = charger.transactions[0];
+
+      let l1 = latestMeter?.current_L1 ?? 0;
+      let l2 = latestMeter?.current_L2 ?? 0;
+      let l3 = latestMeter?.current_L3 ?? 0;
+      const v1 = latestMeter?.voltage_L1 ?? 230.0;
+      const v2 = latestMeter?.voltage_L2 ?? 230.0;
+      const v3 = latestMeter?.voltage_L3 ?? 230.0;
+      let kw = (latestMeter?.power ? latestMeter.power / 1000 : 0) || (activeTx?.currentPower || 0);
+
+      // If active session but raw 3-phase amps not recorded individually, compute balanced phase split
+      if (activeTx && l1 === 0 && l2 === 0 && l3 === 0) {
+        const powerKw = activeTx.currentPower || 11.0;
+        kw = powerKw;
+        const ampsPerPhase = (powerKw * 1000) / (3 * 230);
+        l1 = Math.round(ampsPerPhase * 10) / 10;
+        l2 = Math.round(ampsPerPhase * 10) / 10;
+        l3 = Math.round(ampsPerPhase * 10) / 10;
+      }
+
+      totalStationCurrentL1 += l1;
+      totalStationCurrentL2 += l2;
+      totalStationCurrentL3 += l3;
+      totalStationPowerKw += kw;
+
+      const avgAmps = (l1 + l2 + l3) / 3;
+      const maxAmps = Math.max(l1, l2, l3);
+      const unbalanceAmps = Math.round(Math.max(0, maxAmps - Math.min(l1, l2, l3)) * 10) / 10;
+      const unbalancePercentage = avgAmps > 0 ? Math.round(((maxAmps - avgAmps) / avgAmps) * 100) : 0;
+
+      chargerTelemetryMap.set(charger.charger_id, {
+        chargerId: charger.charger_id,
+        name: charger.name,
+        status: charger.status,
+        activePowerKw: Math.round(kw * 100) / 100,
+        currentL1: Math.round(l1 * 10) / 10,
+        currentL2: Math.round(l2 * 10) / 10,
+        currentL3: Math.round(l3 * 10) / 10,
+        voltageL1: Math.round(v1 * 10) / 10,
+        voltageL2: Math.round(v2 * 10) / 10,
+        voltageL3: Math.round(v3 * 10) / 10,
+        unbalanceAmps,
+        unbalancePercentage,
+        isUnbalanced: unbalanceAmps > 16.0,
+      });
+    }
+
+    // Process nodes and feeder cables
+    const nodes = [];
+    const feeders = [];
+
+    for (const spot of station.parkingSpots) {
+      const type = spot.type || "spot";
+      const metadata: any = spot.metadata || {};
+
+      if (type === "feeder") {
+        const ratedAmps = metadata.maxCurrentAmps || 160;
+        const sourceNodeId = metadata.sourceNodeId;
+        const targetNodeId = metadata.targetNodeId;
+
+        // Calculate downstream active current
+        let feederCurrentL1 = 0;
+        let feederCurrentL2 = 0;
+        let feederCurrentL3 = 0;
+
+        // If target is a charger spot or connector
+        const targetSpot = station.parkingSpots.find((s) => s.id === targetNodeId);
+        const chargerId = targetSpot?.connector?.evse?.charger_id;
+
+        if (chargerId && chargerTelemetryMap.has(chargerId)) {
+          const telemetry = chargerTelemetryMap.get(chargerId);
+          feederCurrentL1 = telemetry.currentL1;
+          feederCurrentL2 = telemetry.currentL2;
+          feederCurrentL3 = telemetry.currentL3;
+        } else {
+          // If feeder originates from main transformer, distribute proportional current
+          const feederCount = Math.max(station.parkingSpots.filter(s => s.type === "feeder").length, 1);
+          feederCurrentL1 = Math.round((totalStationCurrentL1 / feederCount) * 10) / 10;
+          feederCurrentL2 = Math.round((totalStationCurrentL2 / feederCount) * 10) / 10;
+          feederCurrentL3 = Math.round((totalStationCurrentL3 / feederCount) * 10) / 10;
+        }
+
+        const maxPhaseCurrent = Math.max(feederCurrentL1, feederCurrentL2, feederCurrentL3);
+        const loadPercentage = Math.round((maxPhaseCurrent / ratedAmps) * 100);
+
+        let loadLevel: "normal" | "warning" | "critical" = "normal";
+        if (loadPercentage > 85) {
+          loadLevel = "critical";
+        } else if (loadPercentage >= 60) {
+          loadLevel = "warning";
+        }
+
+        feeders.push({
+          id: spot.id,
+          name: spot.name,
+          sourceNodeId,
+          targetNodeId,
+          cableType: metadata.cableType || "4x50mm² Cu",
+          lengthMeters: metadata.lengthMeters || 25,
+          ratedCurrentAmps: ratedAmps,
+          activeCurrentL1: feederCurrentL1,
+          activeCurrentL2: feederCurrentL2,
+          activeCurrentL3: feederCurrentL3,
+          maxPhaseCurrent,
+          loadPercentage,
+          loadLevel,
+          points: metadata.points || null,
+        });
+      } else {
+        const chargerId = spot.connector?.evse?.charger_id;
+        const telemetry = chargerId ? chargerTelemetryMap.get(chargerId) : null;
+
+        nodes.push({
+          id: spot.id,
+          name: spot.name,
+          type: spot.type,
+          x: spot.x,
+          y: spot.y,
+          width: spot.width,
+          height: spot.height,
+          rotation: spot.rotation,
+          fillColor: spot.fillColor,
+          lineColor: spot.lineColor,
+          lineWidth: spot.lineWidth,
+          connectorId: spot.connector?.connector_id,
+          chargerId: chargerId || null,
+          metadata: spot.metadata,
+          telemetry: telemetry || null,
+        });
+      }
+    }
+
+    const stationMaxAmps = Math.max(totalStationCurrentL1, totalStationCurrentL2, totalStationCurrentL3);
+    const stationUnbalanceAmps = Math.round(Math.max(0, stationMaxAmps - Math.min(totalStationCurrentL1, totalStationCurrentL2, totalStationCurrentL3)) * 10) / 10;
+
+    res.json({
+      success: true,
+      data: {
+        stationId: station.id,
+        stationName: station.station_name,
+        maxPowerKw: station.maxPower || 250,
+        activePowerKw: Math.round(totalStationPowerKw * 100) / 100,
+        totalCurrentL1: Math.round(totalStationCurrentL1 * 10) / 10,
+        totalCurrentL2: Math.round(totalStationCurrentL2 * 10) / 10,
+        totalCurrentL3: Math.round(totalStationCurrentL3 * 10) / 10,
+        stationUnbalanceAmps,
+        isStationUnbalanced: stationUnbalanceAmps > 16.0,
+        nodes,
+        feeders,
+      },
+    });
+  } catch (error: any) {
+    logger.error("Error fetching station electrical topology:", error);
+    res.status(500).json({ success: false, error: error.message || "Failed to fetch station topology" });
   }
 };
