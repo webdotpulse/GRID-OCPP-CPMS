@@ -176,6 +176,17 @@ export async function setChargingProfile(
       { connectorId, csChargingProfiles },
       10000
     );
+
+    if (result.status === "Accepted" && csChargingProfiles) {
+      import("../services/SmartChargingProfileService.js")
+        .then(({ SmartChargingProfileService }) => {
+          SmartChargingProfileService.saveChargingProfile(chargerId, connectorId, csChargingProfiles).catch(
+            (e) => logger.error(`Error persisting charging profile: ${e}`)
+          );
+        })
+        .catch(() => {});
+    }
+
     return { ...result, status: result.status || "Accepted" };
   } catch (error) {
     logger.error(`Error in setChargingProfile for charger ${chargerId}: ${error}`);
@@ -204,6 +215,20 @@ export async function clearChargingProfile(
       payload,
       10000
     );
+
+    if (result.status === "Accepted") {
+      import("../services/SmartChargingProfileService.js")
+        .then(({ SmartChargingProfileService }) => {
+          SmartChargingProfileService.clearChargingProfiles(chargerId, {
+            id,
+            connectorId,
+            chargingProfilePurpose,
+            stackLevel,
+          }).catch((e) => logger.error(`Error clearing profile in db: ${e}`));
+        })
+        .catch(() => {});
+    }
+
     return { ...result, status: result.status || "Accepted" };
   } catch (error) {
     logger.error(`Error in clearChargingProfile for charger ${chargerId}: ${error}`);
@@ -409,5 +434,50 @@ export async function getInstalledCertificateIds(
   } catch (error) {
     logger.error(`Error in getInstalledCertificateIds for charger ${chargerId}: ${error}`);
     return { status: "Rejected", error: "Failed to send GetInstalledCertificateIds" };
+  }
+}
+
+/**
+ * Send GetCompositeSchedule request to charger (or calculate locally via SmartChargingProfileService)
+ */
+export async function getCompositeSchedule(
+  chargerId: number,
+  connectorId: number,
+  duration: number = 86400,
+  chargingRateUnit: "A" | "W" = "A"
+): Promise<{ status: string; scheduleStart?: string; chargingSchedule?: any; error?: string }> {
+  try {
+    const isOnline = await chargerRegistry.isConnectedGlobally(chargerId);
+    if (isOnline) {
+      const payload = { connectorId, duration, chargingRateUnit };
+      const result = await sendDistributedOcppCall(chargerId, "GetCompositeSchedule", payload, 15000);
+      if (result.status === "Accepted" && result.chargingSchedule) {
+        return { ...result, status: "Accepted" };
+      }
+    }
+
+    // Local calculation via SmartChargingProfileService
+    const { SmartChargingProfileService } = await import("../services/SmartChargingProfileService.js");
+    const composite = await SmartChargingProfileService.calculateCompositeSchedule(
+      chargerId,
+      connectorId,
+      duration,
+      chargingRateUnit
+    );
+
+    return {
+      status: composite.status,
+      scheduleStart: composite.scheduleStart,
+      chargingSchedule: {
+        duration: composite.duration,
+        startSchedule: composite.scheduleStart,
+        chargingRateUnit: composite.chargingRateUnit,
+        chargingSchedulePeriod: composite.chargingSchedulePeriod,
+      },
+      error: composite.error,
+    };
+  } catch (error) {
+    logger.error(`Error in getCompositeSchedule for charger ${chargerId}: ${error}`);
+    return { status: "Rejected", error: "Failed to get composite schedule" };
   }
 }
