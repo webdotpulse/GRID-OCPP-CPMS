@@ -53,10 +53,12 @@ export default function ReimbursementsPage() {
       // Auto-fill form if employee has one contract
       if (user?.role !== 'admin' && user?.role !== 'superadmin' && fetchedContracts.length > 0) {
         const c = fetchedContracts[0];
-        setRfidUserId(c.rfidUserId.toString());
-        setStationId(c.stationId.toString());
-        setTariffId(c.tariffId.toString());
-        setIban(c.iban);
+        if (c) {
+          if (c.rfidUserId) setRfidUserId(c.rfidUserId.toString());
+          if (c.stationId) setStationId(c.stationId.toString());
+          if (c.tariffId) setTariffId(c.tariffId.toString());
+          if (c.iban) setIban(c.iban);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -134,7 +136,7 @@ export default function ReimbursementsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {users.map(u => (
-                        <SelectItem key={u.id} value={u.id.toString()}>{u.name || u.email}</SelectItem>
+                        <SelectItem key={u.id} value={u.id ? u.id.toString() : ''}>{u.name || u.email}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -151,9 +153,12 @@ export default function ReimbursementsPage() {
                     <SelectValue placeholder="Select Home Charger" />
                   </SelectTrigger>
                   <SelectContent>
-                    {stations.map(s => (
-                      <SelectItem key={s.id} value={s.id.toString()}>{s.station_name}</SelectItem>
-                    ))}
+                    {stations.map(s => {
+                      const sId = s.id || s.station_id;
+                      return (
+                        <SelectItem key={sId} value={sId ? sId.toString() : ''}>{s.station_name || s.name || `Station #${sId}`}</SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -164,9 +169,12 @@ export default function ReimbursementsPage() {
                     <SelectValue placeholder="Select Fleet RFID" />
                   </SelectTrigger>
                   <SelectContent>
-                    {rfids.map(r => (
-                      <SelectItem key={r.rfid_user_id} value={r.rfid_user_id.toString()}>{r.rfid_tag} - {r.name}</SelectItem>
-                    ))}
+                    {rfids.map(r => {
+                      const rId = r.rfid_user_id || r.id;
+                      return (
+                        <SelectItem key={rId} value={rId ? rId.toString() : ''}>{r.rfid_tag || 'TAG'} - {r.name || 'User'}</SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -177,9 +185,13 @@ export default function ReimbursementsPage() {
                     <SelectValue placeholder="Select Energy Tariff" />
                   </SelectTrigger>
                   <SelectContent>
-                    {tariffs.map(t => (
-                      <SelectItem key={t.tariff_id} value={t.tariff_id.toString()}>{t.tariff_name} ({t.electricity_rate} EUR/kWh)</SelectItem>
-                    ))}
+                    {tariffs.map(t => {
+                      const tId = t.tariff_id || t.id;
+                      const rate = t.electricity_rate ?? t.energyFee ?? 0;
+                      return (
+                        <SelectItem key={tId} value={tId ? tId.toString() : ''}>{t.tariff_name || t.name || `Tariff #${tId}`} ({rate} EUR/kWh)</SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>

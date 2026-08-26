@@ -151,8 +151,8 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
                 </SelectTrigger>
                 <SelectContent>
                   {stations.map(station => (
-                    <SelectItem key={station.id} value={station.id.toString()}>
-                      {station.station_name}
+                    <SelectItem key={station.id || station.station_id} value={(station.id || station.station_id)?.toString() || ''}>
+                      {station.station_name || station.name || `Station #${station.id}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -213,7 +213,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
                 <SelectContent>
                   <SelectItem value="none">No Charge group</SelectItem>
                   {chargeGroups.map(group => (
-                    <SelectItem key={group.id} value={group.id.toString()}>
+                    <SelectItem key={group.id} value={group.id ? group.id.toString() : ''}>
                       {group.name}
                     </SelectItem>
                   ))}
@@ -233,7 +233,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
                 <SelectContent>
                   <SelectItem value="none">Standard / No Quirks</SelectItem>
                   {quirkProfiles.map(profile => (
-                    <SelectItem key={profile.id} value={profile.id.toString()}>
+                    <SelectItem key={profile.id} value={profile.id ? profile.id.toString() : ''}>
                       {profile.name}
                     </SelectItem>
                   ))}
@@ -252,11 +252,17 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No Tariff Plan</SelectItem>
-                  {tariffs.map(tariff => (
-                    <SelectItem key={tariff.tariff_id} value={tariff.tariff_id.toString()}>
-                      {tariff.tariff_name} (${tariff.charge} + ${tariff.electricity_rate}/kWh)
-                    </SelectItem>
-                  ))}
+                  {tariffs.map(tariff => {
+                    const tId = tariff.tariff_id || tariff.id;
+                    const tName = tariff.tariff_name || tariff.name || `Tariff #${tId}`;
+                    const energy = tariff.electricity_rate ?? tariff.energyFee ?? 0;
+                    const conn = tariff.charge ?? tariff.connectionFee ?? 0;
+                    return (
+                      <SelectItem key={tId} value={tId ? tId.toString() : ''}>
+                        {tName} (€{conn} + €{energy}/kWh)
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -273,7 +279,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
                   </SelectTrigger>
                   <SelectContent>
                     {usersList.map(u => (
-                      <SelectItem key={u.id} value={u.id.toString()}>
+                      <SelectItem key={u.id} value={u.id ? u.id.toString() : ''}>
                         {u.email} ({u.role})
                       </SelectItem>
                     ))}

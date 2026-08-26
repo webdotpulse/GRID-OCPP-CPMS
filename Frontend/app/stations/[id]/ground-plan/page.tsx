@@ -27,10 +27,16 @@ export default function GroundPlanPage() {
         setStation(stationRes.data?.data || stationRes.data);
 
         // Extract all connectors from station's chargers
-        const chargers = chargersRes.data?.data || chargersRes.data || [];
-        const allConnectors = chargers.flatMap((c: any) =>
-          c.evses?.flatMap((e: any) => e.connectors) || []
-        );
+        const chargers = Array.isArray(chargersRes.data?.data) ? chargersRes.data.data : (Array.isArray(chargersRes.data) ? chargersRes.data : []);
+        const allConnectors = chargers.flatMap((c: any) => {
+          if (c.evses && Array.isArray(c.evses)) {
+            return c.evses.flatMap((e: any) => e.connectors || []);
+          }
+          if (c.connectors && Array.isArray(c.connectors)) {
+            return c.connectors;
+          }
+          return [];
+        });
         setConnectors(allConnectors);
 
       } catch (err) {
@@ -40,7 +46,7 @@ export default function GroundPlanPage() {
     if (id) loadData();
   }, [id]);
 
-  if (!station) return <AppShell>Loading...</AppShell>;
+  if (!station) return <AppShell><div className="p-8">Loading...</div></AppShell>;
 
   return (
     <AppShell>
@@ -50,7 +56,7 @@ export default function GroundPlanPage() {
             <ArrowLeft className="mr-2 h-4 w-4" /> Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Ground Plan: {station.station_name}</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Ground Plan: {station.station_name || station.name || `Station #${id}`}</h1>
             <p className="text-muted-foreground">Map chargers to physical parking spots.</p>
           </div>
         </div>

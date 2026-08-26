@@ -30,11 +30,18 @@ api.interceptors.response.use(
     // We unwrap it here so frontend components can use response.data directly.
     if (response.data && response.data.success && response.data.data !== undefined) {
       const pagination = response.data.pagination;
+      const stats = response.data.stats;
       const unwrappedData = response.data.data;
       if (pagination) {
         (response as any).pagination = pagination;
         if (unwrappedData && typeof unwrappedData === 'object') {
           (unwrappedData as any).pagination = pagination;
+        }
+      }
+      if (stats) {
+        (response as any).stats = stats;
+        if (unwrappedData && typeof unwrappedData === 'object') {
+          (unwrappedData as any).stats = stats;
         }
       }
       response.data = unwrappedData;
