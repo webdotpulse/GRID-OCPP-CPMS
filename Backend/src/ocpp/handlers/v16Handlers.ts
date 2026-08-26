@@ -10,6 +10,11 @@ import { normalizeMeterValues } from "../quirkNormalizer.js";
 import { redisClient } from "../../config/redis.js";
 import { getTariffForTransaction } from "../../utils/tariffHelpers.js";
 import { DynamicTariffService } from "../../services/DynamicTariffService.js";
+import {
+  enqueueMeterValue,
+  enqueueStatusEvent,
+  enqueueBillingEvent,
+} from "../../queues/queueManager.js";
 
 const ocpp16Reasons = [
   "EmergencyStop", "EVDisconnected", "HardReset", "Local", "Other",
@@ -409,7 +414,6 @@ export async function handleStopTransaction(
   try {
     // Process optional final meter values
     if (transactionData && Array.isArray(transactionData)) {
-      // Find the transaction to get the channel ID, default to 1 if not found
       const tempTransaction = await prisma.transaction.findFirst({
         where: { transactionId: String(transactionId) },
       });
@@ -424,118 +428,29 @@ export async function handleStopTransaction(
       });
     }
 
-    // End transaction in registry memory/Redis
+    // End transaction in registry memory/Redis immediately
     await chargerRegistry.endTransaction(chargerId, transactionId);
 
-    const transaction = await prisma.transaction.findFirst({
-      where: { transactionId: String(transactionId) },
+    // Enqueue billing and session completion event to BullMQ billingQueue
+    await enqueueBillingEvent({
+      chargerId,
+      transactionId: String(transactionId),
+      meterStop: Number(meterStop) || 0,
+      timestamp: timestamp ? (timestamp instanceof Date ? timestamp.toISOString() : timestamp) : new Date().toISOString(),
+      idTag,
+      reason,
     });
 
-    // Calculate total cost from dynamically resolved tariff
-    const tariff = await getTariffForTransaction(chargerId, idTag || transaction?.idTag);
-    const tariffRate = tariff?.electricity_rate || tariff?.charge || 0;
-
-    let totalCost = 0;
-    if (transaction) {
-      const energyConsumedTx = meterStop - (transaction.initialMeterValue || 0);
-      const stopTime = new Date(timestamp || new Date());
-
-      const costResult = await DynamicTariffService.calculateSessionCost({
-        transactionId: String(transactionId),
-        initialMeterValue: transaction.initialMeterValue || 0,
-        meterStop,
-        startTime: transaction.startTime,
-        endTime: stopTime,
-        tariff,
-      });
-
-      totalCost = costResult.totalCost;
-
-      const updatedTransaction = await prisma.transaction.update({
-        where: { id: transaction.id },
-        data: {
-          finalMeterValue: meterStop,
-          endTime: stopTime,
-          status: "completed",
-          stopReason: reason || null,
-          energyConsumed: energyConsumedTx,
-          totalCost: totalCost,
-        },
-        include: { charger: true }
-      });
-
-      // Update Connector status to Finishing
-      if (transaction.connectorName) {
-         const existingConnector = await prisma.connector.findFirst({
-           where: {
-             evse: { charger_id: chargerId },
-             connector_name: transaction.connectorName
-           }
-         });
-
-         if (existingConnector) {
-           await prisma.connector.update({
-             where: { connector_id: existingConnector.connector_id },
-             data: { status: "Finishing", updatedAt: new Date() },
-           });
-         }
-      }
-
-      // Trigger Load Balancing since a transaction has stopped, freeing up capacity
-      if (updatedTransaction.charger.charging_station_id) {
-        loadManagementService.balanceSiteLoad(updatedTransaction.charger.charging_station_id)
-          .catch(err => logger.error(`Error balancing site load: ${err}`));
-      }
-      if (updatedTransaction.charger.chargeGroupId) {
-        loadManagementService.balanceChargeGroupLoad(updatedTransaction.charger.chargeGroupId)
-          .catch(err => logger.error(`Error balancing charge group load: ${err}`));
-      }
-    }
-
-    // Update RfidSession if exists
-    const rfidSession = await prisma.rfidSession.findFirst({
-      where: { transactionId: String(transactionId) },
-      include: { rfidUser: true },
-    });
-
-    if (rfidSession) {
-      const energyConsumed = meterStop - (rfidSession.initialMeterValue || 0);
-      const stopTime = new Date(timestamp || new Date());
-
-      const rfidCostResult = await DynamicTariffService.calculateSessionCost({
-        transactionId: String(transactionId),
-        initialMeterValue: rfidSession.initialMeterValue || 0,
-        meterStop,
-        startTime: rfidSession.startTime,
-        endTime: stopTime,
-        tariff,
-      });
-
-      const amountDue = rfidCostResult.totalCost;
-
-      await prisma.rfidSession.update({
-        where: { id: rfidSession.id },
-        data: {
-          finalMeterValue: meterStop,
-          endTime: stopTime,
-          energyConsumed,
-          tariffRate,
-          amountDue,
-          status: "completed",
-          stopReason: reason || null,
-        },
-      });
-
-      logger.info(`RfidSession ${rfidSession.id} completed. Amount due: Rs ${(amountDue / 100).toFixed(2)}`);
-    }
-
-    let response: any = {};
-    response.idTagInfo = { status: "Accepted" };
+    const response = {
+      idTagInfo: { status: "Accepted" },
+    };
     await logOcppMessage(chargerId, "out", response, transactionId);
     return response;
   } catch (error) {
     logger.error(`Error handling StopTransaction: ${error}`);
-    return {};
+    return {
+      idTagInfo: { status: "Invalid" },
+    };
   }
 }
 
@@ -619,6 +534,7 @@ export async function handleMeterValues(
           socValue: socValue ?? null,
           currentValue: currentValue ?? null,
           voltageValue: voltageValue ?? null,
+          temperatureValue: temperatureValue ?? null,
           timestamp,
         };
 
@@ -639,8 +555,11 @@ export async function handleMeterValues(
           logger.debug(`[Quirk] Retroactively updated initialMeterValue to ${parsedPayload.energyValue} for transaction ${transactionId}`);
         }
 
-        // Push aggregated meter value to background batch processor queue
-        await MeterValueService.addMeterValue(parsedPayload);
+        // Push aggregated meter value to BullMQ queue
+        await enqueueMeterValue({
+          ...parsedPayload,
+          timestamp: parsedPayload.timestamp instanceof Date ? parsedPayload.timestamp.toISOString() : parsedPayload.timestamp,
+        });
       }
     }
 
@@ -668,97 +587,23 @@ export async function handleStatusNotification(
   const timestamp = payload.timestamp;
   const info = payload.info;
 
-  if (status === "Faulted" || status === "SuspendedEVSE") {
-    try {
-      await prisma.diagnosticEvent.create({
-        data: {
-          chargerId,
-          connectorId,
-          type: "FaultedState",
-          description: `Charger reported status: ${status} (ErrorCode: ${errorCode || "Unknown"})`
-        }
-      });
-      // Increment consecutive errors
-      if (status === "Faulted") {
-        await prisma.charger.update({
-          where: { charger_id: chargerId },
-          data: { consecutiveErrors: { increment: 1 } }
-        });
-      }
-    } catch(e) {
-      logger.error("Error creating diagnostic event for status notification " + e);
-    }
-  } else if (status === "Available" || status === "Charging") {
-    try {
-      // Reset consecutive errors if it returns to a healthy state
-      await prisma.charger.update({
-        where: { charger_id: chargerId },
-        data: { consecutiveErrors: 0 }
-      });
-    } catch(e) {
-      logger.error("Error resetting consecutive errors for status notification " + e);
-    }
-  }
-
   try {
-    // Update/Create channel status in database
-    const connectorName = `Channel ${connectorId}`;
+    // Update registry heartbeat immediately
+    await chargerRegistry.updateHeartbeat(chargerId);
 
-    // For connectorId 0 (Charge Point itself), we don't usually create a "Channel" record
-    // unless the system design requires it. Here we only handle actual channels (1+).
-    if (connectorId > 0) {
-      let evse = await prisma.evse.findUnique({
-        where: {
-          charger_id_evse_id: {
-            charger_id: chargerId,
-            evse_id: 1 // Default EVSE for OCPP 1.6
-          }
-        }
-      });
-
-      if (!evse) {
-        evse = await prisma.evse.create({
-          data: {
-            charger_id: chargerId,
-            evse_id: 1
-          }
-        });
-      }
-
-      const existingConnector = await prisma.connector.findFirst({
-        where: {
-          evse_id: evse.id,
-          connector_name: connectorName
-        }
-      });
-
-      if (existingConnector) {
-        await prisma.connector.update({
-          where: { connector_id: existingConnector.connector_id },
-          data: { status, updatedAt: new Date() },
-        });
-      } else {
-        await prisma.connector.create({
-          data: {
-            evse_id: evse.id,
-            connector_name: connectorName,
-            status: status,
-            current_type: "AC", // Default, can be refined based on charger model
-            updatedAt: new Date(),
-          }
-        });
-        logger.info(`Auto-created channel ${connectorName} for charger ${chargerId}`);
-      }
-    }
-
-    // Update charger status to active if receiving status notifications
-    await prisma.charger.update({
-      where: { charger_id: chargerId },
-      data: { status: "active", last_heartbeat: new Date() },
+    // Enqueue status notification event to BullMQ statusEventsQueue
+    await enqueueStatusEvent({
+      chargerId,
+      connectorId,
+      status,
+      errorCode,
+      info,
+      timestamp: timestamp ? (timestamp instanceof Date ? timestamp.toISOString() : timestamp) : new Date().toISOString(),
+      vendorId: payload.vendorId,
     });
 
     logger.info(
-      `StatusNotification from charger ${chargerId}: channel ${connectorId} status = ${status}`
+      `StatusNotification received from charger ${chargerId}: channel ${connectorId} status = ${status} (enqueued)`
     );
 
     const response = {};

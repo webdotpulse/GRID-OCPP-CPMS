@@ -1,6 +1,7 @@
 import { redisClient } from "../config/redis.js";
 import { prisma } from "../config/database.js";
 import { logger } from "../utils/logger.js";
+import { enqueueMeterValue, MeterValueJobData } from "../queues/queueManager.js";
 
 const LIST_KEY = "meter_values_list";
 const PROCESSING_KEY = "meter_values_processing";
@@ -31,20 +32,29 @@ export class MeterValueService {
   private static intervalId: NodeJS.Timeout | null = null;
 
   /**
-   * Pushes a new meter value payload to the Redis List.
+   * Pushes a new meter value payload to BullMQ queue and Redis List fallback.
    */
   public static async addMeterValue(payload: MeterValuePayload): Promise<void> {
     try {
-      await redisClient.rpush(LIST_KEY, JSON.stringify(payload));
-      // Trim the list to prevent memory leaks if it gets too large
-      await redisClient.ltrim(LIST_KEY, -100000, -1);
+      // 1. Enqueue to BullMQ for asynchronous worker consumption
+      const jobData: MeterValueJobData = {
+        ...payload,
+        timestamp: payload.timestamp instanceof Date ? payload.timestamp.toISOString() : payload.timestamp,
+      };
+      await enqueueMeterValue(jobData);
+
+      // 2. Also keep in Redis list if legacy batch worker is running
+      if (this.intervalId) {
+        await redisClient.rpush(LIST_KEY, JSON.stringify(payload));
+        await redisClient.ltrim(LIST_KEY, -100000, -1);
+      }
     } catch (error) {
-      logger.error(`Error adding meter value to list: ${error}`);
+      logger.error(`Error adding meter value to queue: ${error}`);
     }
   }
 
   /**
-   * Starts the background interval to process meter values in batches.
+   * Starts the background interval to process meter values in batches (legacy fallback).
    */
   public static async startWorker(): Promise<void> {
     if (this.intervalId) return;

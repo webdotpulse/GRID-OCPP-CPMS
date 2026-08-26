@@ -159,15 +159,28 @@ export function startServers(): void {
   startReimbursementCron();
 
   // Graceful shutdown
-  const shutdown = (signal: string) => {
+  const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}. Shutting down gracefully...`);
 
     ocppServer.stop();
     ocppLogsServer.stop();
 
+    try {
+      const { stopWorkers } = await import("./workers/index.js");
+      const { closeQueues } = await import("./queues/queueManager.js");
+      await stopWorkers();
+      await closeQueues();
+    } catch (err) {
+      logger.error(`Error during workers shutdown: ${err}`);
+    }
+
     process.exit(0);
   };
 
-  process.on("SIGTERM", () => shutdown("SIGTERM"));
-  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => {
+    shutdown("SIGTERM").catch((err) => logger.error(`Shutdown error: ${err}`));
+  });
+  process.on("SIGINT", () => {
+    shutdown("SIGINT").catch((err) => logger.error(`Shutdown error: ${err}`));
+  });
 }

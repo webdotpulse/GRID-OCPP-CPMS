@@ -8,7 +8,7 @@ const mockRedisHset = jest.fn() as any;
 const mockRedisHgetall = jest.fn() as any;
 const mockRedisExpire = jest.fn() as any;
 
-jest.unstable_mockModule('../../config/redis.js', () => ({
+jest.mock('../../config/redis.js', () => ({
   redisClient: {
     scan: mockRedisScan,
     get: mockRedisGet,
@@ -28,13 +28,11 @@ jest.unstable_mockModule('../../config/redis.js', () => ({
   },
 }));
 
-const importPromise = import('../../ocpp/chargerRegistry.js');
-
 describe("ChargerRegistry (OCPP-05)", () => {
   let chargerRegistry: any;
 
   beforeAll(async () => {
-    const module = await importPromise;
+    const module = await import('../../ocpp/chargerRegistry.js');
     chargerRegistry = module.chargerRegistry;
   });
 

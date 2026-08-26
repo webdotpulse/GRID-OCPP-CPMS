@@ -9,6 +9,10 @@ import { OcppError } from "../errors/OcppError.js";
 import { getTariffForTransaction } from "../../utils/tariffHelpers.js";
 import { DynamicTariffService } from "../../services/DynamicTariffService.js";
 import {
+  enqueueStatusEvent,
+  enqueueBillingEvent,
+} from "../../queues/queueManager.js";
+import {
   handleGetVariables,
   handleSetVariables,
   handleGetBaseReport,
@@ -220,83 +224,21 @@ export async function handleStatusNotification(
   const info = payload.info;
 
   try {
-    if (status === "Faulted") {
-      try {
-        await prisma.charger.update({
-          where: { charger_id: chargerId },
-          data: { consecutiveErrors: { increment: 1 } }
-        });
-      } catch (e) {
-        logger.error(`Error incrementing consecutive errors: ${e}`);
-      }
-    } else if (status === "Available" || status === "Occupied") {
-      try {
-        await prisma.charger.update({
-          where: { charger_id: chargerId },
-          data: { consecutiveErrors: 0 }
-        });
-      } catch (e) {
-        logger.error(`Error resetting consecutive errors: ${e}`);
-      }
-    }
+    // Update registry heartbeat immediately
+    await chargerRegistry.updateHeartbeat(chargerId);
 
-    if (evseId !== undefined && connectorId !== undefined) {
-      // Find or create Evse
-      let evse = await prisma.evse.findUnique({
-        where: {
-          charger_id_evse_id: {
-            charger_id: chargerId,
-            evse_id: evseId
-          }
-        }
-      });
-
-      if (!evse) {
-        evse = await prisma.evse.create({
-          data: {
-            charger_id: chargerId,
-            evse_id: evseId
-          }
-        });
-        logger.info(`Auto-created EVSE ${evseId} for charger ${chargerId}`);
-      }
-
-      const connectorName = `Channel ${connectorId}`;
-
-      const existingConnector = await prisma.connector.findFirst({
-        where: {
-          evse_id: evse.id,
-          connector_name: connectorName
-        }
-      });
-
-      if (existingConnector) {
-        await prisma.connector.update({
-          where: { connector_id: existingConnector.connector_id },
-          data: { status, updatedAt: new Date() },
-        });
-      } else {
-        await prisma.connector.create({
-          data: {
-            evse_id: evse.id,
-            connector_name: connectorName,
-            status: status,
-            current_type: "AC",
-            updatedAt: new Date(),
-          }
-        });
-        logger.info(`Auto-created channel ${connectorName} for EVSE ${evseId} on charger ${chargerId}`);
-      }
-    }
-
-    // Update charger status to active if receiving status notifications
-    await prisma.charger.update({
-      where: { charger_id: chargerId },
-      data: { status: "active", last_heartbeat: new Date() },
+    // Enqueue status event to BullMQ statusEventsQueue
+    await enqueueStatusEvent({
+      chargerId,
+      connectorId: connectorId ?? evseId ?? 0,
+      status,
+      errorCode,
+      info,
+      timestamp: timestamp ? (timestamp instanceof Date ? timestamp.toISOString() : timestamp) : new Date().toISOString(),
     });
 
     logger.info(
-      `StatusNotification from charger ${chargerId}: channel ${connectorId} status = ${status}`
+      `StatusNotification received from charger ${chargerId}: channel ${connectorId} status = ${status} (enqueued)`
     );
 
     const response = {};
@@ -535,109 +477,14 @@ export async function handleTransactionEvent(
 
       await chargerRegistry.endTransaction(chargerId, transactionId);
 
-      const transaction = await prisma.transaction.findFirst({
-        where: { transactionId: String(transactionId) },
+      await enqueueBillingEvent({
+        chargerId,
+        transactionId: String(transactionId),
+        meterStop,
+        timestamp: timestamp ? (timestamp instanceof Date ? timestamp.toISOString() : timestamp) : new Date().toISOString(),
+        idTag,
+        isV2GDischarging,
       });
-
-      const tariff = await getTariffForTransaction(chargerId, idTag || transaction?.idTag);
-      const tariffRate = tariff?.electricity_rate || tariff?.charge || 0;
-
-      if (transaction) {
-        let energyConsumed = meterStop - (transaction.initialMeterValue || 0);
-        // If discharging at end, or negative consumed (exported more), retain negative representation
-        if (isV2GDischarging && energyConsumed > 0) {
-            energyConsumed = -energyConsumed;
-        }
-
-        const stopTime = new Date(timestamp || new Date());
-
-        const costResult = await DynamicTariffService.calculateSessionCost({
-          transactionId: String(transactionId),
-          initialMeterValue: transaction.initialMeterValue || 0,
-          meterStop,
-          startTime: transaction.startTime,
-          endTime: stopTime,
-          tariff,
-        });
-
-        const totalCost = costResult.totalCost;
-
-        const updatedTransaction = await prisma.transaction.update({
-          where: { id: transaction.id },
-          data: {
-            finalMeterValue: meterStop,
-            endTime: stopTime,
-            status: "completed",
-            energyConsumed: energyConsumed,
-            totalCost: totalCost,
-          },
-          include: { charger: true }
-        });
-
-        // Update Connector status to Finishing
-        if (transaction.connectorName) {
-           const existingConnector = await prisma.connector.findFirst({
-             where: {
-               evse: { charger_id: chargerId },
-               connector_name: transaction.connectorName
-             }
-           });
-
-           if (existingConnector) {
-             await prisma.connector.update({
-               where: { connector_id: existingConnector.connector_id },
-               data: { status: "Finishing", updatedAt: new Date() },
-             });
-           }
-        }
-
-        if (updatedTransaction.charger.charging_station_id) {
-          loadManagementService.balanceSiteLoad(updatedTransaction.charger.charging_station_id)
-            .catch(err => logger.error(`Error balancing site load: ${err}`));
-        }
-        if (updatedTransaction.charger.chargeGroupId) {
-          loadManagementService.balanceChargeGroupLoad(updatedTransaction.charger.chargeGroupId)
-            .catch(err => logger.error(`Error balancing charge group load: ${err}`));
-        }
-      }
-
-      const rfidSession = await prisma.rfidSession.findFirst({
-        where: { transactionId: String(transactionId) },
-        include: { rfidUser: true },
-      });
-
-      if (rfidSession) {
-        let energyConsumed = meterStop - (rfidSession.initialMeterValue || 0);
-        if (isV2GDischarging && energyConsumed > 0) {
-            energyConsumed = -energyConsumed;
-        }
-
-        const stopTime = new Date(timestamp || new Date());
-        const rfidCostResult = await DynamicTariffService.calculateSessionCost({
-          transactionId: String(transactionId),
-          initialMeterValue: rfidSession.initialMeterValue || 0,
-          meterStop,
-          startTime: rfidSession.startTime,
-          endTime: stopTime,
-          tariff,
-        });
-
-        const amountDue = rfidCostResult.totalCost;
-
-        await prisma.rfidSession.update({
-          where: { id: rfidSession.id },
-          data: {
-            finalMeterValue: meterStop,
-            endTime: stopTime,
-            energyConsumed,
-            tariffRate,
-            amountDue,
-            status: "completed",
-          },
-        });
-
-        logger.info(`RfidSession ${rfidSession.id} completed. Amount due: Rs ${(amountDue / 100).toFixed(2)}`);
-      }
 
       let response: any = { idTokenInfo: { status: "Accepted" } };
       await logOcppMessage(chargerId, "out", response, transactionId);

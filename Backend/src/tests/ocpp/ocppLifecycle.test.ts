@@ -16,8 +16,11 @@ const mockPrismaConnectorCreate = jest.fn() as any;
 const mockPrismaMeterValueFindFirst = jest.fn() as any;
 const mockPrismaMeterValueFindMany = jest.fn() as any;
 const mockPrismaTariffFindFirst = jest.fn() as any;
+const mockEnqueueMeterValue = jest.fn() as any;
+const mockEnqueueStatusEvent = jest.fn() as any;
+const mockEnqueueBillingEvent = jest.fn() as any;
 
-jest.unstable_mockModule('../../config/database.js', () => ({
+jest.mock('../../config/database.js', () => ({
   prisma: {
     charger: {
       update: mockPrismaChargerUpdate,
@@ -59,7 +62,7 @@ jest.unstable_mockModule('../../config/database.js', () => ({
   },
 }));
 
-jest.unstable_mockModule('../../config/redis.js', () => ({
+jest.mock('../../config/redis.js', () => ({
   redisClient: {
     get: jest.fn().mockResolvedValue(null as never),
     set: jest.fn().mockResolvedValue("OK" as never),
@@ -82,13 +85,17 @@ jest.unstable_mockModule('../../config/redis.js', () => ({
   },
 }));
 
-const importPromise = import('../../ocpp/handlers/v16Handlers.js');
+jest.mock('../../queues/queueManager.js', () => ({
+  enqueueMeterValue: mockEnqueueMeterValue,
+  enqueueStatusEvent: mockEnqueueStatusEvent,
+  enqueueBillingEvent: mockEnqueueBillingEvent,
+}));
 
 describe("OCPP 1.6 Lifecycle Handlers", () => {
   let v16Handlers: any;
 
   beforeAll(async () => {
-    v16Handlers = await importPromise;
+    v16Handlers = await import('../../ocpp/handlers/v16Handlers.js');
   });
 
   beforeEach(() => {
@@ -187,7 +194,8 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
   });
 
   describe("handleStopTransaction (OCPP-01)", () => {
-    it("should correctly parse connectorId when connectorName is 'Channel 1'", async () => {
+    it("should correctly accept StopTransaction and enqueue billing event", async () => {
+      mockEnqueueBillingEvent.mockResolvedValue("job-bill-1");
       mockPrismaTxFindFirst.mockResolvedValue({
         id: 10,
         transactionId: "12345",
@@ -196,16 +204,6 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
         startTime: new Date(Date.now() - 3600000),
         charger_id: 1,
       });
-      mockPrismaTariffFindFirst.mockResolvedValue({
-        electricity_rate: 0.30,
-        tariffType: "FIXED",
-      });
-      mockPrismaTxUpdate.mockResolvedValue({
-        id: 10,
-        charger: { charger_id: 1 },
-      });
-      mockPrismaConnectorFindFirst.mockResolvedValue({ connector_id: 1 });
-      mockPrismaConnectorUpdate.mockResolvedValue({});
 
       const response = await v16Handlers.handleStopTransaction(1, {
         transactionId: 12345,
@@ -220,19 +218,17 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
       });
 
       expect(response.idTagInfo.status).toBe("Accepted");
-      expect(mockPrismaTxUpdate).toHaveBeenCalledWith(
+      expect(mockEnqueueBillingEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 10 },
-          data: expect.objectContaining({
-            finalMeterValue: 5000,
-            status: "completed",
-            energyConsumed: 4000,
-          }),
+          chargerId: 1,
+          transactionId: "12345",
+          meterStop: 5000,
         })
       );
     });
 
-    it("should correctly parse connectorId when connectorName is 'Connector 2'", async () => {
+    it("should correctly handle StopTransaction without final meter values", async () => {
+      mockEnqueueBillingEvent.mockResolvedValue("job-bill-2");
       mockPrismaTxFindFirst.mockResolvedValue({
         id: 11,
         transactionId: "67890",
@@ -241,35 +237,19 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
         startTime: new Date(Date.now() - 1800000),
         charger_id: 1,
       });
-      mockPrismaTariffFindFirst.mockResolvedValue({
-        electricity_rate: 0.25,
-        tariffType: "FIXED",
-      });
-      mockPrismaTxUpdate.mockResolvedValue({
-        id: 11,
-        charger: { charger_id: 1 },
-      });
 
       const response = await v16Handlers.handleStopTransaction(1, {
         transactionId: 67890,
         meterStop: 2500,
         timestamp: new Date().toISOString(),
-        transactionData: [
-          {
-            timestamp: new Date().toISOString(),
-            sampledValue: [{ value: "2500", measurand: "Energy.Active.Import.Register" }],
-          },
-        ],
       });
 
       expect(response.idTagInfo.status).toBe("Accepted");
-      expect(mockPrismaTxUpdate).toHaveBeenCalledWith(
+      expect(mockEnqueueBillingEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 11 },
-          data: expect.objectContaining({
-            finalMeterValue: 2500,
-            status: "completed",
-          }),
+          chargerId: 1,
+          transactionId: "67890",
+          meterStop: 2500,
         })
       );
     });

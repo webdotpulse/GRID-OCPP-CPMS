@@ -7,6 +7,8 @@ import { MeterValueService } from "./services/MeterValueService.js";
 startServers();
 
 // Start background workers
+import { startWorkers } from "./workers/index.js";
+startWorkers();
 MeterValueService.startWorker();
 
 import { EpexSpotService } from "./services/EpexSpotService.js";

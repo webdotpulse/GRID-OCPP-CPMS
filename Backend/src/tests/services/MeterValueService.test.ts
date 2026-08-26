@@ -7,9 +7,11 @@ const mockRedisRename = jest.fn() as any;
 const mockRedisLrange = jest.fn() as any;
 const mockRedisDel = jest.fn() as any;
 const mockPrismaMeterValueCreateMany = jest.fn() as any;
+const mockPrismaTxFindFirst = jest.fn() as any;
 const mockPrismaTxUpdateMany = jest.fn() as any;
+const mockEnqueueMeterValue = jest.fn() as any;
 
-jest.unstable_mockModule('../../config/redis.js', () => ({
+jest.mock('../../config/redis.js', () => ({
   redisClient: {
     rpush: mockRedisRpush,
     ltrim: mockRedisLtrim,
@@ -17,12 +19,15 @@ jest.unstable_mockModule('../../config/redis.js', () => ({
     rename: mockRedisRename,
     lrange: mockRedisLrange,
     del: mockRedisDel,
+    get: jest.fn().mockResolvedValue(null as never),
+    set: jest.fn().mockResolvedValue("OK" as never),
+  },
+  redisPublisher: {
+    publish: jest.fn().mockResolvedValue(1 as never),
   },
 }));
 
-const mockPrismaTxFindFirst = jest.fn() as any;
-
-jest.unstable_mockModule('../../config/database.js', () => ({
+jest.mock('../../config/database.js', () => ({
   prisma: {
     meterValue: {
       createMany: mockPrismaMeterValueCreateMany,
@@ -40,13 +45,15 @@ jest.unstable_mockModule('../../config/database.js', () => ({
   },
 }));
 
-const importPromise = import('../../services/MeterValueService.js');
+jest.mock('../../queues/queueManager.js', () => ({
+  enqueueMeterValue: mockEnqueueMeterValue,
+}));
 
 describe("MeterValueService", () => {
   let MeterValueService: any;
 
   beforeAll(async () => {
-    const module = await importPromise;
+    const module = await import('../../services/MeterValueService.js');
     MeterValueService = module.MeterValueService;
   });
 
@@ -55,9 +62,8 @@ describe("MeterValueService", () => {
   });
 
   describe("addMeterValue", () => {
-    it("should push payload to Redis list and trim key length", async () => {
-      mockRedisRpush.mockResolvedValue(1);
-      mockRedisLtrim.mockResolvedValue("OK");
+    it("should enqueue payload to BullMQ meter values queue", async () => {
+      mockEnqueueMeterValue.mockResolvedValue("job-100");
 
       const payload = {
         transactionId: "TX-100",
@@ -70,11 +76,15 @@ describe("MeterValueService", () => {
 
       await MeterValueService.addMeterValue(payload);
 
-      expect(mockRedisRpush).toHaveBeenCalledWith(
-        "meter_values_list",
-        expect.stringContaining("TX-100")
+      expect(mockEnqueueMeterValue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          transactionId: "TX-100",
+          chargerId: 1,
+          socValue: 80,
+          currentValue: 16,
+          voltageValue: 230,
+        })
       );
-      expect(mockRedisLtrim).toHaveBeenCalledWith("meter_values_list", -100000, -1);
     });
   });
 
