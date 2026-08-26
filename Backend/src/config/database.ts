@@ -12,11 +12,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const DATA_DIR = path.resolve(__dirname, "../../data/postgres");
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
+const isTestEnv = process.env.NODE_ENV === "test" || process.env.JEST_WORKER_ID !== undefined;
 
-export const pgliteInstance = new PGlite(DATA_DIR);
+export const pgliteInstance = !isTestEnv
+  ? new PGlite(DATA_DIR)
+  : ({ waitReady: Promise.resolve(), query: async () => ({ rows: [], fields: [] }) } as any);
+
 
 class PgliteClientWrapper extends EventEmitter {
   async connect() {

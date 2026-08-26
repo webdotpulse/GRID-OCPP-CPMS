@@ -1,4 +1,66 @@
 import { jest } from '@jest/globals';
+
+jest.mock('../../config/redis.js', () => ({
+  redisPublisher: {
+    publish: jest.fn().mockResolvedValue(1 as never),
+  },
+  redisSubscriber: {
+    subscribe: jest.fn().mockResolvedValue("OK" as never),
+    unsubscribe: jest.fn().mockResolvedValue("OK" as never),
+    psubscribe: jest.fn().mockResolvedValue("OK" as never),
+    on: jest.fn(),
+  },
+  redisClient: {
+    get: jest.fn(),
+    set: jest.fn(),
+    expire: jest.fn(),
+  },
+}));
+
+jest.mock('../../config/database.js', () => ({
+  prisma: {
+    charger: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
+    rfidUser: {
+      findUnique: jest.fn(),
+    },
+    vehicleContractCertificate: {
+      findUnique: jest.fn(),
+    },
+    chargeGroupUser: {
+      findUnique: jest.fn(),
+    },
+    transaction: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+    rfidSession: {
+      create: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    connector: {
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      upsert: jest.fn(),
+    },
+    evse: {
+      upsert: jest.fn(),
+    },
+    ocppLog: {
+      create: jest.fn(),
+    },
+  },
+  pgliteInstance: {
+    waitReady: Promise.resolve(),
+    query: jest.fn().mockResolvedValue({ rows: [] }),
+  },
+}));
+
 import { resolveMappedCardId } from '../../ocpp/quirkNormalizer.js';
 import { proxyRouter } from '../../ocpp/proxyRouter.js';
 import { prisma } from '../../config/database.js';
@@ -9,7 +71,7 @@ describe("Solar Mode Card ID Translation & Proxy Forwarding", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     proxyRouter.clearQuirkRulesCache();
-    jest.spyOn(prisma.ocppLog, 'create').mockResolvedValue({} as any);
+    (prisma.ocppLog.create as any).mockResolvedValue({} as any);
   });
 
   describe("resolveMappedCardId helper", () => {
@@ -92,12 +154,12 @@ describe("Solar Mode Card ID Translation & Proxy Forwarding", () => {
         },
       };
 
-      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
+      (prisma.charger.findUnique as any).mockResolvedValue({
         charger_id: chargerId,
         name: "ALFEN-01",
         quirkProfileId: 1,
         quirkProfile,
-      } as any);
+      });
 
       const mockRemoteWs: any = {
         readyState: 1, // WebSocket.OPEN
@@ -144,12 +206,12 @@ describe("Solar Mode Card ID Translation & Proxy Forwarding", () => {
         },
       };
 
-      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
+      (prisma.charger.findUnique as any).mockResolvedValue({
         charger_id: chargerId,
         name: "CHARGER-02",
         quirkProfileId: 2,
         quirkProfile,
-      } as any);
+      });
 
       const mockRemoteWs: any = {
         readyState: 1,
@@ -186,12 +248,12 @@ describe("Solar Mode Card ID Translation & Proxy Forwarding", () => {
         },
       };
 
-      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
+      (prisma.charger.findUnique as any).mockResolvedValue({
         charger_id: chargerId,
         name: "CHARGER-03",
         quirkProfileId: 3,
         quirkProfile,
-      } as any);
+      });
 
       const mockRemoteWs: any = {
         readyState: 1,
@@ -237,14 +299,14 @@ describe("Solar Mode Card ID Translation & Proxy Forwarding", () => {
         },
       };
 
-      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
+      (prisma.charger.findUnique as any).mockResolvedValue({
         charger_id: chargerId,
         chargeGroupId: null,
         quirkProfile,
-      } as any);
+      });
 
       // Mapped tag exists in DB as an active user
-      (jest.spyOn(prisma.rfidUser, 'findUnique') as any).mockImplementation(async ({ where }: any) => {
+      (prisma.rfidUser.findUnique as any).mockImplementation(async ({ where }: any) => {
         if (where.rfid_tag === "REAL_RFID_USER_TAG") {
           return {
             rfid_user_id: 42,
@@ -276,13 +338,13 @@ describe("Solar Mode Card ID Translation & Proxy Forwarding", () => {
         },
       };
 
-      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
+      (prisma.charger.findUnique as any).mockResolvedValue({
         charger_id: chargerId,
         chargeGroupId: null,
         quirkProfile,
-      } as any);
+      });
 
-      (jest.spyOn(prisma.rfidUser, 'findUnique') as any).mockImplementation(async ({ where }: any) => {
+      (prisma.rfidUser.findUnique as any).mockImplementation(async ({ where }: any) => {
         if (where.rfid_tag === "REAL_V21_USER") {
           return {
             rfid_user_id: 55,

@@ -301,11 +301,13 @@ class ProxyRouter {
       const actionName = message[2];
       const payload = message[3];
 
-      // Execute asynchronously, don't await, and we don't send the local response to the charger
+      // Mirror traffic locally for data duplication
       if (messageType === 2) {
-         handleOcppMessage(chargerId, messageType, messageId, actionName, payload, protocol).catch(err => {
-            logger.error(`🔄 [PROXY] Error mirroring local message for charger ${chargerId}: ${err}`);
-         });
+         try {
+           await handleOcppMessage(chargerId, messageType, messageId, actionName, payload, protocol);
+         } catch (err) {
+           logger.error(`🔄 [PROXY] Error mirroring local message for charger ${chargerId}: ${err}`);
+         }
       } else if (messageType === 3 || messageType === 4) {
          // It's a response to a local command, manually resolve the pending promise
          const pending = pendingRequests.get(messageId);

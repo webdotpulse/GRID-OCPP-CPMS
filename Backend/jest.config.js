@@ -10,13 +10,15 @@ export default {
       'ts-jest',
       {
         useESM: true,
+        isolatedModules: true,
         tsconfig: {
-          module: 'ESNext',
+          module: 'NodeNext',
+          moduleResolution: 'NodeNext',
           target: 'ES2022',
-          moduleResolution: 'bundler',
         },
       },
     ],
   },
 };
+
 
