@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { prisma } from "../../config/database.js";
 import { logger } from "../../utils/logger.js";
 import { parsePagination, parseId } from "../../utils/validation.js";
@@ -7,25 +7,61 @@ import { sendEmail } from "../../utils/mailer.js";
 import bcrypt from "bcrypt";
 import { sanitizeUsers, sanitizeUser } from "../../utils/user.dto.js";
 
+const VALID_ROLES = ["superadmin", "admin", "operator", "client_admin", "user"];
+
 /**
- * GET /api/users - Get all users
+ * GET /api/users - Get all users with filters and company details
  */
 export const getAllUsers = async (req: AuthRequest, res: Response) => {
   try {
-    const { page: queryPage, limit: queryLimit, search } = req.query;
+    const {
+      page: queryPage,
+      limit: queryLimit,
+      search,
+      role,
+      companyId,
+      userType,
+    } = req.query;
     const { page, limit } = parsePagination(queryPage as string, queryLimit as string);
 
     const skip = (page - 1) * limit;
     const take = limit;
 
     const where: any = {
-      deletedAt: null // Exclude soft-deleted users
+      deletedAt: null, // Exclude soft-deleted users
     };
+
     if (search) {
       where.OR = [
         { email: { contains: search as string, mode: "insensitive" } },
-        { name: { contains: search as string, mode: "insensitive" } }
+        { name: { contains: search as string, mode: "insensitive" } },
+        { companyName: { contains: search as string, mode: "insensitive" } },
       ];
+    }
+
+    if (role && role !== "all" && VALID_ROLES.includes(role as string)) {
+      where.role = role as string;
+    }
+
+    if (companyId && companyId !== "all") {
+      const parsedCompanyId = parseInt(companyId as string, 10);
+      if (!isNaN(parsedCompanyId)) {
+        where.companyId = parsedCompanyId;
+      }
+    }
+
+    if (userType && userType !== "all") {
+      where.userType = userType as string;
+    }
+
+    // Role-based tenant scoping
+    if (req.userRole === "client_admin" || (req.userRole !== "superadmin" && req.userRole !== "admin")) {
+      const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+      if (currentUser?.companyId) {
+        where.companyId = currentUser.companyId;
+      } else {
+        where.id = req.userId;
+      }
     }
 
     const [users, total] = await Promise.all([
@@ -40,18 +76,45 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
           role: true,
           userType: true,
           companyName: true,
-        companyId: true,
-        emailVerified: true,
+          companyId: true,
+          company: {
+            select: {
+              id: true,
+              name: true,
+              clientNumber: true,
+              status: true,
+            },
+          },
+          address: true,
+          phone: true,
+          taxNumber: true,
+          language: true,
+          emailVerified: true,
+          twoFactorEnabled: true,
           createdAt: true,
+          _count: {
+            select: {
+              rfidUsers: true,
+              chargingStations: true,
+              reimbursementContracts: true,
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
       }),
       prisma.user.count({ where }),
     ]);
 
+    const formattedUsers = users.map((u) => ({
+      ...u,
+      company_name: u.company?.name || u.companyName || null,
+      rfidCardsCount: u._count?.rfidUsers || 0,
+      stationsCount: u._count?.chargingStations || 0,
+    }));
+
     res.json({
       success: true,
-      data: sanitizeUsers(users),
+      data: sanitizeUsers(formattedUsers),
       pagination: {
         page: Number(page),
         limit: take,
@@ -59,8 +122,8 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
         totalPages: Math.ceil(total / take),
       },
     });
-  } catch (error) {
-    logger.error(`Error getting users: ${error}`);
+  } catch (error: any) {
+    logger.error(`Error getting users: ${error.message}`);
     res.status(500).json({
       success: false,
       error: "Failed to get users",
@@ -69,7 +132,7 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
 };
 
 /**
- * GET /api/users/:id - Get specific user
+ * GET /api/users/:id - Get specific user details
  */
 export const getUserById = async (req: AuthRequest, res: Response) => {
   try {
@@ -82,7 +145,7 @@ export const getUserById = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    if (req.userId !== userId && req.userRole !== "superadmin") {
+    if (req.userId !== userId && req.userRole !== "superadmin" && req.userRole !== "admin") {
       return res.status(403).json({
         success: false,
         error: "Forbidden",
@@ -99,11 +162,49 @@ export const getUserById = async (req: AuthRequest, res: Response) => {
         userType: true,
         companyName: true,
         companyId: true,
+        company: {
+          select: {
+            id: true,
+            name: true,
+            clientNumber: true,
+            status: true,
+            contactName: true,
+            contactEmail: true,
+          },
+        },
         address: true,
         phone: true,
         taxNumber: true,
+        language: true,
         emailVerified: true,
+        twoFactorEnabled: true,
+        twoFactorMethod: true,
         createdAt: true,
+        rfidUsers: {
+          select: {
+            rfid_user_id: true,
+            idTag: true,
+            status: true,
+            name: true,
+            createdAt: true,
+          },
+        },
+        vehicleEnergyProfile: {
+          select: {
+            id: true,
+            batteryCapacityKwh: true,
+            vehicleModel: true,
+            minDischargeSocPercent: true,
+          },
+        },
+        chargingStations: {
+          select: {
+            id: true,
+            station_name: true,
+            city: true,
+            status: true,
+          },
+        },
       },
     });
 
@@ -115,12 +216,104 @@ export const getUserById = async (req: AuthRequest, res: Response) => {
     }
 
     res.json({ success: true, data: sanitizeUser(user) });
-  } catch (error) {
-    logger.error(`Error getting user: ${error}`);
+  } catch (error: any) {
+    logger.error(`Error getting user: ${error.message}`);
     res.status(500).json({
       success: false,
       error: "Failed to get user",
     });
+  }
+};
+
+/**
+ * POST /api/users - Create new user account
+ */
+export const createUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const { name, email, password, role, userType, companyName, companyId, phone, address, language } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ success: false, error: "Email and password required" });
+    }
+
+    const targetRole = role || "user";
+    if (!VALID_ROLES.includes(targetRole)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid role. Allowed roles: ${VALID_ROLES.join(", ")}`,
+      });
+    }
+
+    // Only superadmin can create superadmins or admins
+    if ((targetRole === "superadmin" || targetRole === "admin") && req.userRole !== "superadmin" && req.userRole !== "admin") {
+      return res.status(403).json({ success: false, error: "Insufficient permissions to assign this role" });
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return res.status(400).json({ success: false, error: "Email already exists" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const parsedCompanyId = companyId ? parseInt(companyId, 10) : null;
+
+    let resolvedCompanyName = companyName || null;
+    if (parsedCompanyId && !resolvedCompanyName) {
+      const company = await prisma.company.findUnique({ where: { id: parsedCompanyId } });
+      if (company) resolvedCompanyName = company.name;
+    }
+
+    const user = await prisma.user.create({
+      data: {
+        name: name || null,
+        email,
+        password: hashedPassword,
+        role: targetRole,
+        userType: userType || "private",
+        companyName: resolvedCompanyName,
+        companyId: parsedCompanyId,
+        phone: phone || null,
+        address: address || null,
+        language: language || "en",
+        emailVerified: true, // Created directly by an administrator
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        userType: true,
+        companyName: true,
+        companyId: true,
+        language: true,
+        emailVerified: true,
+      },
+    });
+
+    try {
+      const loginUrl = process.env.FRONTEND_URL || "http://localhost:3002";
+      await sendEmail(
+        user.email,
+        "Welcome to OCPP CPMS",
+        `Welcome ${name || "User"}! Your account has been created by an administrator. You can log in at ${loginUrl} using your email and password.`,
+        `<p>Welcome ${name || "User"}!</p><p>Your account has been created by an administrator with the role <strong>${targetRole}</strong>.</p><p>You can log in at <a href="${loginUrl}">${loginUrl}</a> using your email and the password provided.</p>`,
+        "admin_welcome",
+        user.language,
+        {
+          userEmail: user.email,
+          name: name || "User",
+          password,
+          loginUrl,
+        }
+      );
+    } catch (emailError) {
+      logger.error(`Error sending welcome email to ${user.email}: ${emailError}`);
+    }
+
+    res.status(201).json({ success: true, data: user });
+  } catch (error: any) {
+    logger.error(`Error creating user: ${error.message}`);
+    res.status(500).json({ success: false, error: "Failed to create user" });
   }
 };
 
@@ -132,7 +325,6 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
     const userId = parseId(req.params.id);
     const updateData = { ...req.body };
 
-    // Completely strip password from the payload - must use dedicated endpoint
     delete updateData.password;
 
     if (!userId) {
@@ -142,48 +334,46 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    if (req.userId !== userId && req.userRole !== "superadmin") {
+    if (req.userId !== userId && req.userRole !== "superadmin" && req.userRole !== "admin") {
       return res.status(403).json({
         success: false,
         error: "Forbidden",
       });
     }
 
-    // Admins modifying another user cannot change their email
-    if (req.userId !== userId && updateData.email) {
-      delete updateData.email;
-    }
-
-    // Standard users cannot elevate or change their role
-    if (req.userRole !== "superadmin" && updateData.role) {
+    // Standard users cannot change role
+    if (req.userRole !== "superadmin" && req.userRole !== "admin" && updateData.role) {
       delete updateData.role;
     }
 
-    // Only superadmins can manually alter email verification status
-    if (req.userRole !== "superadmin" && "emailVerified" in updateData) {
-      delete updateData.emailVerified;
+    if (updateData.role && !VALID_ROLES.includes(updateData.role)) {
+      return res.status(400).json({
+        success: false,
+        error: `Valid role is required (${VALID_ROLES.join(", ")})`,
+      });
     }
 
-    if (updateData.role && (updateData.role !== "admin" && updateData.role !== "user" && updateData.role !== "superadmin")) {
-        return res.status(400).json({
-          success: false,
-          error: "Valid role is required",
-        });
+    const parsedCompanyId = updateData.companyId ? parseInt(updateData.companyId, 10) : null;
+    let resolvedCompanyName = updateData.companyName || null;
+    if (parsedCompanyId && !resolvedCompanyName) {
+      const company = await prisma.company.findUnique({ where: { id: parsedCompanyId } });
+      if (company) resolvedCompanyName = company.name;
     }
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
-        name: updateData.name,
+        ...(updateData.name !== undefined ? { name: updateData.name } : {}),
         ...(updateData.email ? { email: updateData.email } : {}),
         ...(updateData.role ? { role: updateData.role } : {}),
-        userType: updateData.userType,
-        companyName: updateData.companyName,
-        companyId: updateData.companyId ? parseInt(updateData.companyId, 10) : null,
-        address: updateData.address,
-        phone: updateData.phone,
-        taxNumber: updateData.taxNumber,
-        ...("emailVerified" in updateData ? { emailVerified: updateData.emailVerified } : {})
+        ...(updateData.userType ? { userType: updateData.userType } : {}),
+        ...(updateData.companyName !== undefined || resolvedCompanyName ? { companyName: resolvedCompanyName } : {}),
+        ...(updateData.companyId !== undefined ? { companyId: parsedCompanyId } : {}),
+        ...(updateData.address !== undefined ? { address: updateData.address } : {}),
+        ...(updateData.phone !== undefined ? { phone: updateData.phone } : {}),
+        ...(updateData.taxNumber !== undefined ? { taxNumber: updateData.taxNumber } : {}),
+        ...(updateData.language ? { language: updateData.language } : {}),
+        ...("emailVerified" in updateData ? { emailVerified: updateData.emailVerified } : {}),
       },
       select: {
         id: true,
@@ -196,13 +386,14 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
         address: true,
         phone: true,
         taxNumber: true,
+        language: true,
         emailVerified: true,
-      }
+      },
     });
 
     res.json({ success: true, data: sanitizeUser(updatedUser) });
-  } catch (error) {
-    logger.error(`Error updating user: ${error}`);
+  } catch (error: any) {
+    logger.error(`Error updating user: ${error.message}`);
     res.status(500).json({
       success: false,
       error: "Failed to update user",
@@ -225,11 +416,11 @@ export const updateUserRole = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    if (!role || (role !== "admin" && role !== "user")) {
-        return res.status(400).json({
-          success: false,
-          error: "Valid role is required (admin or user)",
-        });
+    if (!role || !VALID_ROLES.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        error: `Valid role is required (${VALID_ROLES.join(", ")})`,
+      });
     }
 
     const updatedUser = await prisma.user.update({
@@ -242,12 +433,12 @@ export const updateUserRole = async (req: AuthRequest, res: Response) => {
         role: true,
         userType: true,
         companyName: true,
-      }
+      },
     });
 
     res.json({ success: true, data: sanitizeUser(updatedUser) });
-  } catch (error) {
-    logger.error(`Error updating user role: ${error}`);
+  } catch (error: any) {
+    logger.error(`Error updating user role: ${error.message}`);
     res.status(500).json({
       success: false,
       error: "Failed to update user role",
@@ -255,67 +446,44 @@ export const updateUserRole = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const createUser = async (req: AuthRequest, res: Response) => {
+/**
+ * POST /api/users/:id/reset-password - Admin reset password for a user
+ */
+export const resetUserPassword = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, email, password, role, userType, companyName, companyId } = req.body;
+    const userId = parseId(req.params.id);
+    const { newPassword } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ success: false, error: "Email and password required" });
+    if (!userId) return res.status(400).json({ success: false, error: "Invalid user ID" });
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ success: false, error: "Password must be at least 6 characters" });
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
-      return res.status(400).json({ success: false, error: "Email already exists" });
-    }
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ success: false, error: "User not found" });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = await prisma.user.create({
-      data: {
-        name: name || null,
-        email,
-        password: hashedPassword,
-        role: role || "user",
-        userType: userType || "private",
-        companyName: companyName || null,
-        companyId: companyId ? parseInt(companyId, 10) : null
-      },
-      select: { id: true, name: true, email: true, role: true, userType: true, companyName: true, companyId: true, language: true, emailVerified: true }
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
     });
 
-    try {
-      const loginUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-      await sendEmail(
-        user.email,
-        "Welcome to OCPP CMS",
-        `Welcome ${name || "User"}! Your account has been created by an admin. You can log in at ${loginUrl} using your email and the password provided.`,
-        `<p>Welcome ${name || "User"}!</p><p>Your account has been created by an admin.</p><p>You can log in at <a href="${loginUrl}">${loginUrl}</a> using your email and the password provided.</p>`,
-        "admin_welcome",
-        user.language,
-        {
-          userEmail: user.email,
-          name: name || "User",
-          password,
-          loginUrl
-        }
-      );
-    } catch (emailError) {
-      logger.error(`Error sending welcome email to ${user.email}: ${emailError}`);
-    }
-
-    res.status(201).json({ success: true, data: user });
-  } catch (error) {
-    logger.error(`Error creating user: ${error}`);
-    res.status(500).json({ success: false, error: "Failed to create user" });
+    res.json({ success: true, message: "Password has been successfully updated" });
+  } catch (error: any) {
+    logger.error(`Error resetting user password: ${error.message}`);
+    res.status(500).json({ success: false, error: "Failed to reset password" });
   }
 };
 
+/**
+ * DELETE /api/users/:id - Delete user account
+ */
 export const deleteUser = async (req: AuthRequest, res: Response) => {
   try {
     const id = parseId(req.params.id);
     if (!id) return res.status(400).json({ success: false, error: "Invalid ID" });
 
-    if (req.userId !== id && req.userRole !== "superadmin") {
+    if (req.userId !== id && req.userRole !== "superadmin" && req.userRole !== "admin") {
       return res.status(403).json({
         success: false,
         error: "Forbidden",
@@ -327,11 +495,11 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ success: false, error: "User not found" });
     }
 
-    if (user.role === 'admin' && user.id === 1) {
-      return res.status(400).json({ success: false, error: "Cannot delete root admin" });
+    if (user.role === "superadmin" && user.id === 1) {
+      return res.status(400).json({ success: false, error: "Cannot delete primary root superadmin" });
     }
 
-    const isHardDelete = req.query.hard === 'true';
+    const isHardDelete = req.query.hard === "true";
 
     if (isHardDelete) {
       if (req.userRole !== "superadmin") {
@@ -342,12 +510,12 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
     } else {
       await prisma.user.update({
         where: { id },
-        data: { deletedAt: new Date() }
+        data: { deletedAt: new Date() },
       });
       res.json({ success: true, message: "Soft deleted" });
     }
-  } catch (error) {
-    logger.error(`Error deleting user: ${error}`);
+  } catch (error: any) {
+    logger.error(`Error deleting user: ${error.message}`);
     res.status(500).json({ success: false, error: "Failed to delete user" });
   }
 };

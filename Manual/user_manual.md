@@ -96,10 +96,19 @@ Opening a charger's detail page provides full telemetry tabs:
 
 ## 5. User Accounts, RFID Whitelist & ISO 15118
 
-### 5.1 User Management (`/users`)
-* Create and manage driver accounts, corporate clients, and administrators.
-* Assign roles: `Superadmin`, `Admin`, `User`.
-* Manage multi-tenant company associations and billing details.
+### 5.1 Users, Clients & Role Management (`/users`)
+The **Users & Clients Admin Hub** provides comprehensive multi-tenant management:
+
+* **Distinction between Clients and Users**:
+  * **🏢 Clients (Corporate Accounts / B2B Entities):** Legal business entities, fleet accounts, and billing organizations. Holds company name, client ID (e.g. `CLI-0042`), Tax/VAT number, Chamber of Commerce (KvK) number, billing address/email, SEPA mandates, assigned charging stations & chargers, and multiple associated employee drivers.
+  * **👥 Users (Individual Login Accounts):** Human accounts with login credentials (email/password), security keys (2FA TOTP, email verification), an assigned system role, personal RFID cards, and vehicle profiles. Users can belong to a corporate Client or be independent private drivers.
+* **Role-Based Access Control (RBAC):**
+  * `👑 Superadmin`: Full unrestricted access across all client organizations, hardware endpoints, roaming hubs, audit logs, and system settings.
+  * `⚙️ Admin`: Platform / CPO Administrator managing charging networks, site locations, dynamic tariffs, billing & SEPA, client accounts, and user permissions.
+  * `🔧 Operator / Technician`: Operations & hardware maintenance role (diagnostics, live monitoring, firmware updates, reset & unlock commands; restricted from billing and financial accounts).
+  * `👔 Client Admin`: Corporate Fleet Administrator managing their company's assigned chargers, employee drivers, RFID cards, and monthly invoices.
+  * `🚗 User / EV Driver`: End-user EV driver initiating charging sessions, managing personal RFID cards, vehicle battery profiles, and receipts.
+* **Interactive Roles & Capabilities Matrix:** Visual breakdown of granular permissions across Infrastructure, Energy & Smart Grid, Fleet & Access, Invoices & Finance, Operations & Logs, and Administration.
 
 ![Users Directory](../Screenshots/51_Users_Accounts_Directory.png)
 

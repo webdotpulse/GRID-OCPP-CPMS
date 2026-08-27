@@ -57,7 +57,7 @@ jest.mock('../../config/database.js', () => ({
   },
   pgliteInstance: {
     waitReady: Promise.resolve(),
-    query: jest.fn().mockResolvedValue({ rows: [] }),
+    query: (jest.fn() as any).mockResolvedValue({ rows: [] }),
   },
 }));
 

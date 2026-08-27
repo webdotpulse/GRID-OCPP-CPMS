@@ -44,6 +44,7 @@ import sepaRoutes from "./api/sepa/sepa.routes.js";
 import localAuthListRoutes from "./api/localAuthList/localAuthList.routes.js";
 import reservationsRoutes from "./api/reservations/reservations.routes.js";
 import securityRoutes from "./api/security/security.routes.js";
+import rolesRoutes from "./api/roles/roles.routes.js";
 
 // Import OCPP servers
 import { ocppServer } from "./ocpp/ocppServer.js";
@@ -139,6 +140,7 @@ export function createApp(): Application {
   app.use("/api/chargers", authenticateToken, localAuthListRoutes);
   app.use("/api/reservations", authenticateToken, reservationsRoutes);
   app.use("/api/security", authenticateToken, securityRoutes);
+  app.use("/api/roles", authenticateToken, rolesRoutes);
 
   // Error handling
   app.use(notFoundHandler);

@@ -1,9 +1,21 @@
 import { Router } from "express";
-import { getAllCompanies } from "./companies.controller.js";
-import { authenticateToken } from "../../middleware/auth.js";
+import {
+  getAllCompanies,
+  getCompanyById,
+  createCompany,
+  updateCompany,
+  deleteCompany,
+} from "./companies.controller.js";
+import { authenticateToken, requireAdmin } from "../../middleware/auth.js";
 
 const router = Router();
 
-router.get("/", authenticateToken as any, getAllCompanies as any);
+router.use(authenticateToken as any);
+
+router.get("/", getAllCompanies as any);
+router.get("/:id", getCompanyById as any);
+router.post("/", requireAdmin as any, createCompany as any);
+router.put("/:id", requireAdmin as any, updateCompany as any);
+router.delete("/:id", requireAdmin as any, deleteCompany as any);
 
 export default router;

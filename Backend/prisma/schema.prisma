@@ -50,14 +50,28 @@ model User {
 }
 
 model Company {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  users     User[]
+  id           Int      @id @default(autoincrement())
+  name         String   @unique
+  clientNumber String?  @unique
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+  address      String?
+  city         String?
+  postalCode   String?
+  country      String?  @default("Netherlands")
+  taxNumber    String?
+  kvkNumber    String?
+  billingEmail String?
+  status       String   @default("active") // "active", "pending", "suspended", "inactive"
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  users        User[]
   mollieConfig MollieConfig?
-  invoices  Invoice[]
+  invoices     Invoice[]
   sepaMandates SepaMandate[]
+  chargingStations ChargingStation[]
 }
 
 model MollieConfig {
@@ -88,11 +102,13 @@ model ChargingStation {
   status                  String   @default("active")
   maxPower                Float? // Maximum allowed capacity in kW/Amps
   owner_id                Int
+  companyId               Int?
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
   isGroundPlanEnabled    Boolean                 @default(false)
   owner                  User                    @relation(fields: [owner_id], references: [id])
+  company                Company?                @relation(fields: [companyId], references: [id], onDelete: SetNull)
   reimbursementContracts ReimbursementContract[]
   mediaCampaigns         MediaCampaign[]
   chargers               Charger[]
