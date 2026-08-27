@@ -182,3 +182,29 @@ For vehicles and chargers supporting ISO 15118 Plug & Charge, navigate to **Vehi
 * Pair vehicles with battery energy profiles for automatic authorization upon plugging in, without requiring an RFID card swipe.
 
 ![Vehicle Identity Plug & Charge](../Screenshots/34_VehicleIdentity_PlugAndCharge.png)
+
+---
+
+## 6. User & Corporate Client Administration (`/users`)
+
+The **Users & Clients Admin Hub** enables CPOs and fleet managers to manage user accounts, corporate clients, and access permissions.
+
+### 6.1 Users Directory
+1. Navigate to **Users & Clients** (`/users`).
+2. Search or filter by **Role** (`Superadmin`, `Admin`, `Operator`, `Client Admin`, `User`) and **Corporate Client**.
+3. Use the actions menu to update roles, reset user passwords, or inspect detailed user summaries.
+
+![Users Directory](../Screenshots/51_Users_Accounts_Directory.png)
+
+### 6.2 Managing Corporate Clients (B2B Accounts)
+1. Switch to the **Clients & Accounts** tab.
+2. Click **Add Corporate Client** to create a new commercial account.
+3. Configure the company name, client code (e.g. `CLI-1001`), VAT/tax ID, Chamber of Commerce (KvK) number, and billing contacts.
+4. Corporate clients automatically aggregate all charging sessions and charging stations assigned to their organization.
+
+![Corporate Clients Directory](../Screenshots/51a_Corporate_Clients_Directory.png)
+
+### 6.3 Roles & Permissions Matrix
+Switch to the **Roles & Permissions** tab to view the live access matrix across Infrastructure, Smart Grid, Fleet, Finance, Operations, and Administration.
+
+![Roles & Permissions Matrix](../Screenshots/51b_Roles_Permissions_Matrix.png)

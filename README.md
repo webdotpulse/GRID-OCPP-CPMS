@@ -44,15 +44,20 @@ The **OCPP-CPMS** platform provides Charge Point Operators (CPOs), e-Mobility Se
 | ![Executive Dashboard](Screenshots/06_Dashboard_Executive_Overview.png) | ![Ground Plan Builder](Screenshots/21_Station_GroundPlan_2D_Builder.png) |
 | *Real-time fleet power, active transactions, revenue, and geospatial station map.* | *Drag-and-drop parking bays, line drawing, socket mapping, and orientation.* |
 
-| V2G Fleet Battery Orchestration | Enterprise Invoicing & Facturen Ledger |
+| Users, Clients & Access Control | Corporate B2B Clients & Fleets |
 | :---: | :---: |
-| ![V2G Orchestration](Screenshots/29_V2G_Battery_Orchestration.png) | ![Invoicing Ledger](Screenshots/39_Invoices_Billing_Ledger.png) |
-| *Bidirectional discharge controls, minimum SoC reserves, and fleet battery stats.* | *Automated billing runs, VAT breakdown, and ISO 20022 Direct Debit export.* |
+| ![Users Directory](Screenshots/51_Users_Accounts_Directory.png) | ![Corporate Clients](Screenshots/51a_Corporate_Clients_Directory.png) |
+| *Multi-role directory, 2FA security indicators, and individual driver profiles.* | *Corporate client accounts with VAT/KvK, linked drivers, and assigned chargers.* |
 
-| Live OCPP Packet Inspector | Responsive Mobile Driver Companion |
+| Roles & Capabilities Matrix | Enterprise Invoicing & Facturen Ledger |
 | :---: | :---: |
-| ![OCPP Packet Inspector](Screenshots/55_OCPP_PacketInspector_Console.png) | ![Mobile Driver App](Screenshots/71_Mobile_Dashboard.png) |
-| *Real-time WebSocket JSON-RPC frame debugger with payload parsing.* | *Optimized driver interface with nearby station maps and remote charger control.* |
+| ![Roles Matrix](Screenshots/51b_Roles_Permissions_Matrix.png) | ![Invoicing Ledger](Screenshots/39_Invoices_Billing_Ledger.png) |
+| *Granular RBAC matrix across 6 operational modules and 5 system role tiers.* | *Automated billing runs, VAT breakdown, and ISO 20022 Direct Debit export.* |
+
+| V2G Fleet Battery Orchestration | Live OCPP Packet Inspector |
+| :---: | :---: |
+| ![V2G Orchestration](Screenshots/29_V2G_Battery_Orchestration.png) | ![OCPP Packet Inspector](Screenshots/55_OCPP_PacketInspector_Console.png) |
+| *Bidirectional discharge controls, minimum SoC reserves, and fleet battery stats.* | *Real-time WebSocket JSON-RPC frame debugger with payload parsing.* |
 
 ---
 

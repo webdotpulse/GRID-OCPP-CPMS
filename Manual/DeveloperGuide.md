@@ -279,3 +279,43 @@ curl -X POST http://localhost:3000/api/quirk-profiles \
 Deploy baseline OCPP parameter sets across charger models in a single operation.
 
 ![Config Profiles Templates](../Screenshots/58_ConfigProfiles_Templates.png)
+
+---
+
+## 7. Users, Corporate Clients & RBAC Architecture
+
+The platform provides a strictly decoupled domain model for multi-tenant organizations:
+
+### 7.1 Entity Distinction: Clients vs. Users
+* **`Company` (Client)**: The legal B2B entity, billing account, and infrastructure owner (holding VAT, KvK, billing address, payment terms, and assigned charging stations).
+* **`User` (Individual Identity)**: The authenticated human login (with credentials, 2FA, email verification) assigned a specific system role.
+
+### 7.2 System Roles & Capabilities Matrix (`GET /api/roles`)
+* `superadmin`: Global platform administrator (unrestricted cross-tenant access).
+* `admin`: Platform / CPO Administrator (manages chargers, stations, tariffs, clients, users).
+* `operator`: Operations & field technician (hardware diagnostics, remote commands, live monitoring).
+* `client_admin`: Corporate fleet manager (manages company drivers, assigned chargers, invoices).
+* `user`: EV Driver / End-user (personal charging sessions, RFID tags, vehicle profiles).
+
+```bash
+# Retrieve full system roles and capabilities matrix
+curl -X GET http://localhost:3000/api/roles \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+### 7.3 Managing Corporate Clients (`/api/companies`)
+```bash
+# Create a new B2B corporate client
+curl -X POST http://localhost:3000/api/companies \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Amsterdam Fleet Logistics BV",
+    "clientNumber": "CLI-1001",
+    "contactName": "Jan de Vries",
+    "contactEmail": "jan@fleet.nl",
+    "taxNumber": "NL123456789B01",
+    "kvkNumber": "87654321",
+    "city": "Amsterdam"
+  }'
+```

@@ -18,7 +18,15 @@ async function main() {
     });
 
     if (existingUser) {
-      console.log(`User with email ${email} already exists.`);
+      if (existingUser.role !== 'superadmin' || !existingUser.emailVerified) {
+        await prisma.user.update({
+          where: { email },
+          data: { role: 'superadmin', emailVerified: true },
+        });
+        console.log(`Updated existing user ${email} to Superadmin role!`);
+      } else {
+        console.log(`Superadmin user with email ${email} already exists.`);
+      }
       return;
     }
 
@@ -29,6 +37,7 @@ async function main() {
         email,
         password: hashedPassword,
         role: 'superadmin',
+        userType: 'private',
         emailVerified: true,
       },
     });

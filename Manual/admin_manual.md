@@ -315,3 +315,22 @@ npm install
 npm run build
 pm2 restart ocpp-frontend
 ```
+
+---
+
+## 4. Superadmin Provisioning & Enterprise User Administration
+
+### 4.1 First User Installation (Superadmin)
+On a fresh installation, the initial user account **must always be provisioned as a Superadmin**:
+```bash
+cd /var/www/ocpp-cms/Backend
+npm run create-superadmin -- "superadmin@mobilitypulse.com" "YourSecurePassword123!"
+```
+* The script synchronizes the schema (`npx prisma db push`) and initializes or elevates the account to `role: "superadmin"` with `emailVerified: true`.
+
+### 4.2 Navigating the Users & Clients Admin Hub (`/users`)
+Once logged in as Superadmin:
+* **Users Directory Tab:** View all platform operators, field technicians, corporate admins, and private EV drivers. Perform quick role updates or admin password resets.
+* **Clients & Accounts Tab:** Create and administer corporate B2B client accounts, configure VAT/KvK numbers, billing addresses, and assign charging infrastructure.
+* **Roles & Permissions Matrix Tab:** Review the interactive matrix detailing access across Infrastructure, Smart Grid, Fleet, Finance, Operations, and Administration.
+

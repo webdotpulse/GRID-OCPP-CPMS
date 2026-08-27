@@ -172,7 +172,11 @@ cd Backend
 npm install
 cp .env.example .env # Update DATABASE_URL and secrets
 npm run prisma:generate
-npm run prisma:migrate
+npx prisma db push --accept-data-loss
+
+# Create the initial Superadmin account (first user installed)
+npm run create-superadmin -- "superadmin_email" "superadmin_password"
+
 npm run dev
 \`\`\`
 
@@ -424,15 +428,17 @@ Follow the prompts. Certbot will automatically modify your Nginx configurations 
 
 ## 3. Post-Installation Initial Setup
 
-Since this is a fresh installation, you'll need to create an initial superadmin user and at least one charging station.
+Since this is a fresh installation, the first user installed must be a **Superadmin** with global administrative authority over the entire CPMS network.
 
-### Create superadmin user
-To securely create the first superadmin user, ensure the database tables exist and run the initialization script on the VM:
+### Create Initial Superadmin User
+To securely provision the primary Superadmin account, ensure the database schema is synchronized and run the initialization script on the VM:
 \`\`\`bash
 cd /var/www/ocpp-cms/Backend
 npm run create-superadmin -- "superadmin_email" "superadmin_password"
 \`\`\`
-*(This command automatically runs \`npx prisma db push\` before creating the superadmin user).*
+*(This command synchronizes the Prisma schema via \`npx prisma db push\` and creates or elevates the target user to \`role: "superadmin"\` with email verification automatically enabled).*
+
+Once created, log in at \`https://ui.mobilitypulse.com\` to access the **Users, Clients & Roles Management Hub** (\`/users\`), where you can provision corporate clients, operators, and EV drivers.
 
 ### Connecting a Charger in Production
 Once deployed and SSL is configured, point your OCPP 1.6 or OCPP 2.1/2.0.1 charger to your secure WebSocket endpoint:
