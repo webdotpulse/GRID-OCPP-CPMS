@@ -1,32 +1,30 @@
 # Developer Integration & API Guide
 
-Welcome to the Developer Integration & API Guide for the OCPP Central Processing Management System (CPMS). This guide provides the necessary information for developers to integrate with our system, covering authentication, core REST endpoints, real-time WebSocket subscriptions, and handling custom hardware quirks.
+Welcome to the **Developer Integration & API Guide** for the OCPP Central Processing Management System (CPMS). This guide provides software engineers, systems integrators, and third-party developers with everything required to interact with our REST API, subscribe to real-time WebSocket events, customize hardware quirk profiles, and extend the platform.
 
 ---
 
-## 1. Authentication
+## 1. Authentication & Security
 
-To interact with the REST API, you must obtain a JSON Web Token (JWT). The API uses Bearer Token authentication.
+All private endpoints (`/api/*`) enforce JSON Web Token (JWT) Bearer authentication.
 
-### Obtaining a Token
+### 1.1 Obtaining an Access Token
 
-Send a POST request to `/api/auth/login` (or `/api/auth/register` to create an account) with your credentials.
-
-**Endpoint:** `POST /api/auth/register`
+**Endpoint:** `POST /api/auth/login` (or `POST /api/auth/register`)
 
 **Request Payload:**
 ```json
 {
-  "email": "developer@example.com",
-  "password": "your-secure-password"
+  "email": "developer@mobilitypulse.com",
+  "password": "YourSecurePassword123!"
 }
 ```
 
 **cURL Example:**
 ```bash
-curl -X POST http://localhost:3000/api/auth/register \
+curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"developer@example.com", "password":"your-secure-password"}'
+  -d '{"email":"developer@mobilitypulse.com", "password":"YourSecurePassword123!"}'
 ```
 
 **Response Payload:**
@@ -34,91 +32,78 @@ curl -X POST http://localhost:3000/api/auth/register \
 {
   "success": true,
   "data": {
-    "id": 1,
-    "email": "developer@example.com",
-    "role": "user"
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "id": 1,
+      "email": "developer@mobilitypulse.com",
+      "role": "admin",
+      "company_id": 1
+    }
   }
 }
 ```
-*(Note: After registration or login, you will receive a token in the response or via the login endpoint. Ensure you use this token for subsequent requests).*
 
-### Using the Token
-
-Include the JWT in the `Authorization` header of your HTTP requests:
-
+### 1.2 Using the Bearer Token
+Include the token in the `Authorization` header for all subsequent API requests:
+```http
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
-Authorization: Bearer <YOUR_JWT_TOKEN>
-```
-
-**Important:** Role-based access control (RBAC) is enforced. State-changing methods (`POST`, `PUT`, `PATCH`, `DELETE`) generally require an `admin` role, unless modifying your own profile.
 
 ---
 
-## 2. Core Endpoints
+## 2. Core REST API Endpoints
 
-Here are the top 5 most critical REST endpoints for interacting with the CPMS.
+### 2.1 Connected Chargers
+Retrieve all currently online charging stations and their active protocol version.
 
-### 2.1 Fetching Connected Chargers
+**Endpoint:** `GET /api/ocpp/connected`  
+**Auth:** Bearer Token
 
-Retrieve a list of all currently connected chargers.
-
-**Endpoint:** `GET /api/ocpp/connected`
-**Authentication:** Required
-
-**cURL Example:**
 ```bash
 curl -X GET http://localhost:3000/api/ocpp/connected \
-  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+  -H "Authorization: Bearer <TOKEN>"
 ```
 
-**Response Payload:**
+**Response:**
 ```json
 {
   "success": true,
   "data": [
     {
-      "chargerId": 1,
+      "chargerId": "CP-ALFEN-01",
       "protocol": "ocpp1.6",
-      "connectedSince": "2023-10-27T10:00:00Z"
+      "connectedSince": "2026-08-27T10:00:00.000Z",
+      "remoteAddress": "192.168.1.105"
     }
   ],
   "count": 1
 }
 ```
 
-### 2.2 Triggering a Remote Start
+---
 
-Initiate a charging session remotely on a specific charger and connector.
+### 2.2 Triggering Remote Start Transaction
+Initiates a charging session remotely on a specific EVSE socket.
 
-**Endpoint:** `POST /api/ocpp/remote-start`
-**Authentication:** Required (Admin)
+**Endpoint:** `POST /api/ocpp/remote-start`  
+**Auth:** Bearer Token (Admin / Superadmin)
 
-**Request Payload (TypeScript Interface & JSON):**
 ```typescript
 interface RemoteStartRequest {
-  chargerId: number;
+  chargerId: number | string;
   connectorId: number;
   idTag: string;
 }
 ```
 
-```json
-{
-  "chargerId": 1,
-  "connectorId": 1,
-  "idTag": "DEADBEEF"
-}
-```
-
-**cURL Example:**
 ```bash
 curl -X POST http://localhost:3000/api/ocpp/remote-start \
-  -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
+  -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
-  -d '{"chargerId": 1, "connectorId": 1, "idTag": "DEADBEEF"}'
+  -d '{"chargerId": "CP-ALFEN-01", "connectorId": 1, "idTag": "TAG_RFID_001"}'
 ```
 
-**Response Payload:**
+**Response:**
 ```json
 {
   "success": true,
@@ -126,112 +111,36 @@ curl -X POST http://localhost:3000/api/ocpp/remote-start \
 }
 ```
 
-### 2.3 Triggering a Remote Stop
+---
 
-Stop an active charging session remotely.
+### 2.3 Triggering Remote Stop Transaction
+Terminates an active charging session gracefully.
 
-**Endpoint:** `POST /api/ocpp/remote-stop`
-**Authentication:** Required (Admin)
+**Endpoint:** `POST /api/ocpp/remote-stop`  
+**Auth:** Bearer Token (Admin / Superadmin)
 
-**Request Payload (TypeScript Interface & JSON):**
-```typescript
-interface RemoteStopRequest {
-  chargerId: number;
-  transactionId: string | number;
-}
-```
-
-```json
-{
-  "chargerId": 1,
-  "transactionId": 12345
-}
-```
-
-**cURL Example:**
 ```bash
 curl -X POST http://localhost:3000/api/ocpp/remote-stop \
-  -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
+  -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
-  -d '{"chargerId": 1, "transactionId": 12345}'
+  -d '{"chargerId": "CP-ALFEN-01", "transactionId": 12054}'
 ```
 
-**Response Payload:**
-```json
-{
-  "success": true,
-  "status": "Accepted"
-}
-```
+---
 
-### 2.4 Querying Transactions
+### 2.4 Setting Smart Charging & V2G Profiles
+Dispatches an OCPP `SetChargingProfile` to enforce site power limits, solar schedules, or V2G bidirectional discharge.
 
-Retrieve a list of charging transactions, including pagination and filtering.
-
-**Endpoint:** `GET /api/transactions`
-**Authentication:** Required
-
-**Query Parameters:**
-- `page` (optional): Page number (default: 1)
-- `limit` (optional): Number of items per page (default: 10)
-- `status` (optional): Filter by status (e.g., "completed")
-- `chargerId` (optional): Filter by charger ID
-- `search` (optional): Search by transaction ID or status
-
-**cURL Example:**
-```bash
-curl -X GET "http://localhost:3000/api/transactions?page=1&limit=10&status=completed" \
-  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
-```
-
-**Response Payload:**
-```json
-{
-  "success": true,
-  "data": {
-    "transactions": [
-      {
-        "id": 1,
-        "transactionId": "12345",
-        "charger_id": 1,
-        "status": "completed",
-        "createdAt": "2023-10-27T10:00:00Z"
-      }
-    ],
-    "rfidSessions": []
-  },
-  "pagination": {
-    "page": 1,
-    "limit": 10,
-    "total": 1,
-    "totalPages": 1
-  }
-}
-```
-
-### 2.5 Setting a Charging Profile
-
-Apply a charging profile (e.g., for load balancing or V2G) to a charger.
-
-**Endpoint:** `POST /api/ocpp/set-charging-profile`
-**Authentication:** Required (Admin)
-
-**Request Payload (TypeScript Interface & JSON):**
-```typescript
-interface SetChargingProfileRequest {
-  chargerId: number;
-  connectorId: number;
-  csChargingProfiles: any; // OCPP Charging Profile object
-}
-```
+**Endpoint:** `POST /api/ocpp/set-charging-profile`  
+**Auth:** Bearer Token (Admin)
 
 ```json
 {
-  "chargerId": 1,
+  "chargerId": "CP-ALFEN-01",
   "connectorId": 1,
   "csChargingProfiles": {
     "chargingProfileId": 100,
-    "stackLevel": 0,
+    "stackLevel": 1,
     "chargingProfilePurpose": "TxProfile",
     "chargingProfileKind": "Absolute",
     "chargingSchedule": {
@@ -247,111 +156,126 @@ interface SetChargingProfileRequest {
 }
 ```
 
-**cURL Example:**
-```bash
-curl -X POST http://localhost:3000/api/ocpp/set-charging-profile \
-  -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"chargerId": 1, "connectorId": 1, "csChargingProfiles": {"chargingProfileId": 100, "stackLevel": 0, "chargingProfilePurpose": "TxProfile", "chargingProfileKind": "Absolute", "chargingSchedule": {"chargingRateUnit": "A", "chargingSchedulePeriod": [{"startPeriod": 0, "limit": 16.0}]}}}'
-```
+---
 
-**Response Payload:**
+### 2.5 Querying Historical Transactions
+Retrieve paginated session records with filter parameters.
+
+**Endpoint:** `GET /api/transactions?page=1&limit=20&status=completed`
+
+**Response:**
 ```json
 {
   "success": true,
-  "status": "Accepted"
+  "data": {
+    "transactions": [
+      {
+        "id": 12054,
+        "transactionId": "12054",
+        "charger_id": 4,
+        "connectorId": 1,
+        "idTag": "TAG_RFID_001",
+        "meterStart": 1420500,
+        "meterStop": 1452100,
+        "totalKwh": 31.6,
+        "totalCost": 9.48,
+        "status": "completed",
+        "startTime": "2026-08-27T08:15:00.000Z",
+        "stopTime": "2026-08-27T09:45:00.000Z"
+      }
+    ]
+  },
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "totalPages": 1
+  }
 }
 ```
 
 ---
 
-## 3. WebSocket Subscriptions
+## 3. Real-Time WebSocket Subscriptions (Socket.IO)
 
-For real-time telemetry and transaction updates, custom frontends or mobile apps can connect to our Socket.IO server.
+Clients, mobile applications, and third-party dashboards can subscribe to live telemetry via Socket.IO:
 
-**Connection Endpoint:**
-`ws://<your-server-host>/api/realtime`
+* **Endpoint:** `http(s)://<your-server-host>/api/realtime`
+* **Path:** `/api/realtime`
 
-**Configuration:**
-The Socket.IO server is configured with the path `/api/realtime`. Ensure your Socket.IO client matches this path.
+### Client Implementation Example (TypeScript / JavaScript):
 
-**Client Example (JavaScript):**
 ```javascript
 import { io } from "socket.io-client";
 
-// Connect to the Socket.IO server
-const socket = io("http://localhost:3000", {
-  path: "/api/realtime"
+const socket = io("https://ocpp.mobilitypulse.com", {
+  path: "/api/realtime",
+  transports: ["websocket"]
 });
 
 socket.on("connect", () => {
-  console.log("Connected to Realtime WebSocket:", socket.id);
+  console.log("Connected to CPMS Realtime Stream:", socket.id);
 });
 
-// Listen for charger status updates
-socket.on("CHARGER_STATUS_UPDATE", (payload) => {
-  console.log("Live Update Received:", payload);
-  // payload structure varies, but typically includes:
-  // { chargerId: number, connectorId: number, status: string, errorCode: string }
+// Charger state updates (Available, Charging, Faulted)
+socket.on("CHARGER_STATUS_UPDATE", (data) => {
+  console.log("Status Notification:", data);
+  // data: { chargerId: "CP-01", connectorId: 1, status: "Charging", errorCode: "NoError" }
 });
 
-socket.on("disconnect", () => {
-  console.log("Disconnected from Realtime WebSocket");
+// Live active meter values
+socket.on("METER_VALUES_RECEIVED", (data) => {
+  console.log("Live Telemetry:", data);
+  // data: { transactionId: 12054, powerW: 11000, currentL1: 16, soc: 68 }
+});
+
+// Interactive ground plan update events
+socket.on("GROUND_PLAN_UPDATE", (data) => {
+  console.log("Ground Plan Update:", data);
 });
 ```
 
 ---
 
-## 4. Adding Custom Hardware Quirks
+## 4. Live Packet Inspector Console (`/ocpp`)
 
-If an EVSE brand violates standard OCPP specifications (e.g., failing to report power values, incorrect energy formatting), you can normalize this behavior using our Quirks Engine.
+Engineers debugging hardware integrations can monitor raw JSON-RPC WebSocket frames in real-time.
 
-### How to Add a Quirk
+![OCPP Packet Inspector Console](../Screenshots/55_OCPP_PacketInspector_Console.png)
 
-1. **Identify the Issue:** Determine what the charger is reporting incorrectly via the `ocppLog` table or the `/api/chargers/:id/logs` endpoint.
-2. **Define the Rule in the Database:** The CPMS uses a database-driven `quirk-profiles` system. Create a profile that defines the necessary transformations.
-3. **The Normalizer Logic:** The backend uses `Backend/src/ocpp/quirkNormalizer.ts` to apply these rules.
+---
 
-### Supported Quirk Rules (`quirkNormalizer.ts`)
+## 5. Hardware Quirk Normalization (`quirkNormalizer.ts`)
 
-- `calculatePowerFromVoltageAndCurrent`: (Boolean) If the charger doesn't report `powerValue`, the engine will calculate it using single-phase ($V \times I$) or 3-phase ($\sum V_{Ln} \times I_{Ln}$) formulas.
-- `energyMultiplier`: (Number) Multiplies the `energyValue` by a constant (useful if the charger reports in Wh instead of kWh, or vice-versa).
-- `estimateEnergyFromPower`: (Boolean) Estimates energy consumption over time if the charger only reports power (W) but not energy (Wh).
+To normalize non-standard vendor behavior, define rules in **Quirk Profiles** (`/quirk-profiles`):
 
-### Example: Fixing a Charger Missing Power Values
+![Quirk Profiles Hardware Overrides](../Screenshots/59_QuirkProfiles_HardwareOverrides.png)
 
-Suppose a new brand "ZapCharge" reports Voltage and Current but no Power.
+### Quirk Engine Capabilities:
+* `calculatePowerFromVoltageAndCurrent`: Automatically computes active power from phase voltages and currents if missing from `MeterValues`.
+* `energyMultiplier`: Scales raw meter units (e.g. converting raw pulses or Wh to kWh).
+* `estimateEnergyFromPower`: Dynamically calculates cumulative energy ($P \cdot \Delta t$) when chargers report power but omit energy registers.
 
-1. **Create the Quirk Profile via API:**
+### Creating a Quirk Profile via API:
 
-**Endpoint:** `POST /api/quirk-profiles` (assuming a generic CRUD endpoint exists based on routes)
-
-**Payload:**
-```json
-{
-  "name": "ZapCharge Power Fix",
-  "brand": "ZapCharge",
-  "rules": {
-    "calculatePowerFromVoltageAndCurrent": true
-  }
-}
+```bash
+curl -X POST http://localhost:3000/api/quirk-profiles \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Vendor-X Power Synthesizer",
+    "brand": "VendorX",
+    "rules": {
+      "calculatePowerFromVoltageAndCurrent": true,
+      "energyMultiplier": 0.001
+    }
+  }'
 ```
 
-2. **Assign the Profile:** Ensure the specific charger or brand is mapped to this quirk profile in your database configuration.
+---
 
-3. **Under the Hood:** When a `MeterValues` request arrives, `quirkNormalizer.ts` intercepts it:
+## 6. Standardized Configuration Profiles (`/config-profiles`)
 
-```typescript
-// Inside quirkNormalizer.ts
-if (rules.calculatePowerFromVoltageAndCurrent && (!powerValue || powerValue === 0)) {
-  if (payload.voltage_L1 != null && payload.current_L1 != null /* ... */) {
-    // 3-phase calculation
-    powerValue = (payload.voltage_L1 * payload.current_L1) + ...
-  } else if (voltageValue != null && currentValue != null) {
-    // Single phase fallback
-    powerValue = voltageValue * currentValue;
-  }
-}
-```
+Deploy baseline OCPP parameter sets across charger models in a single operation.
 
-By defining these rules, the CPMS will automatically clean the incoming data before it hits the core transaction logic or the database, ensuring seamless operation regardless of hardware compliance issues.
+![Config Profiles Templates](../Screenshots/58_ConfigProfiles_Templates.png)

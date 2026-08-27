@@ -1,106 +1,254 @@
-# OCPP Charge Management System - User Manual
+# OCPP Charge Point Management System - Comprehensive User Manual
 
-Welcome to the **OCPP Charge Management System (CMS)** User Manual. This guide is designed for Charge Point Operators (CPOs) and Station Managers. It explains how to effectively use the Next.js Admin Dashboard to manage your EV charging infrastructure, track sessions, configure pricing, and remotely control your chargers.
-
----
-
-## 1. Getting Started
-
-### 1.1 Accessing the Dashboard
-Open your web browser and navigate to the CMS Dashboard URL provided by your system administrator (e.g., `https://ui.mobilitypulse.com` or `http://localhost:3002`).
-
-### 1.2 Logging In
-Enter your **Email Address** and **Password** to access the system. If you do not have an account, or have forgotten your password, please contact your system administrator to request access or a password reset.
-
-### 1.3 Navigating the Interface
-Once logged in, you'll see a sidebar navigation menu providing access to different system modules:
-- **Dashboard**: High-level overview, live metrics, and real-time charging statuses.
-- **Stations**: Manage physical locations where chargers are installed.
-- **Chargers**: View and configure individual charging units.
-- **Users**: Manage EV drivers, assign RFID tags, and control access.
-- **Tariffs**: Configure pricing structures and billing rates.
-- **Logs**: View real-time OCPP WebSocket communication for debugging.
-- **Settings**: Manage system-wide configuration, dynamic tariffs, and roaming endpoints.
+Welcome to the **OCPP-CPMS User Manual**. This manual serves as the primary operational reference for Charge Point Operators (CPOs), station managers, facility supervisors, and administrative personnel managing the EV charging network via the Next.js Admin Dashboard.
 
 ---
 
-## 2. Managing Charging Stations and Chargers
-
-### 2.1 Charging Stations
-A **Station** represents a physical location (e.g., "Office Parking Lot") that houses one or more EV chargers.
-
-*   **Creating a Station:** Navigate to **Stations** > **Add Station**. Enter the station name, geographical location (address, coordinates), and assign an owner.
-*   **Viewing Stations:** The Stations page lists all locations. Clicking a station provides details on the chargers assigned to it.
-
-### 2.2 Chargers
-A **Charger** (or Charge Point) represents the physical hardware connected to the system.
-
-*   **Adding a Charger:** Go to **Chargers** > **Add Charger**.
-    *   **Charger ID:** Ensure the Charger ID matches the identity configured in the physical charger's hardware settings.
-    *   **Assignment:** Link the charger to an existing Station and assign a Tariff.
-    *   **Connectors:** After creating a charger, you can define its individual Connectors (plugs) and their specifications (e.g., AC, DC, max power).
-*   **Charger Status:** The dashboard displays the real-time status of each charger (e.g., `Available`, `Preparing`, `Charging`, `Faulted`).
-
----
-
-## 3. Remote Control Operations
-
-The CMS allows you to send remote commands directly to your chargers.
-
-1.  Navigate to **Chargers**.
-2.  Click on the specific Charger you wish to manage to open its detail view.
-3.  Locate the **Remote Control** tab.
-
-Available operations include:
-*   **Reset (Soft/Hard):** Reboot the charger. A Soft reset stops ongoing transactions gracefully, while a Hard reset forces an immediate reboot.
-*   **Unlock Connector:** Remotely release a locked cable from a specific connector.
-*   **Clear Cache:** Force the charger to clear its local RFID authorization cache.
-*   **Change Availability:** Set a connector to `Operative` or `Inoperative`.
-*   **Start/Stop Transaction:** Manually initiate or terminate a charging session.
-*   **Update Firmware / Get Diagnostics:** Trigger remote firmware updates or request diagnostic log files.
+## Table of Contents
+1. [Getting Started & Authentication](#1-getting-started--authentication)
+2. [Executive Dashboard & Network KPIs](#2-executive-dashboard--network-kpis)
+3. [Charging Stations & 2D Ground Plans](#3-charging-stations--2d-ground-plans)
+4. [Chargers & EVSE Connectors](#4-chargers--evse-connectors)
+5. [User Accounts, RFID Whitelist & ISO 15118](#5-user-accounts-rfid-whitelist--iso-15118)
+6. [Active Sessions & Transaction History](#6-active-sessions--transaction-history)
+7. [Reservations Manager](#7-reservations-manager)
+8. [Tariffs & Dynamic Pricing](#8-tariffs--dynamic-pricing)
+9. [Invoicing ("Facturen") & SEPA Banking](#9-invoicing-facturen--sepa-banking)
+10. [Home Reimbursements & Split-Billing](#10-home-reimbursements--split-billing)
+11. [Roaming Hubs (OCPI & OICP) & Settlements](#11-roaming-hubs-ocpi--oicp--settlements)
+12. [Hardware Reliability & Auto-Heal](#12-hardware-reliability--auto-heal)
+13. [Media Screen Campaigns](#13-media-screen-campaigns)
+14. [Mobile Driver Companion App](#14-mobile-driver-companion-app)
+15. [Platform Settings & Enterprise Audit](#15-platform-settings--enterprise-audit)
 
 ---
 
-## 4. User and RFID Management
+## 1. Getting Started & Authentication
 
-The system uses a whitelist approach to authorize charging sessions.
+### 1.1 Logging In & Account Security
+Navigate to the CPMS dashboard URL (e.g., `https://ui.mobilitypulse.com` or `http://localhost:3002`).
 
-*   **Adding Users:** Navigate to **Users** > **Add User**. Enter the user's details and assign them a role (e.g., Driver, Admin).
-*   **Assigning RFID Tags:** Once a user is created, you can assign them an **idTag** (RFID card number). This tag will be whitelisted, allowing the user to start sessions by swiping their card at the charger.
-*   **Managing Access:** You can block or remove RFID tags to instantly revoke charging access for a specific user.
+* **Login (`/login`):** Enter your verified email address and password.
+* **Two-Factor Authentication (2FA TOTP):** If 2FA is enabled in your security settings, you will be prompted for a 6-digit TOTP code generated by Google Authenticator, 1Password, or Authy.
+* **Account Recovery & Verification:** Use `/forgot-password`, `/reset-password`, and `/verify-email` for self-service password recovery and email validation flows.
 
----
-
-## 5. Tariffs and Pricing
-
-A **Tariff** defines the financial cost structure for a charging session.
-
-*   **Creating a Tariff:** Go to **Tariffs** > **Add Tariff**.
-*   **Pricing Elements:** You can define up to four different pricing components:
-    1.  **Energy Fee (€/kWh):** The cost per kilowatt-hour of energy consumed.
-    2.  **Connection Fee (€):** A fixed fee applied once per charging session.
-    3.  **Time Fee (€/hour):** A cost based on the total duration of the charging session.
-    4.  **Idle Fee (€/hour):** A cost applied when the car is plugged in but not actively drawing power (e.g., after the battery is fully charged).
-*   **Assignment:** Tariffs can be assigned globally, at the Station level, or directly to specific Chargers. The system dynamically calculates the `totalCost` of a session based on the active tariff when the transaction ends.
+![User Login Interface](../Screenshots/01_Auth_Login.png)
 
 ---
 
-## 6. Live Monitoring and Logs
+## 2. Executive Dashboard & Network KPIs
 
-### 6.1 Real-Time Dashboard
-The **Dashboard** provides a high-level view of active charging sessions, total energy consumed, and live power metrics aggregated across your network.
+The **Dashboard** (`/dashboard`) provides a real-time command center summarizing charging fleet performance:
 
-### 6.2 OCPP Log Viewer
-For advanced troubleshooting, navigate to **Logs**.
-*   This page streams raw OCPP messages (JSON payloads) between the chargers and the CMS in real-time.
-*   You can filter logs by specific Charger IDs to debug connectivity issues, authorization failures, or transaction errors.
+* **Key Performance Indicators (KPIs):** Instant metrics for Total Energy Delivered (kWh), Active Charging Sessions, Network Uptime, and Gross Revenue.
+* **Geospatial Fleet Map:** Interactive Leaflet map displaying station pins color-coded by real-time status (`Online`, `In-Use`, `Faulted`, `Offline`).
+* **Active Session Live Stream:** Real-time list of current charging sessions with continuous duration counters, instantaneous power draw (kW), and accumulated energy.
+* **Fleet Power & Utilization Charts:** Hourly load profiles visualizing energy trends across stations.
+
+![Executive Dashboard Overview](../Screenshots/06_Dashboard_Executive_Overview.png)
 
 ---
 
-## 7. Advanced Configurations (Settings)
+## 3. Charging Stations & 2D Ground Plans
 
-The **Settings** page is restricted to system administrators and contains advanced configurations:
+A **Station** represents a physical charging location containing one or more chargers.
 
-*   **Dynamic Tariffs:** Configure EPEX Spot day-ahead electricity prices.
-*   **Quirk Profiles:** Apply specific behavioral modifications for non-compliant hardware vendors.
-*   **Roaming (OCPI/OICP):** Configure endpoints and tokens to connect with external roaming networks (e.g., Hubject, Gireve).
+### 3.1 Managing Stations (`/stations`)
+* View all stations in an interactive directory with map integration.
+* Add or edit stations with street address, coordinates, opening hours, and maximum electrical power capacity.
+
+![Stations Directory & Map](../Screenshots/17_Stations_Directory_Map.png)
+
+### 3.2 2D Ground Plan Layout Builder & Live Floor Monitor
+Enable Ground Plan on any station to build an interactive 2D parking layout:
+
+1. Click **Edit Ground Plan Layout** to open the drag-and-drop canvas.
+2. Add parking bays, rotate spots by 45 degrees, draw walkways or shelter areas, and link physical charger sockets to spots.
+3. Open the **Live Floor Monitor** (`/stations/[id]/live`) to observe real-time bay occupancy, active charging telemetry (kW/kWh), and driver ID tags displayed in glowing glassmorphism tiles.
+
+| Ground Plan 2D Builder | Live Floor Plan Monitor |
+| :---: | :---: |
+| ![Ground Plan Builder](../Screenshots/21_Station_GroundPlan_2D_Builder.png) | ![Live Floor Monitor](../Screenshots/22_Station_Live_FloorPlan_Monitor.png) |
+
+---
+
+## 4. Chargers & EVSE Connectors
+
+### 4.1 Fleet Directory (`/chargers`)
+The Chargers directory tracks all physical charging hardware connected to the central system:
+* Real-time OCPP connection state, firmware version, model, serial number, and assigned station.
+* Quick filters for charger status: `Available`, `Charging`, `SuspendedEVSE`, `Faulted`, `Offline`.
+
+![Chargers Fleet Directory](../Screenshots/07_Chargers_Fleet_Directory.png)
+
+### 4.2 Charger Detail & Remote Control (`/chargers/[id]`)
+Opening a charger's detail page provides full telemetry tabs:
+* **Overview:** High-level metrics, active connector status, and immediate remote control actions (Remote Start/Stop, Soft/Hard Reset, Unlock Connector, Change Availability).
+* **Connectors:** Detailed plug configuration (Type 2, CCS2, CHAdeMO, AC/DC, max voltage/power).
+* **Transactions:** Complete history of sessions initiated on this charger.
+* **Configuration:** Standard OCPP parameter inspector and editor.
+* **Profiles:** Active charging schedules and smart load profiles (IDs 100, 101, 200, 300).
+* **Predictive Load:** Rolling 24-hour solar balancing forecast.
+
+![Charger Detail Overview Tab](../Screenshots/10_Charger_Detail_Overview_Tab.png)
+
+---
+
+## 5. User Accounts, RFID Whitelist & ISO 15118
+
+### 5.1 User Management (`/users`)
+* Create and manage driver accounts, corporate clients, and administrators.
+* Assign roles: `Superadmin`, `Admin`, `User`.
+* Manage multi-tenant company associations and billing details.
+
+![Users Directory](../Screenshots/51_Users_Accounts_Directory.png)
+
+### 5.2 RFID Whitelist Management (`/rfid`)
+* Register RFID cards by **idTag** number.
+* Map cards to user accounts and vehicle energy profiles.
+* Enable or disable cards instantly with real-time hardware cache invalidation.
+
+![RFID Whitelist Directory](../Screenshots/30_RFID_Whitelist_Directory.png)
+
+### 5.3 ISO 15118 Plug & Charge (`/vehicle-identity-management`)
+* Authorize drivers seamlessly without RFID cards using ISO 15118 contract certificates (eMAID).
+* Configure vehicle battery capacities and reserve thresholds for smart charging and V2G discharging.
+
+![Vehicle Identity Plug & Charge](../Screenshots/34_VehicleIdentity_PlugAndCharge.png)
+
+---
+
+## 6. Active Sessions & Transaction History
+
+* **Transaction Records (`/transactions`):** Complete searchable archive of all historical charging sessions with total kWh, duration, calculated total cost, start/stop meter readings, and driver ID.
+* **Live Active Sessions (`/transactions/active`):** Real-time monitoring of all active vehicles plugged in across the fleet.
+* **Receipt & Itemized Summary:** Detailed modal displaying line-item tariff breakdowns, dynamic spot pricing calculations, and tax amounts.
+
+| Transaction History | Live Active Sessions |
+| :---: | :---: |
+| ![Transactions History](../Screenshots/36_Transactions_History_Records.png) | ![Live Active Sessions](../Screenshots/37_Transactions_Live_Active_Sessions.png) |
+
+---
+
+## 7. Reservations Manager
+
+The **Reservations Manager** (`/reservations`) allows drivers or station operators to reserve specific charging connectors ahead of time:
+* Schedule arrival windows and reservation durations.
+* Automatically set the target EVSE connector to `Reserved` status via OCPP to prevent unauthorized use before the driver arrives.
+
+![Reservations Manager](../Screenshots/35_Reservations_Manager.png)
+
+---
+
+## 8. Tariffs & Dynamic Pricing
+
+### 8.1 Tariff Structures (`/tariffs`)
+Define flexible pricing matrices composed of up to four fee components:
+1. **Energy Fee (€/kWh):** Base electricity price (fixed rate or dynamic spot price).
+2. **Connection Fee (€):** One-time fee charged upon session initiation.
+3. **Time Fee (€/hour):** Duration-based parking/charging fee.
+4. **Idle Fee (€/hour):** Grace-period penalty applied when a fully charged vehicle remains plugged in.
+
+![Tariffs Pricing Structures](../Screenshots/45_Tariffs_Pricing_Structures.png)
+
+### 8.2 Dynamic EPEX Spot Pricing (`/settings/tariffs`)
+Integrate dynamic Day-Ahead wholesale electricity rates. The system ingests spot market data daily from EnergyZero and ENTSO-E, applying configurable CPO markup formulas.
+
+![Dynamic EPEX Tariffs Settings](../Screenshots/65_Settings_DynamicTariffs_EPEX.png)
+
+---
+
+## 9. Invoicing ("Facturen") & SEPA Banking
+
+The CPMS includes an enterprise-grade billing and invoicing suite (`/invoices`):
+
+* **Billing Ledger:** Centralized dashboard tracking monthly billing runs, subtotal revenue, 21% VAT, and payment statuses (`Draft`, `Sent`, `Paid`, `Overdue`).
+* **Detailed Invoice Modal:** View itemized transaction records, energy rates, idle penalties, and generate PDF invoices.
+* **Batch Generation Wizard:** Consolidate unbilled completed transactions into monthly customer invoices in one click.
+* **SEPA Mandates:** Manage B2B / CORE Direct Debit mandates with Unique Mandate References (UMR) and debtor IBANs.
+* **ISO 20022 Direct Debit Export:** Compile unpaid invoices into bank-compliant `pain.008.001.02` XML files for direct upload to corporate banking portals.
+
+| Invoicing Ledger Overview | Detailed Invoice Line-Items |
+| :---: | :---: |
+| ![Invoices Billing Ledger](../Screenshots/39_Invoices_Billing_Ledger.png) | ![Invoice Detail Modal](../Screenshots/40_Invoices_Detail_Modal.png) |
+
+---
+
+## 10. Home Reimbursements & Split-Billing
+
+The **Reimbursements** module (`/reimbursements`) enables automated split-billing for employees who charge company fleet vehicles at their residential home chargers:
+
+* Map employee home chargers, fleet RFID cards, home electricity tariffs, and employee bank IBANs.
+* Monthly ledgers automatically aggregate kWh consumed by company vehicles.
+* Export banking-grade ISO 20022 SEPA Credit Transfer XML files (`pain.001.001.03`) for automated batch expense payouts.
+
+![Reimbursements Home Charging SEPA](../Screenshots/44_Reimbursements_HomeCharging_SEPA.png)
+
+---
+
+## 11. Roaming Hubs (OCPI & OICP) & Settlements
+
+Connect your charging network to global e-Mobility roaming networks:
+
+* **OCPI 2.2.1 Hubs (`/roaming`):** Sync Locations, Tariffs, Sessions, Tokens, and CDRs with peer-to-peer partners and hubs (e.g., Gireve).
+* **OICP 2.3 (Hubject):** Configure Hubject e-Roaming credentials and endpoint synchronization.
+* **Settlement Visualizer:** Reconcile wholesale vs. retail margins and export monthly clearinghouse CSV reports.
+
+| Roaming OCPI Hubs | Roaming Settlement Visualizer |
+| :---: | :---: |
+| ![Roaming OCPI Hubs](../Screenshots/48_Roaming_OCPI_Hubs.png) | ![Roaming Settlement Visualizer](../Screenshots/50_Roaming_Settlement_Visualizer_Tab.png) |
+
+---
+
+## 12. Hardware Reliability & Auto-Heal
+
+Ensure maximum network uptime with automated resilience tools:
+
+* **Hardware-at-Risk (`/hardware-at-risk`):** Monitors chargers exhibiting intermittent faults, connector lock failures, or dropped connections.
+* **Auto-Heal Engine:** Configurable automated recovery sequences (e.g., automated Soft Reset, connector unlock, and availability toggles).
+* **Quirk Profiles (`/quirk-profiles`):** Hardware overrides that normalize non-compliant vendor meter values in real-time.
+
+| Hardware at Risk Auto-Heal | Quirk Profiles Hardware Overrides |
+| :---: | :---: |
+| ![Hardware at Risk Auto-Heal](../Screenshots/54_HardwareAtRisk_AutoHeal.png) | ![Quirk Profiles](../Screenshots/59_QuirkProfiles_HardwareOverrides.png) |
+
+---
+
+## 13. Media Screen Campaigns
+
+For charging stations equipped with multimedia display screens, the **Media Campaigns** module (`/media-campaigns` / `/settings/screen-ad-manager`) allows marketing managers to:
+* Upload high-resolution images (PNG/JPG) and video advertisements (MP4).
+* Schedule display campaigns by date range, station location, or charge group.
+* Distribute media assets directly to compatible OCPP EVSE screens.
+
+![Screen Ad Manager](../Screenshots/68_Settings_Screen_AdManager.png)
+
+---
+
+## 14. Mobile Driver Companion App
+
+The platform includes a dedicated, responsive mobile interface (`/mobile`) tailored for EV drivers on smartphones:
+
+* **Mobile Dashboard (`/mobile`):** Overview of active sessions, nearby stations, and favorite chargers.
+* **Station Discovery & Map (`/mobile/map`):** Interactive map showing real-time socket availability and navigation routing.
+* **Remote Charger Controller (`/mobile/chargers/[id]`):** Start and stop charging directly from a smartphone browser.
+* **Driver Settings (`/mobile/settings`):** Manage vehicle battery profiles, payment methods, and notification preferences.
+
+| Mobile Dashboard | Mobile Station Map | Mobile Charger Controller |
+| :---: | :---: | :---: |
+| ![Mobile Dashboard](../Screenshots/71_Mobile_Dashboard.png) | ![Mobile Station Map](../Screenshots/74_Mobile_Station_Map.png) | ![Mobile Charger Controller](../Screenshots/73_Mobile_Charger_Detail_Controller.png) |
+
+---
+
+## 15. Platform Settings & Enterprise Audit
+
+Administrative settings (`/settings`) provide granular configuration over platform security, integrations, and communications:
+
+* **Security & 2FA (`/settings/security`):** TOTP two-factor authentication and PKI cryptographic certificates.
+* **Enterprise Audit Trail (`/settings/audit`):** Immutable log of all administrative actions, configuration changes, and remote commands.
+* **Payment Gateways (`/settings/payments`):** Mollie API keys and webhook configurations for ad-hoc checkout.
+* **SMTP & Mail Templates (`/settings/mail`):** Custom SMTP server settings and visual HTML email template designer for customer receipts and notifications.
+
+| Enterprise Audit Trail | PKI Security Profiles |
+| :---: | :---: |
+| ![Enterprise Audit Trail](../Screenshots/64_Settings_Enterprise_Audit_Trail.png) | ![PKI Security Profiles](../Screenshots/63_Settings_Security_Profiles_PKI.png) |

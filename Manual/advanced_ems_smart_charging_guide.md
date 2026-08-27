@@ -1,73 +1,129 @@
 # Smart Charging, Dynamic Tariffs & V2G Guide
 
-Welcome to the Smart Charging & V2G Guide for the CPMS platform. This document explains the platform's intelligent energy routing, dynamic tariffs, predictive solar balancing, and Vehicle-to-Grid (V2G) capabilities.
+Welcome to the **Smart Charging, Dynamic Tariffs & V2G Guide** for the OCPP Central Processing Management System (CPMS). This document provides an in-depth technical explanation of the platform's intelligent energy routing, dynamic day-ahead pricing, predictive solar load balancing, and Vehicle-to-Grid (V2G) bidirectional battery orchestration.
 
-## 1. Dynamic Tariffs & Spot Pricing
+---
 
-The platform integrates directly with Day-Ahead markets to offer dynamic, spot-priced charging sessions.
+## 1. Dynamic Tariffs & EPEX Spot Pricing
 
-### Data Ingestion Strategy
-The `EpexSpotService` coordinates the retrieval of Day-Ahead EPEX spot prices.
-*   **Providers:** It fetches pricing primarily from EnergyZero (for NL/BE), ENTSO-E (if an API key is configured in the database under `ENTSOE_API_KEY`), and falls back to Energy-Charts if needed.
-*   **Execution:** A background worker evaluates pricing data daily. If the current time is past the standard publication time (around 13:00 - 14:00 CET), it fetches pricing for the following day.
-*   **Storage:** Prices are standardized and stored as `pricePerMwh` in the `epexSpotPrice` database table, enabling granular markup configurations by Charge Point Operators (CPOs).
+The platform integrates directly with Day-Ahead European wholesale electricity markets to offer automated dynamic pricing and cost-optimized charging dispatch.
+
+### Data Ingestion Pipeline (`EpexSpotService.ts`)
+
+```mermaid
+flowchart LR
+    Cron["Daily Ingestion Trigger\n(13:00 - 14:00 CET)"] --> Sources{"Pricing Sources"}
+    Sources -->|Primary NL/BE| EZ["EnergyZero API"]
+    Sources -->|Pan-European| ENTSOE["ENTSO-E Transparency API\n(ENTSOE_API_KEY)"]
+    Sources -->|Fallback| EC["Energy-Charts API"]
+    EZ & ENTSOE & EC --> Normalizer["Price Normalizer\n(EUR / MWh & EUR / kWh)"]
+    Normalizer --> DB[("epexSpotPrice Table\n(Timestamp Indexed)")]
+    DB --> Engine["Dynamic Tariff Engine\n(Base Spot + CPO Markup Formula)"]
+```
+
+* **Providers:** Primary ingestion from EnergyZero (for NL/BE spot markets), ENTSO-E (pan-European bidding zones via configured `ENTSOE_API_KEY`), with fallback to Energy-Charts.
+* **Granular Calculation:** When a transaction ends, the `DynamicTariffService` slices the session into exact intervals matching the `MeterValue` telemetry timestamps. Each delta energy consumed is multiplied by the spot market price of that exact hour.
+
+| Dynamic EPEX Settings | Tariff Structures |
+| :---: | :---: |
+| ![Dynamic EPEX Tariffs Settings](../Screenshots/65_Settings_DynamicTariffs_EPEX.png) | ![Tariffs Pricing Structures](../Screenshots/45_Tariffs_Pricing_Structures.png) |
+
+---
 
 ## 2. Predictive Solar Load Balancing
 
 Predictive Balancing transforms reactive load management into proactive, cost-optimized energy dispatch. This is orchestrated by the `PredictiveBalancingService` and executed via the `predictiveBalancingCron.ts` hourly background job.
 
-### Algorithmic Decision Making
-For chargers with Predictive Balancing enabled, the system generates a rolling 24-hour charging plan. The algorithm factors in:
-1.  **Weather/Solar Forecast:** Queries the Open-Meteo API for shortwave radiation to estimate local solar generation (`localSolarKwp`).
-2.  **Spot Prices:** Evaluates the EPEX Day-Ahead prices for the target hour.
+### Algorithmic Schedule Generation
 
-> **Warning:** Improperly configuring the `localSolarKwp` or maximum amperage settings on the charger can result in severe phase imbalances or tripped breakers. Ensure site electrical limits are physically verified before enabling predictive dispatch.
+For chargers with Predictive Balancing enabled, the system computes a rolling 24-hour charging plan:
+1. **Weather/Solar Forecast:** Queries the Open-Meteo API for hourly shortwave solar radiation ($W/m^2$) to estimate local solar generation based on the site's configured `localSolarKwp`.
+2. **Spot Price Optimization:** Evaluates Day-Ahead spot prices for each target hour.
+3. **Dispatch Allocation:** Calculates optimal amperage limits and sends an OCPP `SetChargingProfile` command using **Profile ID 200**.
 
-### Load Balancing Decision Tree
+### Load Balancing Decision Logic
 
 ```mermaid
 flowchart TD
-    A[Cron Job Hourly Trigger] --> B{Predictive Balancing Enabled?}
-    B -- No --> C[End]
-    B -- Yes --> D[Fetch Open-Meteo Solar Forecast]
-    D --> E[Fetch EPEX Spot Price]
-    E --> F{EPEX Price < 50?}
+    A["Hourly Background Job Trigger"] --> B{"Predictive Balancing\nEnabled on Charger?"}
+    B -- No --> C["Skip"]
+    B -- Yes --> D["Fetch Open-Meteo Solar Forecast\nfor Station Coordinates"]
+    D --> E["Fetch EPEX Spot Price for Target Hour"]
+    E --> F{"EPEX Price < €50/MWh?\n(Super Off-Peak)"}
 
-    F -- Yes --> G[Allocate Max Amps]
-    F -- No --> H{Available Local Solar > 1.4kW?}
+    F -- Yes --> G["Allocate Max Amps\n(Fast Charging)"]
+    F -- No --> H{"Available Local Solar > 1.4 kW?"}
 
-    H -- Yes --> I[Allocate Solar Amps]
-    H -- No --> J{EPEX Price > 150?}
+    H -- Yes --> I["Allocate Pure Solar Amps\n(Self-Consumption)"]
+    H -- No --> J{"EPEX Price > €150/MWh?\n(Peak Grid Price)"}
 
-    J -- Yes --> K[Suspend Charging 0A]
-    J -- No --> L[Allocate Min Amps 6A]
+    J -- Yes --> K["Suspend Charging\n(0A Profile)"]
+    J -- No --> L["Allocate Min Amps\n(6A Base Maintenance)"]
 
-    G --> M[Generate 24h Schedule Plan]
+    G --> M["Synthesize 24h Charging Schedule Periods"]
     I --> M
     K --> M
     L --> M
 
-    M --> N[Send OCPP SetChargingProfile ID 200]
+    M --> N["Dispatch OCPP SetChargingProfile\n(Profile ID 200, TxProfile)"]
 ```
 
-## 3. V2G & Fleet Battery Management
+| Predictive Load 24h Schedule | Charge Groups Load Limits |
+| :---: | :---: |
+| ![Charger Predictive Load Tab](../Screenshots/15_Charger_Detail_PredictiveLoad_Tab.png) | ![Charge Groups Load Balancing](../Screenshots/26_ChargeGroups_DynamicLoadBalancing.png) |
 
-### Dashboard Fleet Capacity & SoC Sliders
-The CPMS dashboard features interactive widgets to monitor and manage fleet capacity. These **fleet capacity widgets** and **SoC (State of Charge) sliders** calculate available energy by dynamically querying the latest `MeterValue.soc` reported by the vehicle during the transaction. If real-time SoC is unavailable, the system safely falls back to `tx.finalMeterValue` or transaction baseline to estimate fleet reserve capacity.
+---
 
-The `V2GOrchestrationService` manages bidirectional energy flows, turning EV fleets into active grid assets.
+## 3. V2G & Fleet Battery Orchestration
 
-### Discharging Triggers
-The service evaluates active transactions with vehicle energy profiles:
-*   **Capacity Checks:** The service queries the `VehicleEnergyProfile` associated with the active RFID user. It respects the `minSocThreshold` (e.g., 40%) to ensure vehicles retain enough charge for commuting.
-*   **Discharge Dispatch:** When a discharge is triggered, the system calculates the required offset (capped by the charger's `power_capacity`) and sends an OCPP `SetChargingProfile` command.
-*   **Discharge Profile:** A negative amperage limit is dispatched via Profile ID 300 to command the hardware to return energy to the grid.
+The `V2GOrchestrationService` manages bidirectional power flows, transforming EV fleet batteries into active decentralized grid assets capable of peak shaving and grid stabilization.
 
-> **Warning:** V2G Orchestration requires specialized bidirectional DC chargers (or emerging AC V2G standards) and specific vehicle support. Ensure hardware compatibility. Incorrectly pushing negative limit profiles to standard unidirectional chargers may cause hardware fault states.
+### Fleet Capacity & Real-Time SoC Tracking
 
-## 4. General Load Management Service
+The CPMS dashboard features interactive widgets to monitor and control fleet battery capacity:
+* **Real-Time Battery Telemetry:** Ingests live battery State of Charge (`MeterValue.soc`) reported by the vehicle during active sessions.
+* **SoC Reserve Sliders:** Operators and drivers configure a `minSocThreshold` (e.g., 40%) in their `VehicleEnergyProfile` to guarantee sufficient driving range for subsequent commutes.
 
-For standard site and group load balancing, the `LoadManagementService` evaluates active load against theoretical capacities to prevent site overload.
-*   **Site Load Profile:** Profile ID 100 is reserved for general Power Balancing/Site Load profiles.
-*   **Amperage Profile:** Profile ID 101 is reserved for Amperage Load Management profiles.
-*   **Safe Limit Enforcement:** If the theoretical maximum load drops back below 95% of the safe limit, the load management profiles are automatically cleared to resume maximum output.
+![V2G Battery Orchestration](../Screenshots/29_V2G_Battery_Orchestration.png)
+
+### Bidirectional Discharging Dispatch
+
+```mermaid
+sequenceDiagram
+    participant Grid as ⚡ Grid Operator / Price Spike
+    participant V2G as CPMS V2G Service
+    participant DB as PostgreSQL Database
+    participant CP as 🔌 Bidirectional DC Charger
+    participant EV as 🚗 EV Fleet Battery
+
+    Grid->>V2G: Discharging Trigger (Price Spike > €200 or Peak Shaving)
+    V2G->>DB: Query Active Transactions & VehicleEnergyProfiles
+    DB-->>V2G: Return Active EVs with Current SoC > minSocThreshold
+    V2G->>V2G: Calculate Discharge Amperage Offset (Max kW Limit)
+    V2G->>CP: OCPP SetChargingProfile (Profile ID 300, Negative Limit / Discharge)
+    CP->>EV: Invert Power Flow (Battery Discharges to Facility/Grid)
+    EV-->>CP: MeterValues (Reporting SoC & Reverse Power)
+    Note over V2G,EV: When SoC reaches minSocThreshold (e.g. 40%), Discharge Halts
+    V2G->>CP: ClearChargingProfile (Profile ID 300)
+```
+
+> [!WARNING]
+> **Hardware Compatibility:** V2G Orchestration requires specialized bidirectional DC chargers (ISO 15118-20 or CHAdeMO V2G protocols). Pushing negative limit charging profiles to standard unidirectional chargers may trigger hardware fault codes.
+
+---
+
+## 4. Multi-Tier Dynamic Load Management (`LoadManagementService.ts`)
+
+The CPMS maintains continuous grid protection across sites and charge groups using standardized OCPP profile IDs:
+
+| Profile ID | Purpose | Stack Level | Function |
+| :--- | :--- | :--- | :--- |
+| **Profile ID 100** | Site Power Balancing | Level 1 | Limits aggregate station wattage to physical grid connection capacity. |
+| **Profile ID 101** | Amperage Balancing | Level 2 | Equalizes phase currents across active connectors to prevent breaker trips. |
+| **Profile ID 200** | Solar Predictive Schedule | Level 0 | 24-hour dynamic schedule balancing solar generation and EPEX prices. |
+| **Profile ID 300** | V2G Discharging | Level 3 | Dispatches negative current limits for bidirectional battery discharge. |
+
+### Safe Limit Headroom Restoration
+If aggregate load across a station drops below **95%** of the physical safety limit, active load management profiles are automatically cleared to restore maximum output to all connected vehicles.
+
+![Charger Profiles Tab](../Screenshots/14_Charger_Detail_Profiles_Tab.png)

@@ -1,44 +1,38 @@
 # Financial & Roaming Operations Manual
 
-Welcome to the Financial & Roaming Operations Manual for the OCPP Central Processing Management System (CPMS). This guide is designed for business administrators and financial officers to navigate the core financial systems, roaming integrations, and settlement workflows.
+Welcome to the **Financial & Roaming Operations Manual** for the OCPP Central Processing Management System (CPMS). This guide is designed for Chief Financial Officers (CFOs), billing accountants, roaming managers, and business administrators to navigate the platform's core billing systems, banking exports, payment gateways, and roaming settlement workflows.
 
-## 1. Billing & Mollie Integration
+---
 
-The billing engine calculates the final cost of a charging session dynamically based on assigned tariffs and user profiles.
+## 1. Billing, Invoicing ("Facturen") & Payment Gateways
+
+The CPMS billing engine computes the financial cost of charging sessions in real-time and provides an enterprise-grade invoicing ledger supporting both contract subscription billing and walk-in ad-hoc payments.
 
 ### End-to-End Billing Cycle
 
 ```mermaid
-graph TD
-    A[Charger sends StopTransaction] --> B[OCPP Server Parses Meter values & Duration]
-    B --> C[Fetch Assigned Tariff]
-    C --> D{Calculate Fees}
-    D --> E[Connection Fee]
-    D --> F[Time Fee & Idle Fee]
-    D --> H[Energy Fee - Flat or Dynamic EPEX]
-    E & F & H --> I[Total Cost Computed]
-    I --> J[Save Transaction to Database]
-    J --> K{Billing Type}
-    K -- Ad-Hoc --> L[Create Mollie PaymentIntent]
-    L --> M[User Input Payment via Frontend]
-    M --> N[Mollie processes charge]
-    N --> O[Mollie Webhook sent to backend]
-    O --> P[Update PaymentTransaction to 'succeeded']
-    K -- Contract / Post-Paid --> Q[Monthly Invoice Generation]
+flowchart TD
+    A["⚡ Charger sends StopTransaction\n(Final Meter & Timestamp)"] --> B["OCPP Server Normalizes\nMeter Values & Duration"]
+    B --> C["Fetch Assigned Tariff\n(User Group / Station / Charger)"]
+    C --> D{"Calculate Fee Components"}
+    D --> E["Connection Fee (€)"]
+    D --> F["Time Fee & Idle Fee (€/hr)"]
+    D --> H["Energy Fee (€/kWh)\n(Flat Rate or Dynamic EPEX)"]
+    E & F & H --> I["Total Net Cost & 21% VAT Computed"]
+    I --> J["Save Transaction Record in Database"]
+    J --> K{"Customer Billing Method"}
+    K -- Ad-Hoc Public --> L["Create Mollie PaymentIntent"]
+    L --> M["Customer Completes Checkout via Hosted UI"]
+    M --> N["Mollie Webhook Verified (/api/payments/webhook)"]
+    N --> O["Mark Transaction 'Paid'"]
+    K -- Contract / Post-Paid --> Q["Consolidated Monthly Invoicing Run ('Facturen')"]
 ```
 
-### Tariff Calculations
-Tariffs are determined by looking up the `ChargeGroupUser` assignment, or falling back to the default `Charger` tariff. The final cost of a session is calculated exactly when the `StopTransaction` event is received from the EVSE.
+---
 
-The system computes:
-- **Connection Fee:** A flat fee triggered per session start.
-- **Time Fee:** Cost based on total connected minutes.
-- **Idle Fee:** Cost based on minutes where the charger is plugged in but power draw is 0W.
-- **Energy Fee:** Can be either a flat rate per kWh or dynamically calculated based on live EPEX spot market prices. For dynamic tariffs, exact consumption deltas between individual `meterValue` timestamps are multiplied by the spot market price of that exact interval.
+### Invoicing & Automated Billing Suite ("Facturen")
 
-### Invoicing & Automated Billing ("Facturen")
-
-The platform provides a complete enterprise invoicing subsystem located under `/invoices` (displayed in Dutch as **Facturen**), supporting both B2B corporate billing and private subscriber accounting.
+The platform provides a complete enterprise invoicing subsystem located under `/invoices` (localized in Dutch as **Facturen**), supporting both B2B corporate billing and private subscriber accounting.
 
 ```mermaid
 flowchart LR
@@ -51,60 +45,139 @@ flowchart LR
 ```
 
 #### Key Capabilities of the Invoicing Suite:
-1. **Automated Monthly Billing Runs (`/invoices` - [39_Invoices_Billing_Ledger.png](../Screenshots/39_Invoices_Billing_Ledger.png)):**
-   - Summarizes total subtotal, VAT (21%), gross turnover, paid amounts, and pending receivables in real-time KPI summary widgets.
-   - Filters invoices by status (`Draft`, `Sent`, `Paid`, `Overdue`, `Cancelled`), payment method, and billing period.
-2. **Detailed Itemized Invoice View ([40_Invoices_Detail_Modal.png](../Screenshots/40_Invoices_Detail_Modal.png)):**
-   - Displays full line-item breakdowns per charging transaction, including meter start/stop timestamps, kWh consumed, energy tariff rates, idle duration penalties, and VAT calculation.
-   - Provides direct one-click PDF generation and email delivery to customer contact addresses.
-3. **Batch Generation Wizard ([41_Invoices_Generate_Dialog.png](../Screenshots/41_Invoices_Generate_Dialog.png)):**
-   - Automatically groups all unbilled completed transactions across a calendar month into consolidated client invoices.
-4. **SEPA Core Direct Debit Mandates ([42_Invoices_SEPA_Mandates_Dialog.png](../Screenshots/42_Invoices_SEPA_Mandates_Dialog.png)):**
-   - Manages formal B2B / CORE direct debit mandates with unique Mandate Identification (UMR), debtor IBAN/BIC, signature date, and active authorization state.
-5. **ISO 20022 SEPA Direct Debit XML Export ([43_Invoices_DirectDebit_Export_Dialog.png](../Screenshots/43_Invoices_DirectDebit_Export_Dialog.png)):**
-   - Compiles all unpaid invoices into a single banking-grade `pain.008.001.02` XML direct debit batch file with creditor identifier, batch sequence (`FRST` / `RCUR`), and execution date.
 
-### Mollie Integration (Ad-Hoc & Public Checkout)
-Ad-hoc payments enable walk-in customers to pay directly via credit card, iDEAL, or Bancontact without prior registration ([60_Public_Payments_Checkout.png](../Screenshots/60_Public_Payments_Checkout.png)).
-- The system generates a `PaymentIntent` containing the exact `amountInCents` upon completion of the charge.
-- Users are presented with the Mollie `PaymentElement` in the frontend UI.
-- The backend listens for the `payment_intent.succeeded` and `payment_intent.payment_failed` webhooks on `/api/payments/webhook`. It ensures raw body signature validation before marking the transaction as settled.
-- Gateway credentials and API keys are managed centrally in `/settings/payments` ([70_Settings_MolliePayments_Gateway.png](../Screenshots/70_Settings_MolliePayments_Gateway.png)).
+#### 1. Billing Ledger Overview (`/invoices`)
+The centralized billing ledger tracks all corporate and driver invoices with real-time financial KPI summary widgets:
+* **Gross Turnover, Subtotal & 21% VAT:** Immediate aggregated view across billing periods.
+* **Status Filtering:** Filter by `Draft`, `Sent`, `Paid`, `Overdue`, `Cancelled`.
+* **Payment Methods:** Distinguish between SEPA Direct Debit, Credit Card, and Manual Bank Wire.
 
-## 2. Reimbursements & Split-Billing
+![Invoices Billing Ledger](../Screenshots/39_Invoices_Billing_Ledger.png)
 
-The reimbursement system is built for split-billing, designed primarily to reimburse employees for charging fleet vehicles at their personal home chargers.
+---
 
-### Workflow
-1. **Contracts:** Administrators or users create a `ReimbursementContract` via the UI. This maps a `userId`, `rfidUserId` (fleet vehicle tag), `stationId` (employee home charger), an assigned `tariffId` (their home electricity rate), and their `IBAN`.
-2. **Ledgers:** Each month, a `ReimbursementLedger` automatically aggregates the `totalKwh` consumed and the `totalAmount` due for that specific contract.
-3. **SEPA Export:** Instead of manually transferring funds, finance officers can click **Export SEPA** in the UI. The backend generates a validated `pain.001.001.03` SEPA XML file containing all pending transfers, ready to be uploaded directly into your corporate banking portal.
+#### 2. Detailed Itemized Invoice View
+Opening any invoice record provides a line-item breakdown of all aggregated charging sessions:
+* Meter start/stop timestamps, consumed kWh, duration, energy tariff rates, and idle fee penalties.
+* Real-time PDF generation and direct email dispatch to the customer's billing contact.
 
-## 3. Roaming (OCPI & OICP)
+![Invoice Detail Modal](../Screenshots/40_Invoices_Detail_Modal.png)
 
-To maximize station utilization and allow your contracted drivers to charge anywhere, the system acts as both a Charge Point Operator (CPO) and a Mobility Service Provider (MSP) through the OCPI and OICP protocols.
+---
 
-### Configuring Connections
-Connections to roaming hubs (e.g., Hubject, Gireve, or peer-to-peer CPOs) are configured in the Roaming UI tab.
-- **OCPI Configuration:** Enter the Endpoint URL and the `Authorization: Token` credentials. OCPI is typically used for peer-to-peer roaming or direct hub integration.
-- **OICP Configuration:** Enter the Endpoint URL and `Authorization: Bearer` credentials (standard for Hubject).
+#### 3. Batch Generation Wizard
+The **Generate Invoices Wizard** consolidates all unbilled completed transactions across a selected calendar month into formalized client invoices.
 
-### CDR Pushes & Pulls
-When a driver roams on your network (CPO mode), the CPMS captures the session and automatically generates a Charge Detail Record (CDR) which is pushed to the roaming partner.
-When your driver uses an external network (MSP mode), the roaming partner pushes the CDR to your CPMS. The system reconciles this record against the roaming contract margin to display wholesale vs. retail costs.
+![Generate Invoices Dialog](../Screenshots/41_Invoices_Generate_Dialog.png)
 
-## 4. Settlement & Ad-Manager
+---
 
-### Financial Settlements
-The Settlement module generates monthly clearinghouse reports. These are essential for reconciling roaming revenue and costs.
-- It aggregates all `RoamingSession` records.
-- Calculates `totalWholesaleBilled`, `totalBaseCost`, and `netMargin` per partner.
-- Heatmaps visualize stations attracting the most roaming sessions.
-- Data can be exported as a raw CSV (`monthly_clearinghouse_report.csv`) for accounting software integration.
+#### 4. SEPA Direct Debit Mandate Management
+Manage formal B2B and CORE Direct Debit mandates:
+* Unique Mandate Identifier (UMR).
+* Debtor IBAN, BIC, and account holder name.
+* Electronic signature date and active authorization state.
 
-### Ad-Manager
-For display-enabled chargers, the CPMS features an Ad-Manager to generate supplementary revenue.
-- Advertisers or marketing teams can upload image (PNG, JPG) or video (MP4) assets.
-- Drag-and-drop file uploads are supported in the Ad-Manager UI.
-- Campaigns can be targeted specifically to individual stations, station groups, or entire geographic regions.
-- The system handles the distribution of these media assets directly to compatible OCPP EVSE screens over the network.
+![SEPA Direct Debit Mandates Dialog](../Screenshots/42_Invoices_SEPA_Mandates_Dialog.png)
+
+---
+
+#### 5. ISO 20022 SEPA Direct Debit XML Export (`pain.008`)
+Compile all pending unpaid invoices into a banking-compliant ISO 20022 `pain.008.001.02` XML direct debit batch file:
+* Creditor Identifier (CI) and creditor bank details.
+* Batch sequence type (`FRST` for first collection, `RCUR` for recurring collections).
+* Configurable execution date ready for direct upload to banking portals (ABN AMRO, ING, Rabobank, BNP Paribas, KBC).
+
+![SEPA Direct Debit Export Dialog](../Screenshots/43_Invoices_DirectDebit_Export_Dialog.png)
+
+---
+
+### Mollie Ad-Hoc Public Payments & Gateway Settings
+
+For walk-in drivers without an RFID subscription card, the CPMS offers instant ad-hoc checkout via the Mollie payments gateway:
+
+* **Public Checkout Screen (`/payments`):** Drivers scan a QR code at the physical charger to open a payment portal supporting Apple Pay, Google Pay, iDEAL, Bancontact, and major credit cards.
+* **Webhook Verification:** The backend (`/api/payments/webhook`) validates cryptographic signatures on incoming Mollie webhooks before finalizing transaction settlement.
+* **Gateway Configuration (`/settings/payments`):** Centrally manage live and test Mollie API keys and default currency settings.
+
+| Public Payments Checkout | Mollie Payments Gateway Settings |
+| :---: | :---: |
+| ![Public Payments Checkout](../Screenshots/60_Public_Payments_Checkout.png) | ![Mollie Payments Gateway](../Screenshots/70_Settings_MolliePayments_Gateway.png) |
+
+---
+
+## 2. Employee Home Reimbursements & Split-Billing
+
+The **Reimbursements** module (`/reimbursements`) is built for corporate fleet split-billing, designed specifically to reimburse employees for electricity consumed when charging company fleet vehicles at their residential home chargers.
+
+```mermaid
+sequenceDiagram
+    participant EV as 🚗 Company Vehicle
+    participant CP as 🏠 Employee Home Charger
+    participant CPMS as CPMS Reimbursement Engine
+    participant SEPA as 🏦 ISO 20022 SEPA XML
+    participant Bank as Corporate Banking Portal
+
+    EV->>CP: Charge with Fleet RFID Tag
+    CP->>CPMS: StartTransaction & StopTransaction
+    CPMS->>CPMS: Match Contract (User + Tag + Home Station + Tariff)
+    CPMS->>CPMS: Monthly Ledger: Aggregate kWh * Home Tariff (€)
+    CPMS->>SEPA: Generate pain.001.001.03 Credit Transfer Batch
+    SEPA->>Bank: Finance Uploads XML for Automated Payout
+    Bank-->>EV: Employee Receives Direct IBAN Reimbursement
+```
+
+### Reimbursement Workflow
+
+1. **Reimbursement Contracts:** An administrator creates a contract linking a `userId` (employee), `rfidUserId` (company car RFID tag), `stationId` (home charger), `tariffId` (employee's residential electricity rate), and the employee's payout `IBAN`.
+2. **Monthly Expense Ledger:** The system automatically aggregates all home charging sessions for the contract, computing exact `totalKwh` and `totalAmount` due.
+3. **ISO 20022 SEPA Credit Transfer Export:** Finance officers click **Export SEPA** to generate a validated `pain.001.001.03` XML file for single-batch corporate bank transfers.
+
+![Reimbursements Home Charging SEPA](../Screenshots/44_Reimbursements_HomeCharging_SEPA.png)
+
+---
+
+## 3. Roaming Hubs (OCPI 2.2.1 & OICP Hubject)
+
+To maximize charger utilization and allow your contracted drivers to charge on external networks, the CPMS acts as both a **Charge Point Operator (CPO)** and an **e-Mobility Service Provider (eMSP)**.
+
+### Protocol Support
+
+| Protocol | Version | Role Supported | Modules Synchronized |
+| :--- | :--- | :--- | :--- |
+| **OCPI** | 2.2.1 | CPO & eMSP | Locations, Tariffs, Sessions, Tokens, CDRs, Commands |
+| **OICP** | 2.3 | CPO & eMSP | Hubject EVSE Data, EVSE Status, Authorization, CDRs |
+
+### Configuring Roaming Connections (`/roaming`)
+
+* **OCPI Partner Configuration:** Configure peer-to-peer endpoints, server tokens, and client tokens for bidirectional synchronization.
+* **OICP Hubject Configuration:** Configure Hubject operator IDs, client credentials, and automated CDR push schedules.
+
+| Roaming OCPI Hubs | Roaming OICP Hubject Tab |
+| :---: | :---: |
+| ![Roaming OCPI Hubs](../Screenshots/48_Roaming_OCPI_Hubs.png) | ![Roaming OICP Hubject Tab](../Screenshots/49_Roaming_OICP_Hubject_Tab.png) |
+
+---
+
+## 4. Roaming Settlement Visualizer & Screen Ad-Manager
+
+### Roaming Settlement Visualizer (`/roaming` - Settlement Tab)
+
+The Settlement Visualizer reconciles wholesale roaming costs against retail billing to ensure positive margins across all roaming partnerships:
+* Aggregates all `RoamingSession` records by partner.
+* Computes `totalWholesaleBilled`, `totalBaseCost`, and `netMargin`.
+* Provides station utilization heatmaps to identify top-performing roaming locations.
+* Direct export of monthly clearinghouse CSV reports (`monthly_clearinghouse_report.csv`).
+
+![Roaming Settlement Visualizer](../Screenshots/50_Roaming_Settlement_Visualizer_Tab.png)
+
+---
+
+### Multimedia Screen Ad-Manager (`/settings/screen-ad-manager` / `/media-campaigns`)
+
+For charging stations equipped with digital multimedia displays, the Ad-Manager generates auxiliary advertising revenue:
+* **Asset Uploads:** Supports drag-and-drop upload of promotional images (PNG, JPG) and video commercials (MP4).
+* **Targeted Scheduling:** Target ad campaigns to specific charging stations, geographic regions, or charge groups.
+* **Network Distribution:** Distributes media assets directly to compatible OCPP EVSE screens over the network.
+
+![Screen Ad Manager](../Screenshots/68_Settings_Screen_AdManager.png)

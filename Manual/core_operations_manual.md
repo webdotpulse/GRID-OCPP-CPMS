@@ -1,145 +1,184 @@
 # Core Operations Manual
 
-Welcome to the **Core Operations Manual** for the CPMS platform. This guide is specifically designed for Charge Point Operators (CPOs) who interact with the system on a daily basis. It provides step-by-step instructions on managing your electric vehicle charging infrastructure, troubleshooting, and handling real-time operations.
+Welcome to the **Core Operations Manual** for the OCPP Charge Point Management System (CPMS). This guide is specifically designed for Charge Point Operators (CPOs), station managers, and field technicians who interact with the system on a daily basis. It provides detailed, step-by-step procedures for managing physical charging infrastructure, deploying ground plans, issuing remote commands, monitoring live diagnostics, and controlling driver access.
 
 ---
 
-## 1. Asset Management
+## 1. Asset & Hierarchy Management
 
-The CPMS organizes your charging infrastructure into a logical hierarchy: **Charge Groups** > **Stations** > **Chargers** > **Connectors**.
+The CPMS organizes charging infrastructure into a four-tier logical hierarchy: **Charge Groups** → **Stations** → **Chargers** → **Connectors (EVSEs)**.
+
+```mermaid
+graph TD
+    CG["🏢 Charge Group\n(Regional Load Balancing / Site Limits)"]
+    ST1["📍 Station 1\n(Physical Geolocation & Ground Plan)"]
+    ST2["📍 Station 2\n(Physical Geolocation & Ground Plan)"]
+    CH1["⚡ Charger A\n(OCPP Hardware Identity)"]
+    CH2["⚡ Charger B\n(OCPP Hardware Identity)"]
+    CON1["🔌 Connector 1 (CCS2 DC)"]
+    CON2["🔌 Connector 2 (Type 2 AC)"]
+
+    CG --> ST1
+    CG --> ST2
+    ST1 --> CH1
+    ST1 --> CH2
+    CH1 --> CON1
+    CH1 --> CON2
+```
 
 ### Hierarchy Overview
-*   **Charge Groups:** Logical collections of stations (e.g., "North America Region" or "Corporate Campuses"). These are often used to define high-level power limits (max power in kW or Amperage) across multiple locations.
-*   **Stations:** Physical locations (e.g., "Main Office Parking") where chargers are installed.
-*   **Chargers:** The physical hardware units (e.g., a specific Delta or Kempower unit).
-*   **Connectors:** The physical plugs on a charger (e.g., Channel 1, Channel 2).
-
-### Step-by-Step: Managing Assets
-
-**Creating a Charge Group:**
-1. Navigate to **Charge Groups** in the sidebar.
-2. Click **Add Charge Group**.
-3. Provide a name and optional description.
-4. Set the maximum allowed capacity (kW or Amps) if load management is required across the group.
-5. Click **Save**.
-
-**Creating a Station:**
-1. Navigate to **Stations** in the sidebar.
-2. Click **Add Station**.
-3. Fill in the location details (Station Name, Address, City, Postal Code, Latitude, and Longitude).
-4. Assign an owner from the dropdown list.
-5. Define any maximum power constraints specific to this station.
-6. Click **Save**.
-
-**Adding a Charger:**
-1. Navigate to **Chargers** in the sidebar.
-2. Click **Add Charger**.
-3. Input the **Charger ID** (this must match the identifier configured in the physical hardware).
-4. Fill in manufacturer details, model, and serial number.
-5. Assign the charger to an existing **Station**.
-6. Set the charger's total power capacity.
-7. Click **Save**.
-
-**Configuring Connectors:**
-1. Once a charger is created, open its details page and navigate to the **Connectors** section.
-2. Add the physical connectors, specifying the connector ID, type (AC/DC), maximum voltage, and max power.
-3. Save the configuration to ensure accurate live status reporting.
-
-`[Insert Screenshot of Asset Management Table here]`
+* **Charge Groups:** High-level clusters of stations (e.g., "Main Corporate Campus" or "Rotterdam Logistics Depot"). Used to establish global capacity limits (kW / Amperage) across multiple chargers and coordinate dynamic load balancing.
+* **Stations:** Physical facilities with specific geolocations (latitude/longitude), address details, opening hours, and interactive 2D ground plans.
+* **Chargers:** Physical OCPP charging units (e.g., Alfen, ABB, Delta, Kempower). Each charger is identified by a unique `chargerId` that strictly matches the hardware identity string configured in its firmware.
+* **Connectors:** Physical charging sockets/cables on a charger (e.g., Connector 1 = CCS2 150kW, Connector 2 = Type2 22kW), reporting distinct OCPP EVSE statuses (`Available`, `Preparing`, `Charging`, `SuspendedEVSE`, `Finishing`, `Faulted`).
 
 ---
 
-## 2. Ground Plan Builder
+### Step-by-Step Asset Procedures
 
-The **Ground Plan Builder** allows CPOs to visually map out the physical layout of their charging stations. This is crucial for on-site troubleshooting and providing drivers with an intuitive overview.
+#### 1. Managing Charge Groups
+1. Navigate to **Charge Groups** (`/charge-groups`) in the sidebar navigation.
+2. Click **Add Charge Group** (`/charge-groups/new`).
+3. Enter the group name, description, and configure the **Maximum Group Capacity** (in kW or Amps) for active load management.
+4. Assign stations to this group.
 
-### Using the Ground Plan Builder
+![Charge Groups Dynamic Load Balancing](../Screenshots/26_ChargeGroups_DynamicLoadBalancing.png)
 
-1. Navigate to **Stations** and select a specific station.
-2. If Ground Plan is enabled for the station, click on the **Ground Plan Builder** tab.
-3. You will see a grid workspace.
-4. **Add Parking Spots:** Click the **Add Spot** button to create a new parking bay.
-5. **Drag and Drop:** Use your mouse to drag the parking spot to the correct location on the grid.
-6. **Resize and Rotate:** Click on a spot to adjust its dimensions (width/height) and rotation angle to match the physical layout of the parking lot.
-7. **Assign Connectors:** Link specific connectors from your chargers to the parking spots. This visually ties the hardware to the physical location.
-8. Click **Save Layout** when finished.
+---
 
-### Ground Plan Live View
+#### 2. Managing Charging Stations
+1. Navigate to **Stations** (`/stations`). The directory displays all facilities with live charger counts and interactive map clustering.
+2. Click **Add Station** (`/stations/new`).
+3. Fill in the **Station Name**, **Full Address**, **Postal Code**, **City**, and **Country**.
+4. Set exact **Latitude** and **Longitude** coordinates (used for map rendering and driver routing).
+5. Specify any facility-specific maximum power caps.
+6. Toggle **Enable Ground Plan** if an interactive parking bay layout is required.
+7. Click **Save**.
 
-Once built, the **Ground Plan Live View** provides a real-time visual representation of the station.
-*   Parking spots will change color based on the assigned connector's status (e.g., Green for Available, Blue for Charging, Red for Faulted).
-*   This view allows operators to quickly identify which physical bays are occupied or experiencing issues.
+![Stations Directory & Interactive Map](../Screenshots/17_Stations_Directory_Map.png)
 
-`[Insert Screenshot of Ground Plan Builder here]`
+---
+
+#### 3. Registering Chargers & Handling Unrecognized Hardware
+1. Navigate to **Chargers** (`/chargers`).
+2. Click **Register Charger** (`/chargers/new`).
+3. Enter the exact **Charger ID** configured on the physical station.
+4. Select the parent **Station**, input **Manufacturer**, **Model**, **Serial Number**, and **Total Power Capacity (kW)**.
+5. Save the configuration.
+
+![Chargers Fleet Directory](../Screenshots/07_Chargers_Fleet_Directory.png)
+
+> [!TIP]
+> **Unrecognized Chargers Queue:** If a new physical charger boots up and connects to `ws://<host>:9220/OCPP/1.6/<id>` before being registered in the database, the CPMS captures its connection and places it in the **Unrecognized Queue** (`/chargers/unrecognized`). Operators can review the pending hardware identity, assign it to a station, and approve it in one click.
+
+![Chargers Unrecognized Queue](../Screenshots/09_Chargers_Unrecognized_Queue.png)
+
+---
+
+#### 4. Configuring Connectors (EVSE Plugs)
+1. Open the specific charger from the fleet directory and navigate to the **Connectors** tab (or via `/connectors`).
+2. For each physical socket, define the **Connector ID** (1, 2, etc.), **Plug Type** (`Type2`, `CCS2`, `CHAdeMO`), **Current Type** (`AC_single_phase`, `AC_three_phase`, `DC`), **Max Voltage (V)**, and **Max Power (kW)**.
+3. Save the connectors to enable socket-level live status monitoring and ground plan linkage.
+
+![Connectors Directory](../Screenshots/23_Connectors_Directory.png)
+
+---
+
+## 2. Interactive 2D Ground Plan Builder & Floor Monitor
+
+The **Charge Grid Ground Plan** module enables facility managers and CPOs to create high-precision 2D floor plans of parking bays, link physical charger connectors to spots, and monitor live charging telemetry in real-time.
+
+### Building Station Ground Plans
+
+1. Navigate to **Stations** (`/stations`) and open a station with Ground Plan enabled.
+2. Click **Edit Ground Plan Layout** to open the 2D visual editor canvas (`/stations/[id]/ground-plan`).
+3. **Add Parking Spots:** Click **Add Spot** to place draggable parking bays on the grid.
+4. **Draw Structures:** Use **Draw Area** and **Draw Line** to outline walkways, station shelters, or driving lanes.
+5. **Drag, Resize & Rotate:** Click and drag elements into position. Use the circular handle to rotate parking spots in 45-degree increments to mirror physical angled bays.
+6. **Assign Connector Sockets:** Open the spot properties and bind an available physical socket (e.g., `Charger-01 / Connector 1`) to the parking bay.
+7. **Custom Styling:** Hover over elements to customize line thickness, border color, and area fill color.
+8. Click **Save Layout**.
+
+![Station Ground Plan 2D Builder](../Screenshots/21_Station_GroundPlan_2D_Builder.png)
+
+### Real-Time Ground Plan Live Monitor
+
+Navigate to the station's **Live View** (`/stations/[id]/live`). The canvas renders with dynamic glassmorphism indicators reflecting live OCPP socket telemetry:
+
+* 🟢 **Available (Green/Blue glow):** Socket is operative, cable disconnected, ready for charging.
+* ⚡ **Charging (Pulsing Green):** Vehicle connected and actively drawing energy. Displays live kW rate, delivered session kWh, and active driver tag.
+* 🔴 **Faulted / Unavailable (Red):** Socket hardware fault, emergency stop engaged, or charger offline.
+* ⚪ **Unassigned (Dashed border):** Parking spot created without an associated charger socket.
+
+![Station Live Floor Plan Monitor](../Screenshots/22_Station_Live_FloorPlan_Monitor.png)
 
 ---
 
 ## 3. Real-Time Operations & Remote Control
 
-The CMS allows operators to send instantaneous commands to chargers via the OCPP WebSocket connection. The UI updates in real-time as the charger responds.
+The CPMS provides comprehensive remote control capabilities over the OCPP WebSocket channel. Commands are executed asynchronously and provide real-time `CALLRESULT` feedback.
 
-### Using the Remote Control Panel
+### Remote Control Actions
 
-1. Navigate to **Chargers** and click on a specific charger to open its detail view.
-2. Open the **Remote Control** tab.
+Open any charger detail page (`/chargers/[id]`) and access the **Overview** and **Remote Control** panels.
 
-**Available Commands:**
-*   **Remote Start/Stop:** Manually start a transaction by entering an authorized RFID tag and selecting the connector. You can also manually terminate active sessions.
-*   **Reset:**
-    *   **Soft Reset:** Gracefully stops ongoing transactions before rebooting the charger.
-    *   **Hard Reset:** Forces an immediate reboot of the hardware (use with caution).
-*   **Unlock Connector:** If a cable is stuck in the charger or vehicle, select the connector ID and trigger an unlock command.
-*   **Change Availability:** Set a connector to `Operative` (available for use) or `Inoperative` (out of order).
-*   **Clear Cache:** Forces the charger to wipe its local RFID authorization cache.
+![Charger Detail Overview Tab](../Screenshots/10_Charger_Detail_Overview_Tab.png)
 
-**Real-Time Feedback:**
-When a command is sent, the system awaits a `CALLRESULT` from the charger. You will see a loading indicator, followed by a success or failure notification based on the charger's response. The dashboard status will automatically update (e.g., from `Charging` to `Finishing` upon a successful Remote Stop).
-
-`[Insert Screenshot of Remote Control Panel here]`
+| Command | Action Description | Operator Guidance |
+| :--- | :--- | :--- |
+| **Remote Start Transaction** | Dispatches an OCPP `RemoteStartTransaction` request with a specified `connectorId` and authorized `idTag`. | Use when a customer cannot scan their RFID card or initiates ad-hoc payment. |
+| **Remote Stop Transaction** | Sends an OCPP `RemoteStopTransaction` matching the active `transactionId`. | Gracefully finishes the session, finalizes meter reading, and releases cable lock. |
+| **Unlock Connector** | Dispatches `UnlockConnector` for a specific EVSE socket. | Resolves stuck charging cables without physical hardware intervention. |
+| **Soft Reset** | Issues an OCPP `Reset(type: "Soft")`. | Reboots the charger controller gracefully after finishing active sessions. |
+| **Hard Reset** | Issues an OCPP `Reset(type: "Hard")`. | Forces an immediate hardware power cycle. *(Use with caution during active sessions).* |
+| **Change Availability** | Sets a connector or whole unit to `Operative` or `Inoperative`. | Temporarily disables a damaged socket while keeping other sockets operative. |
+| **Clear Cache** | Commands the charger to wipe its internal authorization cache. | Forces the charger to re-verify RFID tags with the central whitelist on next swipe. |
+| **Trigger Message** | Dispatches `TriggerMessage` requesting `StatusNotification`, `Heartbeat`, or `MeterValues`. | Forces an immediate telemetry update when verifying charger responsiveness. |
 
 ---
 
-## 4. Diagnostics & Logging
+### Hardware Configuration & Profile Management
 
-When a charger goes offline or a transaction fails, detailed logs are essential for root-cause analysis.
+The **Configuration** tab allows operators to inspect and update standard OCPP key-value parameters directly on the physical hardware:
 
-### OCPP Log Viewer
+* Query parameters such as `HeartbeatInterval`, `MeterValueSampleInterval`, `ConnectionTimeOut`, `AuthorizeRemoteTxRequests`.
+* Push standardized configuration templates created in **Config Profiles** (`/config-profiles`).
 
-The **OCPP Log Viewer** provides a real-time stream of all raw WebSocket messages between the CPMS and the charging network.
-
-1. Navigate to **Logs** (or the OCPP section) in the sidebar.
-2. **Filtering:** You can filter the live stream by a specific **Charger ID** or search for specific message types (e.g., `BootNotification`, `StartTransaction`).
-3. **Inspection:** Click on any log entry to view the full, parsed JSON payload. This is critical for identifying why a charger rejected a command (e.g., missing fields or invalid format).
-
-### Channel Logs
-
-For a focused view on a specific unit:
-1. Go to a specific **Charger's** detail page.
-2. Open the **Channel Logs** tab.
-3. This view filters out network noise and only displays events relevant to that specific charger and its connectors.
-4. Use this to trace the exact sequence of events leading up to a failed transaction or a `Faulted` status.
-
-`[Insert Screenshot of OCPP Log Viewer here]`
+![Charger Detail Configuration Tab](../Screenshots/13_Charger_Detail_Configuration_Tab.png)
 
 ---
 
-## 5. Access Control (RFID)
+## 4. Diagnostics & Live Log Inspection
 
-The CPMS uses a strict whitelist approach for authorizing charging sessions. Drivers must be registered and possess an authorized RFID tag to initiate a charge.
+When diagnosing communication faults, dropped connections, or authorization rejections, the CPMS offers multiple inspection tools.
 
-### Managing RFID Users and Tags
+### OCPP Packet Inspector Console (`/ocpp`)
+The **Packet Inspector** provides an unbuffered, real-time WebSocket packet stream:
+* **Protocol Frame Inspection:** View raw JSON-RPC messages (`CALL` [2], `CALLRESULT` [3], `CALLERROR` [4]).
+* **Filtering:** Filter in real-time by **Charger ID**, **Action** (`BootNotification`, `Authorize`, `StartTransaction`, `MeterValues`), or payload content.
+* **Payload Expansion:** Click any packet row to expand and inspect the formatted JSON payload, complete with timestamps and latency metrics.
 
-**Adding a User and Tag:**
-1. Navigate to **Users** in the sidebar.
-2. Create a new user profile with their contact information.
-3. Navigate to **RFID Management** (often located under Users or as a dedicated top-level menu `rfid`).
-4. Click **Add New Tag**.
-5. Enter the **idTag** (the physical identifier printed on or read from the RFID card).
-6. Assign the tag to the specific user created earlier.
-7. Ensure the tag is marked as **Active**.
+![OCPP Packet Inspector Console](../Screenshots/55_OCPP_PacketInspector_Console.png)
 
-**Revoking Access:**
-*   To instantly stop a user from charging, locate their tag in the RFID Management list and toggle the status to **Inactive**, or delete the tag entirely.
-*   If a charger relies on a local authorization cache (offline mode), remember to use the **Clear Cache** command in the Remote Control panel to ensure the revoked status is immediately synchronized to the hardware.
+---
 
-`[Insert Screenshot of RFID Management Table here]`
+## 5. Access Control & RFID Whitelist
+
+The CPMS uses a strict authorization whitelist to validate driver access before dispensing power.
+
+### Managing RFID Tags (`/rfid`)
+1. Navigate to **RFID Management** (`/rfid`).
+2. Click **Register New Tag** (`/rfid/new`).
+3. Enter the **idTag** (hexadecimal UID or card serial number).
+4. Assign the tag to a registered **User Account** and select an optional **Vehicle Profile**.
+5. Set the tag status to **Active** and define an optional expiry date.
+6. Click **Save**.
+
+![RFID Whitelist Directory](../Screenshots/30_RFID_Whitelist_Directory.png)
+
+### ISO 15118 Plug & Charge Contract Certificates
+For vehicles and chargers supporting ISO 15118 Plug & Charge, navigate to **Vehicle Identity Management** (`/vehicle-identity-management`):
+* Manage **eMAID** (e-Mobility Account Identifier) contract certificates.
+* Pair vehicles with battery energy profiles for automatic authorization upon plugging in, without requiring an RFID card swipe.
+
+![Vehicle Identity Plug & Charge](../Screenshots/34_VehicleIdentity_PlugAndCharge.png)
