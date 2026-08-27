@@ -19,7 +19,7 @@
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
     "create-superadmin": "npx prisma db push && node --import tsx src/scripts/createSuperadmin.ts",
-    "test": "jest"
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
   },
   "keywords": [
     "ocpp",
@@ -93,6 +93,7 @@
     "redis": "^5.12.1",
     "socket.io": "^4.8.3",
     "speakeasy": "^2.0.0",
+    "stripe": "^22.6.0",
     "uuid": "^9.0.1",
     "winston": "^3.19.0",
     "ws": "^8.20.0"

@@ -69,6 +69,7 @@ model Company {
   updatedAt    DateTime @updatedAt
   users        User[]
   mollieConfig MollieConfig?
+  stripeConfig StripeConfig?
   invoices     Invoice[]
   sepaMandates SepaMandate[]
   chargingStations ChargingStation[]
@@ -83,6 +84,18 @@ model MollieConfig {
   testMode  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model StripeConfig {
+  id             Int      @id @default(autoincrement())
+  companyId      Int?     @unique
+  company        Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  secretKey      String
+  publishableKey String?
+  webhookSecret  String?
+  testMode       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 // Charging station / Site location

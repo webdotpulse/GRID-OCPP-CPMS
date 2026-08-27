@@ -6,7 +6,7 @@ Welcome to the **OCPP-CPMS (Charge Point Management System)** repository. This f
 
 ## 1. System Overview & Architecture
 
-OCPP-CPMS is an enterprise-grade Centralized Charging Station Management System supporting multi-protocol EV charging hardware (OCPP 1.6-J, 2.0.1, and draft 2.1), real-time WebSockets, dynamic EPEX spot pricing, predictive solar load balancing, V2G orchestration, SEPA XML ISO 20022 export, Mollie payment processing, OCPI 2.2.1 roaming, and interactive station ground plans.
+OCPP-CPMS is an enterprise-grade Centralized Charging Station Management System supporting multi-protocol EV charging hardware (OCPP 1.6-J, 2.0.1, and draft 2.1), real-time WebSockets, dynamic EPEX spot pricing, predictive solar load balancing, V2G orchestration, SEPA XML ISO 20022 export, Stripe & Mollie payment processing, OCPI 2.2.1 roaming, and interactive station ground plans.
 
 ```mermaid
 flowchart TD
@@ -17,7 +17,8 @@ flowchart TD
     UI["🖥️ Admin Dashboard\nNext.js 16+ App Router\nhttp://:3002"]
     RT["📋 Live Real-Time Server\nSocket.IO Stream\n/api/realtime"]
     V2G["🔄 V2G Orchestration\nService"]
-    MOLLIE["💳 Mollie API\n(Ad-Hoc Payments)"]
+    STRIPE["💳 Stripe API\n(Global Cards & Wallets)"]
+    MOLLIE["💳 Mollie API\n(iDEAL / Bancontact)"]
     OCPI["🌍 OCPI Partners\n(Roaming)"]
 
     CP <-->|"OCPP 1.6 & 2.1/2.0.1 JSON\nWebSocket"| OCPP
@@ -32,7 +33,9 @@ flowchart TD
     LMS -->|"SetChargingProfile"| OCPP
 
     API <-->|"Roaming Sync"| OCPI
-    UI -->|"PaymentIntent"| MOLLIE
+    UI -->|"Checkout / Intent"| STRIPE
+    UI -->|"Checkout / Intent"| MOLLIE
+    API <-->|"Stripe Webhooks"| STRIPE
     API <-->|"Mollie Webhooks"| MOLLIE
     V2G -->|"Discharge Limits\n& Pricing"| API
 ```
@@ -62,12 +65,12 @@ OCPP-CPMS/
 │   │   │   ├── ocpi/                   # OCPI 2.2.1 roaming endpoints
 │   │   │   ├── ocpp/                   # OCPP REST triggers & live log history
 │   │   │   ├── oicp/                   # Hubject OICP roaming endpoints
-│   │   │   ├── payments/               # Mollie payment intents & webhooks
+│   │   │   ├── payments/               # Stripe & Mollie payment intents & webhooks
 │   │   │   ├── quirk-profiles/         # Vendor-specific hardware compatibility quirks
 │   │   │   ├── reimbursements/         # Employee home charging SEPA calculation
 │   │   │   ├── rfid/                   # RFID whitelist & tag management
 │   │   │   ├── roaming/                # Roaming partner credentials
-│   │   │   ├── settings/               # System settings (tariffs, hardware risk, mail)
+│   │   │   ├── settings/               # System settings (tariffs, hardware risk, mail, payments)
 │   │   │   ├── stations/               # Charging stations & Ground Plan maps
 │   │   │   ├── tariffs/                # Tariff CRUD & dynamic pricing formulas
 │   │   │   ├── transactions/           # Charging session history & active sessions
@@ -96,6 +99,7 @@ OCPP-CPMS/
 │   │   │   ├── PredictiveBalancingService.ts
 │   │   │   ├── ReimbursementService.ts
 │   │   │   ├── SepaXmlService.ts
+│   │   │   ├── StripeService.ts
 │   │   │   ├── TotpService.ts
 │   │   │   └── V2GOrchestrationService.ts
 │   │   ├── utils/                      # Validation, logger, config-profile helpers
@@ -115,12 +119,12 @@ OCPP-CPMS/
 │   │   ├── media-campaigns/            # Multimedia advertisement scheduler
 │   │   ├── mobile/                     # Responsive driver companion interface
 │   │   ├── ocpp/                       # Raw OCPP live log stream inspector
-│   │   ├── payments/                   # Ad-hoc charging session checkout
+│   │   ├── payments/                   # Ad-hoc charging session checkout (Stripe & Mollie)
 │   │   ├── quirk-profiles/             # Hardware quirk overrides
 │   │   ├── reimbursements/             # Home charger reimbursement ledger & SEPA
 │   │   ├── rfid/                       # RFID card management
 │   │   ├── roaming/                    # OCPI / OICP partner connections
-│   │   ├── settings/                   # Platform configurations
+│   │   ├── settings/                   # Platform configurations (Stripe, Mollie, PKI, EPEX)
 │   │   ├── stations/                   # Stations & Ground Plan builder
 │   │   ├── tariffs/                    # Tariff definitions & dynamic spot rates
 │   │   ├── transactions/               # Session records
@@ -152,8 +156,8 @@ OCPP-CPMS/
 | **OCPP WebSocket** | `ws` (RFC 6455) | Low-level WebSocket server on port 9220 |
 | **Realtime Events** | Socket.IO 4 | WebSocket event push to frontend dashboard |
 | **Scheduled Tasks** | `node-cron` | Background recurring maintenance & calculations |
-| **Payment Gateway** | `@mollie/api-client` | Ad-hoc credit card / iDEAL charging payments |
-| **Banking Standards** | `fast-xml-parser` | ISO 20022 SEPA XML generation (`pain.001`) |
+| **Payment Gateways** | `stripe` & `@mollie/api-client` | Ad-hoc card/Apple Pay/Google Pay & iDEAL payments |
+| **Banking Standards** | `fast-xml-parser` | ISO 20022 SEPA XML generation (`pain.001` & `pain.008`) |
 | **Frontend Framework** | Next.js 16 (App Router + Turbopack) | React 19 server/client components |
 | **UI Design System** | TailwindCSS + Radix UI (shadcn/ui) | Modern dark-mode enterprise UI |
 | **Drag & Drop** | `@dnd-kit/core` & `@dnd-kit/sortable` | Station ground plan interactive canvas |
@@ -177,6 +181,7 @@ OCPP-CPMS/
 - **`VehicleEnergyProfile`**: Battery capacity and minimum SoC reserve thresholds for V2G discharging.
 - **`VehicleContractCertificate`**: ISO 15118 Plug & Charge contract certificate records.
 - **`ReimbursementContract` & `ReimbursementLedger`**: Employee home charging monthly expense tracking.
+- **`StripeConfig` & `MollieConfig`**: Multi-tenant payment gateway API credentials, webhook secrets, and test/live sandbox flags.
 
 ---
 

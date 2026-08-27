@@ -196,6 +196,13 @@ export const getCompanyById = async (req: AuthRequest, res: Response) => {
             testMode: true,
           },
         },
+        stripeConfig: {
+          select: {
+            id: true,
+            publishableKey: true,
+            testMode: true,
+          },
+        },
         _count: {
           select: {
             users: true,

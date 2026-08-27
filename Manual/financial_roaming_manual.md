@@ -21,9 +21,9 @@ flowchart TD
     E & F & H --> I["Total Net Cost & 21% VAT Computed"]
     I --> J["Save Transaction Record in Database"]
     J --> K{"Customer Billing Method"}
-    K -- Ad-Hoc Public --> L["Create Mollie PaymentIntent"]
+    K -- Ad-Hoc Public --> L["Create Stripe or Mollie Checkout Session"]
     L --> M["Customer Completes Checkout via Hosted UI"]
-    M --> N["Mollie Webhook Verified (/api/payments/webhook)"]
+    M --> N["Webhook Verified (/api/payments/webhook[/stripe])"]
     N --> O["Mark Transaction 'Paid'"]
     K -- Contract / Post-Paid --> Q["Consolidated Monthly Invoicing Run ('Facturen')"]
 ```
@@ -40,7 +40,7 @@ flowchart LR
     Aggregator --> Invoice["Tax Invoice PDF & Record\n(Subtotal + 21% VAT)"]
     Invoice --> Mandate{"Payment Method"}
     Mandate -->|Direct Debit| SEPA["ISO 20022 Direct Debit XML\n(pain.008.001.02)"]
-    Mandate -->|Credit Card / iDEAL| Mollie["Mollie Hosted Checkout\n& Webhook Settlement"]
+    Mandate -->|Credit Card / Wallets / iDEAL| Gateways["Stripe & Mollie Hosted Checkout\n& Webhook Settlement"]
     SEPA --> Bank["Corporate Banking Portal\n(Campr.053 reconciliation)"]
 ```
 
@@ -92,17 +92,23 @@ Compile all pending unpaid invoices into a banking-compliant ISO 20022 `pain.008
 
 ---
 
-### Mollie Ad-Hoc Public Payments & Gateway Settings
+### Stripe & Mollie Ad-Hoc Public Payments & Gateway Settings
 
-For walk-in drivers without an RFID subscription card, the CPMS offers instant ad-hoc checkout via the Mollie payments gateway:
+For walk-in drivers without an RFID subscription card, the CPMS offers instant ad-hoc checkout via dual payment processors:
 
-* **Public Checkout Screen (`/payments`):** Drivers scan a QR code at the physical charger to open a payment portal supporting Apple Pay, Google Pay, iDEAL, Bancontact, and major credit cards.
-* **Webhook Verification:** The backend (`/api/payments/webhook`) validates cryptographic signatures on incoming Mollie webhooks before finalizing transaction settlement.
-* **Gateway Configuration (`/settings/payments`):** Centrally manage live and test Mollie API keys and default currency settings.
+* **Stripe Gateway (`/settings/payments`):**
+  * **Global Payment Methods:** Settle charging sessions using Visa, MasterCard, American Express, Apple Pay, Google Pay, and SEPA Credit.
+  * **Webhook Integration:** Automated status synchronization via `/api/payments/webhook/stripe` listening to `checkout.session.completed`, `payment_intent.succeeded`, and `charge.refunded`.
+  * **PCI-DSS Level 1 Hosted Checkout:** Secure tokenization without exposing sensitive card credentials to CPMS servers.
+* **Mollie Gateway (`/settings/payments`):**
+  * **European Direct Banking:** Optimized for Benelux and European markets supporting iDEAL 2.0, Bancontact, EPS, KBC/CBC, and Belfius.
+  * **Webhook Verification:** Instant server-to-server callback processing via `/api/payments/webhook`.
+* **Public Checkout Portal (`/payments`):**
+  * Drivers scan a station QR code or visit the checkout portal to select their preferred payment provider and complete 256-bit encrypted checkout.
 
-| Public Payments Checkout | Mollie Payments Gateway Settings |
+| Public Payments Checkout | Payment Gateways Settings (Stripe & Mollie) |
 | :---: | :---: |
-| ![Public Payments Checkout](../Screenshots/60_Public_Payments_Checkout.png) | ![Mollie Payments Gateway](../Screenshots/70_Settings_MolliePayments_Gateway.png) |
+| ![Public Payments Checkout](../Screenshots/60_Public_Payments_Checkout.png) | ![Payment Gateways](../Screenshots/70_Settings_MolliePayments_Gateway.png) |
 
 ---
 

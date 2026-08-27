@@ -1,7 +1,7 @@
 <h1 align="center">OCPP Charge Point Management System (CPMS)</h1>
 
 <p align="center">
-  An enterprise-grade, full-stack <strong>OCPP 1.6-J & 2.0.1/2.1 Charge Point Management System (CPMS)</strong> supporting multi-protocol EV charging hardware, real-time WebSockets, dynamic EPEX spot pricing, predictive solar load balancing, V2G battery orchestration, ISO 20022 SEPA banking exports, Mollie payments, OCPI roaming, interactive 2D ground plans, and responsive driver mobile interfaces.
+  An enterprise-grade, full-stack <strong>OCPP 1.6-J & 2.0.1/2.1 Charge Point Management System (CPMS)</strong> supporting multi-protocol EV charging hardware, real-time WebSockets, dynamic EPEX spot pricing, predictive solar load balancing, V2G battery orchestration, ISO 20022 SEPA banking exports, Stripe & Mollie payments, OCPI roaming, interactive 2D ground plans, and responsive driver mobile interfaces.
 </p>
 
 <p align="center">
@@ -82,11 +82,11 @@ The system operates across four primary decoupled layers:
   │  Dashboard UI    │      http(s)://host:3000/api/v1/...                 │   (TypeScript 5.9 / ESM) │
   │  (Port 3002)     │ ◄──────────────────────────────────────────────────►│                          │
   └────────┬─────────┘      Socket.IO Stream (/api/realtime)               └────────────┬─────────────┘
-           │ Mollie Ad-Hoc                                                              │ ORM Queries
+           │ Stripe & Mollie Ad-Hoc                                                     │ ORM Queries
            ▼                                                                            ▼
   ┌──────────────────┐        Roaming Sync / Spot Pricing / SEPA           ┌──────────────────────────┐
-  │  Mollie / OCPI   │ ◄──────────────────────────────────────────────────►│   PostgreSQL Database    │
-  │  ENTSO-E / EPEX  │                                                     │   (via Prisma ORM 7.8)   │
+  │ Stripe / Mollie  │ ◄──────────────────────────────────────────────────►│   PostgreSQL Database    │
+  │ OCPI / ENTSO-E   │                                                     │   (via Prisma ORM 7.8)   │
   └──────────────────┘                                                     └────────────┬─────────────┘
                                                                                         │
                                                                                         │ Pub/Sub & Caching
@@ -106,7 +106,8 @@ flowchart TD
     UI["🖥️ Admin Dashboard\nNext.js 16+ App Router\nhttp://:3002"]
     RT["📋 Live Real-Time Server\nSocket.IO Stream\n/api/realtime"]
     V2G["🔄 V2G Orchestration\nService"]
-    MOLLIE["💳 Mollie API\n(Ad-Hoc Payments)"]
+    STRIPE["💳 Stripe API\n(Global Cards & Wallets)"]
+    MOLLIE["💳 Mollie API\n(iDEAL / Bancontact)"]
     OCPI["🌍 OCPI Partners\n(Roaming)"]
 
     CP <-->|"OCPP 1.6 & 2.1/2.0.1 JSON\nWebSocket"| OCPP
@@ -121,7 +122,9 @@ flowchart TD
     LMS -->|"SetChargingProfile"| OCPP
 
     API <-->|"Roaming Sync"| OCPI
-    UI -->|"PaymentIntent"| MOLLIE
+    UI -->|"Checkout / Intent"| STRIPE
+    UI -->|"Checkout / Intent"| MOLLIE
+    API <-->|"Stripe Webhooks"| STRIPE
     API <-->|"Mollie Webhooks"| MOLLIE
     V2G -->|"Discharge Limits\n& Pricing"| API
 ```
@@ -165,9 +168,10 @@ flowchart TD
 - Monthly reimbursement contract ledgers mapping employee home meters, electricity rates, and IBANs.
 - Banking-compliant ISO 20022 SEPA Credit Transfer XML export (`pain.001.001.03`).
 
-### 💳 Mollie Ad-Hoc Public Payments
-- Seamless walk-in ad-hoc driver checkout via Mollie PaymentIntents (Credit Cards, iDEAL, Bancontact).
-- Public checkout web page (`/payments`) with secure webhook callback validation (`/api/payments/webhook`).
+### 💳 Stripe & Mollie Ad-Hoc Public Payments
+- Seamless walk-in ad-hoc driver checkout via Stripe (Credit/Debit Cards, Apple Pay, Google Pay) and Mollie (iDEAL, Bancontact, EPS).
+- Dedicated public checkout web page (`/payments`) with secure webhook callback validation (`/api/payments/webhook` and `/api/payments/webhook/stripe`).
+- Centralized multi-gateway management console (`/settings/payments`) with sandbox testing, webhook helpers, and live credentials.
 
 ### 🔑 Whitelist RFID & ISO 15118 Plug & Charge
 - Central RFID whitelist management with instant remote activation, deactivation, and hardware cache flush.
@@ -209,35 +213,6 @@ The platform features a modern, dark-mode design system with real-time reactive 
 | :---: | :---: | :---: |
 | ![Dynamic EPEX Tariffs](Screenshots/65_Settings_DynamicTariffs_EPEX.png) | ![Predictive Load Schedule](Screenshots/15_Charger_Detail_PredictiveLoad_Tab.png) | ![V2G Battery Orchestration](Screenshots/29_V2G_Battery_Orchestration.png) |
 
-### 3. Stations & Interactive 2D Ground Plan Designer
-| Station Directory & Geospatial Map | 2D Ground Plan Canvas Builder |
-| :---: | :---: |
-| ![Stations Directory](Screenshots/17_Stations_Directory_Map.png) | ![Ground Plan Builder](Screenshots/21_Station_GroundPlan_2D_Builder.png) |
-
-### 4. Enterprise Invoicing & ISO 20022 SEPA Engine
-| Monthly Invoicing Ledger | SEPA Direct Debit pain.008 Export | Employee Home Reimbursement |
-| :---: | :---: | :---: |
-| ![Invoices Billing Ledger](Screenshots/39_Invoices_Billing_Ledger.png) | ![SEPA Direct Debit Export](Screenshots/43_Invoices_DirectDebit_Export_Dialog.png) | ![Home Reimbursements](Screenshots/44_Reimbursements_HomeCharging_SEPA.png) |
-
-### 5. Multi-Tenant Administration, Corporate Clients & Permissions Matrix
-| User Accounts & Clients Directory | Role-Based Permissions Matrix | Multi-Tenant Corporate Client Directory |
-| :---: | :---: | :---: |
-| ![Users Directory](Screenshots/51_Users_Accounts_Directory.png) | ![Roles Permissions Matrix](Screenshots/51b_Roles_Permissions_Matrix.png) | ![Corporate Clients Directory](Screenshots/51a_Corporate_Clients_Directory.png) |
-
-### 6. Operations, Auto-Heal & OCPP Packet Inspector
-| Hardware-At-Risk Auto-Heal Scanner | Raw OCPP Packet Inspector Console |
-| :---: | :---: |
-| ![Auto-Heal Scanner](Screenshots/54_HardwareAtRisk_AutoHeal.png) | ![OCPP Console](Screenshots/55_OCPP_PacketInspector_Console.png) |
-
-### 7. Responsive Mobile Driver Companion
-| Mobile Charging Dashboard | Interactive Driver Map | Live Session Controller |
-| :---: | :---: | :---: |
-| ![Mobile Dashboard](Screenshots/71_Mobile_Dashboard.png) | ![Mobile Station Map](Screenshots/74_Mobile_Station_Map.png) | ![Mobile Controller](Screenshots/73_Mobile_Charger_Detail_Controller.png) |
-
-> 📁 *The complete collection of all 75+ high-resolution screenshots across all views, forms, modals, tabs, and settings is stored in [`Screenshots/`](Screenshots/).*
-
----
-
 ## Documentation & Manuals
 
 Comprehensive guides tailored for administrators, operators, and developers are located in the [`Manual/`](Manual/) directory:
@@ -248,7 +223,7 @@ Comprehensive guides tailored for administrators, operators, and developers are 
 | 👤 **[User & CPO Manual](Manual/user_manual.md)** | Station Operators & CPOs | Complete UI guide covering fleet management, tariffs, invoicing, RFID, and mobile tools with screenshots. |
 | ⚙️ **[Core Operations Manual](Manual/core_operations_manual.md)** | Daily Operations | Step-by-step procedures for asset hierarchy, ground plans, remote control, and live diagnostics. |
 | 🛠️ **[Admin & Deployment Manual](Manual/admin_manual.md)** | DevOps & SysAdmins | Production deployment on Ubuntu/Google Cloud VMs (PM2, Nginx, PostgreSQL, Redis, Certbot SSL). |
-| 💰 **[Financial & Roaming Manual](Manual/financial_roaming_manual.md)** | Finance & Roaming Managers | Invoicing ledger, SEPA Direct Debit (`pain.008`), Reimbursements (`pain.001`), Mollie, and OCPI/OICP. |
+| 💰 **[Financial & Roaming Manual](Manual/financial_roaming_manual.md)** | Finance & Roaming Managers | Invoicing ledger, SEPA Direct Debit (`pain.008`), Reimbursements (`pain.001`), Stripe & Mollie gateways, and OCPI/OICP. |
 | ⚡ **[Smart Charging, EMS & V2G Guide](Manual/advanced_ems_smart_charging_guide.md)** | Energy Engineers | In-depth technical algorithms for dynamic EPEX tariffs, solar predictive balancing, and V2G discharging. |
 | 🗺️ **[Parking Ground Plan Manual](Manual/ground_plan_manual.md)** | Facility Managers | Guide to building 2D station layouts and operating the real-time glassmorphism Live Monitor. |
 | 💻 **[Developer & API Guide](Manual/DeveloperGuide.md)** | Software Engineers | REST API endpoints, JWT Bearer auth, Socket.IO real-time subscriptions, and custom quirk development. |
@@ -280,14 +255,14 @@ OCPP-CPMS/
 │   │   │   ├── ocpi/                   # OCPI 2.2.1 roaming endpoints
 │   │   │   ├── ocpp/                   # OCPP REST triggers & live log history
 │   │   │   ├── oicp/                   # Hubject OICP roaming endpoints
-│   │   │   ├── payments/               # Mollie payment intents & webhooks
+│   │   │   ├── payments/               # Stripe & Mollie payment intents & webhooks
 │   │   │   ├── quirk-profiles/         # Vendor-specific hardware compatibility quirks
 │   │   │   ├── reimbursements/         # Employee home charging SEPA calculation
 │   │   │   ├── reservations/           # Station connector reservation scheduling
-│   │   │   ├── rfid/                   # RFID whitelist & tag management
+│   │   │   ├── rfid/                   # RFID card whitelist management
 │   │   │   ├── roaming/                # Roaming partner credentials & settlement
 │   │   │   ├── security/               # PKI security profiles & certificate status
-│   │   │   ├── settings/               # System settings (tariffs, hardware risk, mail)
+│   │   │   ├── settings/               # System settings (tariffs, hardware risk, mail, payments)
 │   │   │   ├── stations/               # Charging stations & Ground Plan maps
 │   │   │   ├── tariffs/                # Tariff CRUD & dynamic pricing formulas
 │   │   │   ├── transactions/           # Charging session history & active sessions
@@ -317,6 +292,7 @@ OCPP-CPMS/
 │   │   │   ├── PredictiveBalancingService.ts
 │   │   │   ├── ReimbursementService.ts
 │   │   │   ├── SepaXmlService.ts
+│   │   │   ├── StripeService.ts
 │   │   │   ├── TotpService.ts
 │   │   │   └── V2GOrchestrationService.ts
 │   │   ├── utils/                      # Validation, logger, config-profile helpers
@@ -337,13 +313,13 @@ OCPP-CPMS/
 │   │   ├── media-campaigns/            # Multimedia advertisement scheduler
 │   │   ├── mobile/                     # Responsive driver companion interface
 │   │   ├── ocpp/                       # Raw OCPP live log stream inspector
-│   │   ├── payments/                   # Ad-hoc charging session checkout
+│   │   ├── payments/                   # Ad-hoc charging session checkout (Stripe & Mollie)
 │   │   ├── quirk-profiles/             # Hardware quirk overrides
 │   │   ├── reimbursements/             # Home charger reimbursement ledger & SEPA
 │   │   ├── reservations/               # Charger booking & reservation manager
 │   │   ├── rfid/                       # RFID card whitelist management
 │   │   ├── roaming/                    # OCPI / OICP partner connections & settlement
-│   │   ├── settings/                   # Platform configurations, EPEX, PKI, mail, Mollie
+│   │   ├── settings/                   # Platform configurations, EPEX, PKI, mail, payment gateways
 │   │   ├── stations/                   # Stations & Ground Plan 2D builder
 │   │   ├── tariffs/                    # Tariff definitions & dynamic spot rates
 │   │   ├── transactions/               # Session records & active telemetry
@@ -483,7 +459,12 @@ TZ="Europe/Brussels"
 # Optional: ENTSO-E API Key for European spot market ingestion
 ENTSOE_API_KEY=""
 
-# Optional: Mollie API Key for ad-hoc payment processing
+# Optional: Stripe API Keys for global credit card, Apple Pay & Google Pay ad-hoc checkouts
+STRIPE_SECRET_KEY=""
+STRIPE_PUBLISHABLE_KEY=""
+STRIPE_WEBHOOK_SECRET=""
+
+# Optional: Mollie API Key for European iDEAL, Bancontact & EPS ad-hoc payment processing
 MOLLIE_API_KEY=""
 ```
 

@@ -1261,6 +1261,8 @@ async function setupApiMocks(page) {
     if (pathName.includes('/media-campaigns')) return json([
       { id: 1, name: "Summer Clean Energy Promo", displayDuration: 30, targetModels: "Alfen,Raedian,Kempower", assetUrl: "/campaigns/summer-promo.mp4", active: true, createdAt: "2026-08-01T00:00:00Z" }
     ]);
+    if (pathName.includes('/settings/payments/stripe')) return json({ hasSecretKey: true, publishableKey: "pk_live_51M0cpms82810283492817263548", hasWebhookSecret: true, testMode: false });
+    if (pathName.includes('/settings/payments/mollie')) return json({ hasApiKey: true, profileId: "pfl_99281a", testMode: false });
     if (pathName.includes('/settings/payments')) return json({ isConfigured: true, apiKey: "live_mollie_live_998182747192", profileId: "pfl_99281a" });
     if (pathName.includes('/audit')) return json({ logs: mockAuditLogs, total: mockAuditLogs.length });
     if (pathName.includes('/security/ca')) return json(mockCaInfo);

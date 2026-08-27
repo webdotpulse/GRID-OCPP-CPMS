@@ -2,7 +2,8 @@ import { Router } from "express";
 import {
   createPaymentIntent,
   handleWebhook,
-  handleRefund
+  handleStripeWebhook,
+  handleRefund,
 } from "./payments.controller.js";
 import { authenticateToken, requireAdmin } from "../../middleware/auth.js";
 
@@ -12,8 +13,11 @@ const router = Router();
 router.post("/intent", authenticateToken, createPaymentIntent);
 router.post("/refund", authenticateToken, requireAdmin, handleRefund);
 
-// Mollie webhook sends the ID via a standard form post (unauthenticated for external callbacks)
+// Mollie webhook callback
 router.post("/webhook", handleWebhook);
+router.post("/webhook/mollie", handleWebhook);
+
+// Stripe webhook callback
+router.post("/webhook/stripe", handleStripeWebhook);
 
 export default router;
-

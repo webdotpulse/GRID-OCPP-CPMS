@@ -364,7 +364,12 @@ Schedule and push promotional video and image campaigns to screen-enabled chargi
 Define automatic fault detection thresholds, retry limits, and auto-reset parameters for chargers at risk:
 ![Hardware-At-Risk Rules](../Screenshots/69_Settings_HardwareAtRisk_Rules.png)
 
-### 5.6 Mollie Payment Gateway Configuration (`/settings/payments`)
-Configure live and test API keys for ad-hoc charging session checkout:
-![Mollie Payments Gateway](../Screenshots/70_Settings_MolliePayments_Gateway.png)
+### 5.6 Payment Gateways Configuration (Stripe & Mollie) (`/settings/payments`)
+Configure live and test credentials, webhook signing secrets, and processing parameters for multi-gateway ad-hoc charging session settlement:
+* **Stripe Configuration:** Enter Stripe Publishable Key (`pk_live_...` or `pk_test_...`), Secret Key (`sk_live_...` or `sk_test_...`), and Webhook Signing Secret (`whsec_...`). Configure your Stripe Dashboard webhook endpoint to point to `/api/payments/webhook/stripe`.
+* **Mollie Configuration:** Enter Mollie API Key (`live_...` or `test_...`) and optional Profile ID (`pfl_...`). Webhooks are automatically routed to `/api/payments/webhook`.
+* **Sandbox / Test Mode:** Toggle test mode independently per provider for sandboxed testing without live card or bank settlement.
+
+![Payment Gateways](../Screenshots/70_Settings_MolliePayments_Gateway.png)
+
 

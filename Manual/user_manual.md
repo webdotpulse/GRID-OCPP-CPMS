@@ -255,7 +255,7 @@ Administrative settings (`/settings`) provide granular configuration over platfo
 
 * **Security & 2FA (`/settings/security`):** TOTP two-factor authentication and PKI cryptographic certificates.
 * **Enterprise Audit Trail (`/settings/audit`):** Immutable log of all administrative actions, configuration changes, and remote commands.
-* **Payment Gateways (`/settings/payments`):** Mollie API keys and webhook configurations for ad-hoc checkout.
+* **Payment Gateways (`/settings/payments`):** Stripe and Mollie API credentials, webhook listeners, and sandbox settings for walk-in driver checkouts.
 * **SMTP & Mail Templates (`/settings/mail`):** Custom SMTP server settings and visual HTML email template designer for customer receipts and notifications.
 
 | Enterprise Audit Trail | PKI Security Profiles |

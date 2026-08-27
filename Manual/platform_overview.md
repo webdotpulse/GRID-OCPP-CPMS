@@ -19,7 +19,8 @@ flowchart TD
     UI["🖥️ Admin Dashboard\nNext.js 16+ App Router\nhttp://:3002"]
     RT["📋 Live Real-Time Server\nSocket.IO Stream\n/api/realtime"]
     V2G["🔄 V2G Orchestration\nService"]
-    MOLLIE["💳 Mollie API\n(Ad-Hoc Payments)"]
+    STRIPE["💳 Stripe API\n(Global Cards/Wallets)"]
+    MOLLIE["💳 Mollie API\n(iDEAL / Bancontact)"]
     OCPI["🌍 OCPI Partners\n(Roaming)"]
 
     CP <-->|"OCPP 1.6 & 2.1/2.0.1 JSON\nWebSocket"| OCPP
@@ -34,7 +35,9 @@ flowchart TD
     LMS -->|"SetChargingProfile"| OCPP
 
     API <-->|"Roaming Sync"| OCPI
-    UI -->|"PaymentIntent"| MOLLIE
+    UI -->|"Checkout / Intent"| STRIPE
+    UI -->|"Checkout / Intent"| MOLLIE
+    API <-->|"Stripe Webhooks"| STRIPE
     API <-->|"Mollie Webhooks"| MOLLIE
     V2G -->|"Discharge Limits\n& Pricing"| API
 ```
