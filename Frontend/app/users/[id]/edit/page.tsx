@@ -43,7 +43,8 @@ export default function EditUserPage() {
     const fetchCompanies = async () => {
       try {
         const res = await api.get("/companies");
-        setCompanies(res.data?.data || res.data || []);
+        const list = Array.isArray(res.data) ? res.data : (res.data?.companies || res.data?.data || []);
+        setCompanies(Array.isArray(list) ? list : []);
       } catch (err) {
         console.error("Failed to fetch companies:", err);
       }

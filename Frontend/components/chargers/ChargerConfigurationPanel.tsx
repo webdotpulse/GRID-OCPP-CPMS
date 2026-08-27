@@ -35,7 +35,8 @@ export function ChargerConfigurationPanel({ chargerId }: ChargerConfigurationPan
       try {
         const response = await api.get(`/chargers/${chargerId}/configurations`);
         if (response.data) {
-          setConfigs(response.data);
+          const list = Array.isArray(response.data) ? response.data : (response.data.keys || response.data.data || []);
+          setConfigs(Array.isArray(list) ? list : []);
         }
       } catch (error) {
         logger.error('Failed to load saved configurations', error);

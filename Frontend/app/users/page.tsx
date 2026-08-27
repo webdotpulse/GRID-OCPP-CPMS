@@ -205,7 +205,8 @@ export default function UsersAdminPage() {
       if (userTypeFilter !== "all") params.userType = userTypeFilter;
 
       const res = await api.get("/users", { params });
-      setUsers(res.data?.data || res.data || []);
+      const userList = Array.isArray(res.data) ? res.data : (res.data?.users || res.data?.data || []);
+      setUsers(Array.isArray(userList) ? userList : []);
     } catch (error) {
       toast.error("Failed to fetch user directory");
     } finally {
@@ -222,7 +223,8 @@ export default function UsersAdminPage() {
       if (clientStatusFilter !== "all") params.status = clientStatusFilter;
 
       const res = await api.get("/companies", { params });
-      setCompanies(res.data?.data || res.data || []);
+      const compList = Array.isArray(res.data) ? res.data : (res.data?.companies || res.data?.data || []);
+      setCompanies(Array.isArray(compList) ? compList : []);
     } catch (error) {
       toast.error("Failed to fetch clients");
     } finally {
@@ -235,10 +237,9 @@ export default function UsersAdminPage() {
     try {
       setIsRolesLoading(true);
       const res = await api.get("/roles");
-      if (res.data?.data) {
-        setRoles(res.data.data.roles || []);
-        setCapabilities(res.data.data.capabilities || []);
-      }
+      const rolesData = res.data?.roles ? res.data : (res.data?.data || {});
+      setRoles(rolesData.roles || []);
+      setCapabilities(rolesData.capabilities || []);
     } catch (error) {
       // Fallback if roles endpoint fails
     } finally {

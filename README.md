@@ -195,6 +195,49 @@ flowchart TD
 
 ---
 
+## 📸 Visual Tour & Interface Gallery
+
+The platform features a modern, dark-mode design system with real-time reactive WebSocket feedback, intuitive configuration dialogs, and responsive mobile driver tools. Below are highlights from the 75+ full-page view suite:
+
+### 1. Executive Dashboard & Fleet Telemetry
+| Executive KPI Dashboard | Live Ground Plan Floor Monitor |
+| :---: | :---: |
+| ![Executive Dashboard](Screenshots/06_Dashboard_Executive_Overview.png) | ![Live Floor Monitor](Screenshots/22_Station_Live_FloorPlan_Monitor.png) |
+
+### 2. Smart Grid, Dynamic EPEX Spot Rates & V2G
+| Dynamic EPEX Tariff Engine | 24-Hour Predictive Solar Schedule | V2G Battery Fleet Orchestration |
+| :---: | :---: | :---: |
+| ![Dynamic EPEX Tariffs](Screenshots/65_Settings_DynamicTariffs_EPEX.png) | ![Predictive Load Schedule](Screenshots/15_Charger_Detail_PredictiveLoad_Tab.png) | ![V2G Battery Orchestration](Screenshots/29_V2G_Battery_Orchestration.png) |
+
+### 3. Stations & Interactive 2D Ground Plan Designer
+| Station Directory & Geospatial Map | 2D Ground Plan Canvas Builder |
+| :---: | :---: |
+| ![Stations Directory](Screenshots/17_Stations_Directory_Map.png) | ![Ground Plan Builder](Screenshots/21_Station_GroundPlan_2D_Builder.png) |
+
+### 4. Enterprise Invoicing & ISO 20022 SEPA Engine
+| Monthly Invoicing Ledger | SEPA Direct Debit pain.008 Export | Employee Home Reimbursement |
+| :---: | :---: | :---: |
+| ![Invoices Billing Ledger](Screenshots/39_Invoices_Billing_Ledger.png) | ![SEPA Direct Debit Export](Screenshots/43_Invoices_DirectDebit_Export_Dialog.png) | ![Home Reimbursements](Screenshots/44_Reimbursements_HomeCharging_SEPA.png) |
+
+### 5. Multi-Tenant Administration, Corporate Clients & Permissions Matrix
+| User Accounts & Clients Directory | Role-Based Permissions Matrix | Multi-Tenant Corporate Client Directory |
+| :---: | :---: | :---: |
+| ![Users Directory](Screenshots/51_Users_Accounts_Directory.png) | ![Roles Permissions Matrix](Screenshots/51b_Roles_Permissions_Matrix.png) | ![Corporate Clients Directory](Screenshots/51a_Corporate_Clients_Directory.png) |
+
+### 6. Operations, Auto-Heal & OCPP Packet Inspector
+| Hardware-At-Risk Auto-Heal Scanner | Raw OCPP Packet Inspector Console |
+| :---: | :---: |
+| ![Auto-Heal Scanner](Screenshots/54_HardwareAtRisk_AutoHeal.png) | ![OCPP Console](Screenshots/55_OCPP_PacketInspector_Console.png) |
+
+### 7. Responsive Mobile Driver Companion
+| Mobile Charging Dashboard | Interactive Driver Map | Live Session Controller |
+| :---: | :---: | :---: |
+| ![Mobile Dashboard](Screenshots/71_Mobile_Dashboard.png) | ![Mobile Station Map](Screenshots/74_Mobile_Station_Map.png) | ![Mobile Controller](Screenshots/73_Mobile_Charger_Detail_Controller.png) |
+
+> 📁 *The complete collection of all 75+ high-resolution screenshots across all views, forms, modals, tabs, and settings is stored in [`Screenshots/`](Screenshots/).*
+
+---
+
 ## Documentation & Manuals
 
 Comprehensive guides tailored for administrators, operators, and developers are located in the [`Manual/`](Manual/) directory:

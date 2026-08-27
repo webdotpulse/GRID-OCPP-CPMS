@@ -28,6 +28,7 @@ const rfidCreationLimiter = rateLimit({
     // @ts-expect-error userRole is attached by authenticateToken middleware
     return req.userRole === "superadmin";
   },
+  validate: { keyGeneratorIpFallback: false },
   handler: (req, res) => {
     res.status(429).json({
       success: false,

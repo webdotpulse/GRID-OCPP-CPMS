@@ -198,11 +198,15 @@ function DraggableSpot({
                 </SelectTrigger>
                 <SelectContent className="bg-[#1e2228] border-white/10 text-white text-xs">
                   <SelectItem value="none">-- Unassigned --</SelectItem>
-                  {connectors.map((c) => (
-                    <SelectItem key={c.connector_id} value={c.connector_id.toString()}>
-                      {c.connector_name}
-                    </SelectItem>
-                  ))}
+                  {connectors.map((c, idx) => {
+                    const cid = c.connector_id ?? (c as any).id ?? (c as any).connectorId ?? idx;
+                    const cname = c.connector_name || (c as any).name || `Connector ${cid}`;
+                    return (
+                      <SelectItem key={cid} value={cid.toString()}>
+                        {cname}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

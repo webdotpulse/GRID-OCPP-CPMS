@@ -20,8 +20,8 @@ export function PredictiveLoadMap({ chargerId }: PredictiveLoadMapProps) {
       try {
         const response = await api.get(`/chargers/${chargerId}/predictive-schedule`);
         if (response.data) {
-           // We need to keep original timestamp for Recharts parsing issues, but we can format it in Tooltip/XAxis
-           setData(response.data);
+           const scheduleData = Array.isArray(response.data) ? response.data : (response.data?.schedule || response.data?.data || []);
+           setData(Array.isArray(scheduleData) ? scheduleData : []);
         }
       } catch (error) {
         console.error("Failed to fetch predictive schedule", error);

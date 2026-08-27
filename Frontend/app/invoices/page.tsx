@@ -416,7 +416,7 @@ export default function InvoicesPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-white">
-                €{stats.totalAmount.toFixed(2)}
+                €{(stats?.totalAmount || 0).toFixed(2)}
               </div>
               <p className="text-[11px] text-slate-400 mt-1">Gross billing volume (incl. VAT)</p>
             </CardContent>
@@ -431,7 +431,7 @@ export default function InvoicesPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-emerald-400">
-                €{stats.totalSubtotal.toFixed(2)}
+                €{(stats?.totalSubtotal || 0).toFixed(2)}
               </div>
               <p className="text-[11px] text-slate-400 mt-1">Net charging revenue (excl. VAT)</p>
             </CardContent>
@@ -446,7 +446,7 @@ export default function InvoicesPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-amber-400">
-                €{stats.totalVat.toFixed(2)}
+                €{(stats?.totalVat || 0).toFixed(2)}
               </div>
               <p className="text-[11px] text-slate-400 mt-1">Multi-tax EU fiscal liability</p>
             </CardContent>
@@ -461,10 +461,10 @@ export default function InvoicesPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-white">
-                {pagination.total}
+                {pagination?.total || 0}
               </div>
               <p className="text-[11px] text-slate-400 mt-1">
-                {invoices.filter((i) => i.status === "paid").length} paid in current view
+                {(invoices || []).filter((i) => i.status === "paid").length} paid in current view
               </p>
             </CardContent>
           </Card>

@@ -334,3 +334,37 @@ Once logged in as Superadmin:
 * **Clients & Accounts Tab:** Create and administer corporate B2B client accounts, configure VAT/KvK numbers, billing addresses, and assign charging infrastructure.
 * **Roles & Permissions Matrix Tab:** Review the interactive matrix detailing access across Infrastructure, Smart Grid, Fleet, Finance, Operations, and Administration.
 
+| User Accounts Directory | Corporate Clients Directory | Roles & Permissions Matrix |
+| :---: | :---: | :---: |
+| ![Users Directory](../Screenshots/51_Users_Accounts_Directory.png) | ![Corporate Clients Directory](../Screenshots/51a_Corporate_Clients_Directory.png) | ![Roles Permissions Matrix](../Screenshots/51b_Roles_Permissions_Matrix.png) |
+
+---
+
+## 5. Platform Settings & Security Subsystems (`/settings`)
+
+The platform provides centralized administration across core system domains:
+
+### 5.1 Cryptographic PKI Security Profiles (`/settings/security`)
+Configure Root CA certificates, client certificate validation for TLS 1.3 / OCPP Security Profiles 2 & 3, and view active certificate validity:
+![PKI Security Profiles](../Screenshots/63_Settings_Security_Profiles_PKI.png)
+
+### 5.2 Immutable Enterprise Audit Trail (`/settings/audit`)
+Inspect high-resolution system audit records capturing all administrative actions, configuration changes, remote commands, and operator logins:
+![Enterprise Audit Trail](../Screenshots/64_Settings_Enterprise_Audit_Trail.png)
+
+### 5.3 Dynamic EPEX Spot Tariffs & Margin Multipliers (`/settings/tariffs`)
+Manage day-ahead spot market margin multipliers, feed-in feed profiles, and VAT calculation rules:
+![Dynamic Tariffs EPEX](../Screenshots/65_Settings_DynamicTariffs_EPEX.png)
+
+### 5.4 Screen Multimedia Ad-Manager (`/settings/ad-manager`)
+Schedule and push promotional video and image campaigns to screen-enabled charging stations:
+![Screen Ad Manager](../Screenshots/68_Settings_Screen_AdManager.png)
+
+### 5.5 Hardware Reliability & Auto-Heal Rules (`/settings/hardware-at-risk`)
+Define automatic fault detection thresholds, retry limits, and auto-reset parameters for chargers at risk:
+![Hardware-At-Risk Rules](../Screenshots/69_Settings_HardwareAtRisk_Rules.png)
+
+### 5.6 Mollie Payment Gateway Configuration (`/settings/payments`)
+Configure live and test API keys for ad-hoc charging session checkout:
+![Mollie Payments Gateway](../Screenshots/70_Settings_MolliePayments_Gateway.png)
+
