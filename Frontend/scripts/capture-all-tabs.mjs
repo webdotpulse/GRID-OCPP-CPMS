@@ -1,9 +1,13 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-const SCREENSHOTS_DIR = path.resolve('/home/koen/Git/OCPP-CPMS/Screenshots');
-const FRONTEND_SCREENSHOTS_DIR = path.resolve('/home/koen/Git/OCPP-CPMS/Frontend/Screenshots');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const SCREENSHOTS_DIR = path.resolve(__dirname, '../../Screenshots');
+const FRONTEND_SCREENSHOTS_DIR = path.resolve(__dirname, '../Screenshots');
 
 const mockUser = {
   id: 1,

@@ -1,9 +1,13 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-const SCREENSHOTS_DIR = path.resolve('/home/koen/Git/OCPP-CPMS/Screenshots');
-const FRONTEND_SCREENSHOTS_DIR = path.resolve('/home/koen/Git/OCPP-CPMS/Frontend/Screenshots');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const SCREENSHOTS_DIR = path.resolve(__dirname, '../../Screenshots');
+const FRONTEND_SCREENSHOTS_DIR = path.resolve(__dirname, '../Screenshots');
 
 // Unified mock data
 const mockUser = {
@@ -306,18 +310,22 @@ async function run() {
   await page.goto('http://localhost:3002/users', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1500);
 
-  const clientsTab = page.locator('button[value="clients"]').first();
-  if (await clientsTab.isVisible()) {
+  const clientsTab = page.locator('button[value="clients"], button:has-text("Clients & Accounts"), button:has-text("Clients")').first();
+  if (await clientsTab.isVisible({ timeout: 3000 })) {
     await clientsTab.click();
     await page.waitForTimeout(800);
     await takeShot(page, '51a_Corporate_Clients_Directory.png');
+  } else {
+    console.log('[WARN] clientsTab not found');
   }
 
-  const rolesTab = page.locator('button[value="roles"]').first();
-  if (await rolesTab.isVisible()) {
+  const rolesTab = page.locator('button[value="roles"], button:has-text("Roles & Permissions"), button:has-text("Roles")').first();
+  if (await rolesTab.isVisible({ timeout: 3000 })) {
     await rolesTab.click();
     await page.waitForTimeout(800);
     await takeShot(page, '51b_Roles_Permissions_Matrix.png');
+  } else {
+    console.log('[WARN] rolesTab not found');
   }
 
   await browser.close();

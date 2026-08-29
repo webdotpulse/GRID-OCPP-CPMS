@@ -1,11 +1,15 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Primary root Screenshots directory and Frontend Screenshots directory
-const SCREENSHOTS_DIR = path.resolve('/home/koen/Git/OCPP-CPMS/Screenshots');
-const FRONTEND_SCREENSHOTS_DIR = path.resolve('/home/koen/Git/OCPP-CPMS/Frontend/Screenshots');
-const MANUAL_DIR = path.resolve('/home/koen/Git/OCPP-CPMS/Manual');
+const SCREENSHOTS_DIR = path.resolve(__dirname, '../../Screenshots');
+const FRONTEND_SCREENSHOTS_DIR = path.resolve(__dirname, '../Screenshots');
+const MANUAL_DIR = path.resolve(__dirname, '../../Manual');
 
 // Ensure clean directories
 for (const dir of [SCREENSHOTS_DIR, FRONTEND_SCREENSHOTS_DIR]) {
@@ -1674,6 +1678,16 @@ async function run() {
 
   await mobileContext.close();
   await browser.close();
+
+  // Copy manual ground plan assets
+  const gpBuilderSrc = path.join(SCREENSHOTS_DIR, '21_Station_GroundPlan_2D_Builder.png');
+  const gpLiveSrc = path.join(SCREENSHOTS_DIR, '22_Station_Live_FloorPlan_Monitor.png');
+  if (fs.existsSync(gpBuilderSrc)) {
+    fs.copyFileSync(gpBuilderSrc, path.join(MANUAL_DIR, 'ground_plan_builder.png'));
+  }
+  if (fs.existsSync(gpLiveSrc)) {
+    fs.copyFileSync(gpLiveSrc, path.join(MANUAL_DIR, 'ground_plan_live_view.png'));
+  }
 
   console.log(`\n🎉 Complete! All screenshots captured directly in: ${SCREENSHOTS_DIR} and ${FRONTEND_SCREENSHOTS_DIR}`);
 }

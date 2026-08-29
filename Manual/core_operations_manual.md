@@ -1,6 +1,6 @@
 # Core Operations Manual
 
-Welcome to the **Core Operations Manual** for the OCPP Charge Point Management System (CPMS). This guide is specifically designed for Charge Point Operators (CPOs), station managers, and field technicians who interact with the system on a daily basis. It provides detailed, step-by-step procedures for managing physical charging infrastructure, deploying ground plans, issuing remote commands, monitoring live diagnostics, and controlling driver access.
+Welcome to the **Core Operations Manual** for the OCPP Charge Point Management System (CPMS). This guide is specifically designed for Charge Point Operators (CPOs), station managers, and field technicians who interact with the system on a daily basis. It provides detailed, step-by-step procedures for managing physical charging infrastructure, deploying ground plans with electrical topologies, pairing combined dual-socket chargers, issuing remote commands, monitoring live diagnostics, and controlling driver access.
 
 ---
 
@@ -28,7 +28,7 @@ graph TD
 
 ### Hierarchy Overview
 * **Charge Groups:** High-level clusters of stations (e.g., "Main Corporate Campus" or "Rotterdam Logistics Depot"). Used to establish global capacity limits (kW / Amperage) across multiple chargers and coordinate dynamic load balancing.
-* **Stations:** Physical facilities with specific geolocations (latitude/longitude), address details, opening hours, and interactive 2D ground plans.
+* **Stations:** Physical facilities with specific geolocations (latitude/longitude), address details, opening hours, electrical connection limits, and interactive 2D ground plans.
 * **Chargers:** Physical OCPP charging units (e.g., Alfen, ABB, Delta, Kempower). Each charger is identified by a unique `chargerId` that strictly matches the hardware identity string configured in its firmware.
 * **Connectors:** Physical charging sockets/cables on a charger (e.g., Connector 1 = CCS2 150kW, Connector 2 = Type2 22kW), reporting distinct OCPP EVSE statuses (`Available`, `Preparing`, `Charging`, `SuspendedEVSE`, `Finishing`, `Faulted`).
 
@@ -75,7 +75,17 @@ graph TD
 
 ---
 
-#### 4. Configuring Connectors (EVSE Plugs)
+#### 4. Dual-Socket Charger Combiner Pairing
+To combine two single-socket chargers (e.g., two Alfen Eve Single Pro units) into a single dual-channel virtual charger:
+1. Open the primary charger in the fleet directory.
+2. Click **Combine Charger** and select the secondary charger from the dropdown (must be the same manufacturer and model).
+3. The system designates the primary unit as **Channel 1** and secondary unit as **Channel 2**.
+4. All connector 2 operations and load balancing commands are transparently routed to connector 1 on the secondary hardware.
+5. To separate them, open the combined charger and click **Uncombine Charger**.
+
+---
+
+#### 5. Configuring Connectors (EVSE Plugs)
 1. Open the specific charger from the fleet directory and navigate to the **Connectors** tab (or via `/connectors`).
 2. For each physical socket, define the **Connector ID** (1, 2, etc.), **Plug Type** (`Type2`, `CCS2`, `CHAdeMO`), **Current Type** (`AC_single_phase`, `AC_three_phase`, `DC`), **Max Voltage (V)**, and **Max Power (kW)**.
 3. Save the connectors to enable socket-level live status monitoring and ground plan linkage.
@@ -86,14 +96,14 @@ graph TD
 
 ## 2. Interactive 2D Ground Plan Builder & Floor Monitor
 
-The **Charge Grid Ground Plan** module enables facility managers and CPOs to create high-precision 2D floor plans of parking bays, link physical charger connectors to spots, and monitor live charging telemetry in real-time.
+The **Charge Grid Ground Plan** module enables facility managers and CPOs to create high-precision 2D floor plans of parking bays, link physical charger connectors to spots, map electrical topologies, and monitor live charging telemetry in real-time.
 
 ### Building Station Ground Plans
 
 1. Navigate to **Stations** (`/stations`) and open a station with Ground Plan enabled.
 2. Click **Edit Ground Plan Layout** to open the 2D visual editor canvas (`/stations/[id]/ground-plan`).
 3. **Add Parking Spots:** Click **Add Spot** to place draggable parking bays on the grid.
-4. **Draw Structures:** Use **Draw Area** and **Draw Line** to outline walkways, station shelters, or driving lanes.
+4. **Draw Structures:** Use **Draw Area** and **Draw Line** to outline walkways, station shelters, driving lanes, or electrical cable routing from distribution panels.
 5. **Drag, Resize & Rotate:** Click and drag elements into position. Use the circular handle to rotate parking spots in 45-degree increments to mirror physical angled bays.
 6. **Assign Connector Sockets:** Open the spot properties and bind an available physical socket (e.g., `Charger-01 / Connector 1`) to the parking bay.
 7. **Custom Styling:** Hover over elements to customize line thickness, border color, and area fill color.
@@ -106,7 +116,7 @@ The **Charge Grid Ground Plan** module enables facility managers and CPOs to cre
 Navigate to the station's **Live View** (`/stations/[id]/live`). The canvas renders with dynamic glassmorphism indicators reflecting live OCPP socket telemetry:
 
 * 🟢 **Available (Green/Blue glow):** Socket is operative, cable disconnected, ready for charging.
-* ⚡ **Charging (Pulsing Green):** Vehicle connected and actively drawing energy. Displays live kW rate, delivered session kWh, and active driver tag.
+* ⚡ **Charging (Pulsing Green):** Vehicle connected and actively drawing energy. Displays live kW rate, delivered session kWh, phase balance (L1/L2/L3), and active driver tag.
 * 🔴 **Faulted / Unavailable (Red):** Socket hardware fault, emergency stop engaged, or charger offline.
 * ⚪ **Unassigned (Dashed border):** Parking spot created without an associated charger socket.
 
@@ -116,7 +126,7 @@ Navigate to the station's **Live View** (`/stations/[id]/live`). The canvas rend
 
 ## 3. Real-Time Operations & Remote Control
 
-The CPMS provides comprehensive remote control capabilities over the OCPP WebSocket channel. Commands are executed asynchronously and provide real-time `CALLRESULT` feedback.
+The CPMS provides comprehensive remote control capabilities over the OCPP WebSocket channel. Commands are executed asynchronously with real-time `CALLRESULT` feedback.
 
 ### Remote Control Actions
 
@@ -148,63 +158,11 @@ The **Configuration** tab allows operators to inspect and update standard OCPP k
 
 ---
 
-## 4. Diagnostics & Live Log Inspection
+## 4. Live Packet Inspector & Diagnostics
 
-When diagnosing communication faults, dropped connections, or authorization rejections, the CPMS offers multiple inspection tools.
-
-### OCPP Packet Inspector Console (`/ocpp`)
-The **Packet Inspector** provides an unbuffered, real-time WebSocket packet stream:
-* **Protocol Frame Inspection:** View raw JSON-RPC messages (`CALL` [2], `CALLRESULT` [3], `CALLERROR` [4]).
-* **Filtering:** Filter in real-time by **Charger ID**, **Action** (`BootNotification`, `Authorize`, `StartTransaction`, `MeterValues`), or payload content.
-* **Payload Expansion:** Click any packet row to expand and inspect the formatted JSON payload, complete with timestamps and latency metrics.
+Located at `/ocpp`, the **Live Packet Inspector** connects to the real-time WebSocket broadcast to inspect unbuffered protocol exchanges:
+* Stream live JSON-RPC frames (`CALL`, `CALLRESULT`, `CALLERROR`).
+* Filter by Charger ID, Action type (e.g., `StartTransaction`, `MeterValues`, `StatusNotification`), or message direction.
+* Expandable JSON tree view for debugging raw payload properties and OCPP schema compliance.
 
 ![OCPP Packet Inspector Console](../Screenshots/55_OCPP_PacketInspector_Console.png)
-
----
-
-## 5. Access Control & RFID Whitelist
-
-The CPMS uses a strict authorization whitelist to validate driver access before dispensing power.
-
-### Managing RFID Tags (`/rfid`)
-1. Navigate to **RFID Management** (`/rfid`).
-2. Click **Register New Tag** (`/rfid/new`).
-3. Enter the **idTag** (hexadecimal UID or card serial number).
-4. Assign the tag to a registered **User Account** and select an optional **Vehicle Profile**.
-5. Set the tag status to **Active** and define an optional expiry date.
-6. Click **Save**.
-
-![RFID Whitelist Directory](../Screenshots/30_RFID_Whitelist_Directory.png)
-
-### ISO 15118 Plug & Charge Contract Certificates
-For vehicles and chargers supporting ISO 15118 Plug & Charge, navigate to **Vehicle Identity Management** (`/vehicle-identity-management`):
-* Manage **eMAID** (e-Mobility Account Identifier) contract certificates.
-* Pair vehicles with battery energy profiles for automatic authorization upon plugging in, without requiring an RFID card swipe.
-
-![Vehicle Identity Plug & Charge](../Screenshots/34_VehicleIdentity_PlugAndCharge.png)
-
----
-
-## 6. User & Corporate Client Administration (`/users`)
-
-The **Users & Clients Admin Hub** enables CPOs and fleet managers to manage user accounts, corporate clients, and access permissions.
-
-### 6.1 Users Directory
-1. Navigate to **Users & Clients** (`/users`).
-2. Search or filter by **Role** (`Superadmin`, `Admin`, `Operator`, `Client Admin`, `User`) and **Corporate Client**.
-3. Use the actions menu to update roles, reset user passwords, or inspect detailed user summaries.
-
-![Users Directory](../Screenshots/51_Users_Accounts_Directory.png)
-
-### 6.2 Managing Corporate Clients (B2B Accounts)
-1. Switch to the **Clients & Accounts** tab.
-2. Click **Add Corporate Client** to create a new commercial account.
-3. Configure the company name, client code (e.g. `CLI-1001`), VAT/tax ID, Chamber of Commerce (KvK) number, and billing contacts.
-4. Corporate clients automatically aggregate all charging sessions and charging stations assigned to their organization.
-
-![Corporate Clients Directory](../Screenshots/51a_Corporate_Clients_Directory.png)
-
-### 6.3 Roles & Permissions Matrix
-Switch to the **Roles & Permissions** tab to view the live access matrix across Infrastructure, Smart Grid, Fleet, Finance, Operations, and Administration.
-
-![Roles & Permissions Matrix](../Screenshots/51b_Roles_Permissions_Matrix.png)

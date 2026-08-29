@@ -1,7 +1,7 @@
 <h1 align="center">OCPP Charge Point Management System (CPMS)</h1>
 
 <p align="center">
-  An enterprise-grade, full-stack <strong>OCPP 1.6-J & 2.0.1/2.1 Charge Point Management System (CPMS)</strong> supporting multi-protocol EV charging hardware, real-time WebSockets, dynamic EPEX spot pricing, predictive solar load balancing, V2G battery orchestration, ISO 20022 SEPA banking exports, Stripe & Mollie payments, OCPI roaming, interactive 2D ground plans, and responsive driver mobile interfaces.
+  An enterprise-grade, full-stack <strong>OCPP 1.6-J & 2.0.1/2.1 Charge Point Management System (CPMS)</strong> supporting multi-protocol EV charging hardware, straight-through proxy forwarding, dual-socket charger combining, real-time WebSockets, dynamic EPEX spot pricing, predictive solar load balancing, V2G battery orchestration, ISO 20022 SEPA banking exports, Stripe & Mollie payments, OCPI & Hubject roaming, interactive 2D ground plans with electrical topologies, and responsive driver mobile interfaces.
 </p>
 
 <p align="center">
@@ -11,9 +11,11 @@
   <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-15%2B-blue?logo=postgresql" />
   <img alt="Prisma" src="https://img.shields.io/badge/Prisma-7.8-2D3748?logo=prisma" />
   <img alt="Redis" src="https://img.shields.io/badge/Redis-7%2B-red?logo=redis" />
+  <img alt="BullMQ" src="https://img.shields.io/badge/BullMQ-Workers-orange" />
   <img alt="OCPP" src="https://img.shields.io/badge/OCPP-1.6%20%7C%202.0.1%20%7C%202.1-orange" />
   <img alt="ISO 15118" src="https://img.shields.io/badge/ISO-15118%20PnC-purple" />
   <img alt="SEPA" src="https://img.shields.io/badge/SEPA-ISO%2020022-teal" />
+  <img alt="Stripe & Mollie" src="https://img.shields.io/badge/Payments-Stripe%20%26%20Mollie-635BFF" />
 </p>
 
 ---
@@ -28,7 +30,7 @@
 - [Technology Stack](#technology-stack)
 - [Quick Start](#quick-start)
 - [Configuration Reference](#configuration-reference)
-- [Connecting Chargers](#connecting-chargers)
+- [Connecting Chargers & Proxy Setup](#connecting-chargers--proxy-setup)
 - [Testing & Quality Assurance](#testing--quality-assurance)
 
 ---
@@ -63,7 +65,7 @@ The **OCPP-CPMS** platform provides Charge Point Operators (CPOs), e-Mobility Se
 
 ## High-Level Architecture
 
-The system operates across four primary decoupled layers:
+The system operates across a decoupled multi-tier architecture:
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
@@ -73,10 +75,10 @@ The system operates across four primary decoupled layers:
   ┌──────────────────┐           OCPP 1.6-J & 2.0.1/2.1 WebSocket          ┌──────────────────────────┐
   │   EV Chargers /  │ ◄──────────────────────────────────────────────────►│   OCPP WebSocket Server  │
   │   Charge Points  │       ws(s)://host:9220/OCPP/[1.6|2.1]/{id}         │   (Node.js / ws engine)  │
-  └──────────────────┘                                                     └────────────┬─────────────┘
-                                                                                        │
-                                                                                        │ Internal Events
-                                                                                        ▼
+  └────────┬─────────┘                                                     └────────────┬─────────────┘
+           │                                                                            │
+           │ Straight-Through Proxy & Dual-Socket Combiner                              │ Internal Events
+           ▼                                                                            ▼
   ┌──────────────────┐          HTTPS REST / Socket.IO                     ┌──────────────────────────┐
   │  Next.js Admin   │ ◄──────────────────────────────────────────────────►│   Express REST API       │
   │  Dashboard UI    │      http(s)://host:3000/api/v1/...                 │   (TypeScript 5.9 / ESM) │
@@ -86,42 +88,50 @@ The system operates across four primary decoupled layers:
            ▼                                                                            ▼
   ┌──────────────────┐        Roaming Sync / Spot Pricing / SEPA           ┌──────────────────────────┐
   │ Stripe / Mollie  │ ◄──────────────────────────────────────────────────►│   PostgreSQL Database    │
-  │ OCPI / ENTSO-E   │                                                     │   (via Prisma ORM 7.8)   │
+  │ OCPI / OICP      │                                                     │   (via Prisma ORM 7.8)   │
   └──────────────────┘                                                     └────────────┬─────────────┘
                                                                                         │
                                                                                         │ Pub/Sub & Caching
                                                                                         ▼
                                                                            ┌──────────────────────────┐
-                                                                           │   Redis 7 (ioredis)      │
-                                                                           │   (State, Rate-limit)    │
+                                                                           │   Redis 7 & BullMQ       │
+                                                                           │   (Queues, State, Cache) │
                                                                            └──────────────────────────┘
 ```
 
 ```mermaid
 flowchart TD
     CP["⚡ EV Charge Points\n(Physical Chargers)"]
+    PROXY["🔄 Straight-Through Proxy\n& Charger Combiner"]
     OCPP["OCPP WebSocket Server\nws://:9220/OCPP/[1.6|2.1]/{id}"]
     API["Backend REST API\nExpress + TypeScript\nhttp://:3000"]
     DB[("PostgreSQL Database\n(via Prisma ORM)")]
     UI["🖥️ Admin Dashboard\nNext.js 16+ App Router\nhttp://:3002"]
     RT["📋 Live Real-Time Server\nSocket.IO Stream\n/api/realtime"]
+    WORKER["⚙️ BullMQ Event Workers\n(Billing, Metering, Telemetry)"]
     V2G["🔄 V2G Orchestration\nService"]
     STRIPE["💳 Stripe API\n(Global Cards & Wallets)"]
     MOLLIE["💳 Mollie API\n(iDEAL / Bancontact)"]
-    OCPI["🌍 OCPI Partners\n(Roaming)"]
+    OCPI["🌍 OCPI 2.2.1 Partners"]
+    OICP["🌐 Hubject OICP 2.3"]
 
-    CP <-->|"OCPP 1.6 & 2.1/2.0.1 JSON\nWebSocket"| OCPP
+    CP <-->|"OCPP 1.6 & 2.1/2.0.1 JSON\nWebSocket"| PROXY
+    PROXY <--> OCPP
+    PROXY <-->|"Upstream Forwarding"| EXT["3rd-Party CPO Backends"]
     OCPP -->|"Internal events\n& data writes"| API
     API <-->|"ORM queries\n& migrations"| DB
+    API <-->|"Job queues"| WORKER
+    WORKER <--> DB
     UI <-->|"HTTPS / REST"| API
     UI <-->|"Socket.IO stream"| RT
     OCPP -->|"Real-time\nlog broadcast"| RT
-    OCPP <-->|"Pub/Sub\n& Caching"| REDIS[("Redis Cache")]
+    OCPP <-->|"Pub/Sub\n& Caching"| REDIS[("Redis Cache & BullMQ")]
     API <-->|"Pub/Sub\n& Caching"| REDIS
     API -->|"Dynamic Power Limits"| LMS["Load Management Service"]
     LMS -->|"SetChargingProfile"| OCPP
 
     API <-->|"Roaming Sync"| OCPI
+    API <-->|"Status & CDR Sync"| OICP
     UI -->|"Checkout / Intent"| STRIPE
     UI -->|"Checkout / Intent"| MOLLIE
     API <-->|"Stripe Webhooks"| STRIPE
@@ -140,6 +150,10 @@ flowchart TD
 - Comprehensive message coverage: `BootNotification`, `Heartbeat`, `Authorize`, `StatusNotification`, `StartTransaction`, `MeterValues`, `StopTransaction`, `DataTransfer`, `DiagnosticsStatusNotification`, `FirmwareStatusNotification`.
 - Full remote control RPC operations: Remote Start/Stop, Soft/Hard Reset, Unlock Connector, Change Availability, Clear Cache, Trigger Message, Get/Change Configuration, SetChargingProfile, and Firmware Update.
 
+### 🔄 Straight-Through Proxy & Dual-Socket Combiner Mode
+- **Straight-Through Proxy:** Forward live OCPP traffic to 3rd-party CPO backends with transparent local packet inspection, telemetry caching, and card ID rewriting.
+- **Dual-Socket Combiner:** Pair two single-socket physical charge points into a unified virtual dual-channel charger (Primary = Channel 1, Secondary = Channel 2), translating connector indices and synchronizing load balancing limits.
+
 ### 🖥️ Next.js 16+ Admin Dashboard
 - Dark-mode executive analytics with real-time KPI tiles, power draw gauges, and revenue trends.
 - Interactive geospatial station mapping using `react-leaflet` with clustered status indicators.
@@ -148,14 +162,14 @@ flowchart TD
 
 ### 🗺️ Interactive 2D Ground Plan Builder & Floor Monitor
 - Visual drag-and-drop canvas powered by `@dnd-kit` for station parking bay layouts.
-- Custom area drawing, boundary lines, 45-degree spot rotation, and physical connector socket mapping.
-- Real-time glassmorphism Live Monitor displaying live bay occupancy, charging wattage, delivered kWh, and driver tags.
+- Custom area drawing, boundary lines, 45-degree spot rotation, electrical feeder lines, and physical connector socket mapping.
+- Real-time glassmorphism Live Monitor displaying live bay occupancy, charging wattage, delivered kWh, phase balance (L1/L2/L3), and driver tags.
 
 ### 🔄 Smart Charging, EPEX Spot Pricing & V2G Battery Orchestration
 - **Dynamic Spot Pricing:** Automated daily ingestion of EPEX Day-Ahead hourly electricity prices (via EnergyZero, ENTSO-E, and Energy-Charts).
 - **Predictive Solar Balancing:** 24-hour rolling schedule generation fusing Open-Meteo solar irradiance forecasts with spot prices to prioritize local green energy.
+- **3-Phase Dynamic Load Management:** Phase current balancing (L1/L2/L3) and site capacity limits (Profile IDs 100 & 101) with automatic headroom restoration (<95%).
 - **V2G Battery Orchestration:** Bidirectional energy routing commanded via Profile ID 300 negative amperage limits, enforcing configurable driver minimum SoC reserves.
-- **Dynamic Load Management:** Hierarchy-level power balancing across ChargeGroups and stations (Profile ID 100 & 101) with automatic headroom restoration (<95%).
 
 ### 🧾 Enterprise Invoicing ("Facturen") & ISO 20022 SEPA Direct Debit
 - Comprehensive billing ledger (`/invoices`) aggregating completed charging sessions into monthly customer invoices.
@@ -173,12 +187,18 @@ flowchart TD
 - Dedicated public checkout web page (`/payments`) with secure webhook callback validation (`/api/payments/webhook` and `/api/payments/webhook/stripe`).
 - Centralized multi-gateway management console (`/settings/payments`) with sandbox testing, webhook helpers, and live credentials.
 
+### 👥 Multi-Tenant Corporate Clients, Users & Granular RBAC
+- Clear architectural separation between Corporate B2B Clients (legal business entities, VAT/KvK, assigned chargers, employee fleets) and User Accounts.
+- 5-Tier role hierarchy (Superadmin, Admin, Operator / Technician, Client Admin, User / Driver).
+- Interactive Roles & Capabilities Matrix across 6 operational modules.
+
 ### 🔑 Whitelist RFID & ISO 15118 Plug & Charge
 - Central RFID whitelist management with instant remote activation, deactivation, and hardware cache flush.
 - ISO 15118 Plug & Charge vehicle contract certificate management and vehicle energy profile pairing.
 
 ### 🌐 Roaming Hubs (OCPI 2.2.1 & OICP Hubject)
 - Bidirectional CPO / MSP roaming integration for Locations, Tariffs, Sessions, Tokens, and CDRs.
+- Hubject OICP 2.3 integration with asynchronous CDR reporting via BullMQ event workers.
 - Roaming Settlement Visualizer and clearinghouse CSV report exporter tracking wholesale costs, retail billing, and partner net margins.
 
 ### 🛡️ Hardware Reliability: Auto-Heal & Quirk Normalizer
@@ -186,32 +206,18 @@ flowchart TD
 - **Quirk Normalizer:** Runtime normalizer repairing vendor-specific OCPP non-compliance (missing power derivation, energy multipliers, power-to-energy integration).
 - **Configuration Templates:** Standardized OCPP configuration profiles deployable across charger fleets with one click.
 
-### 📢 Multimedia Screen Ad-Campaign Manager
-- Targeted advertisement campaign scheduler distributing promotional images and video assets to screen-equipped charging stations.
+### 🔍 Live OCPP Packet Inspector Console
+- Real-time unbuffered WebSocket JSON-RPC frame inspector (`CALL`, `CALLRESULT`, `CALLERROR`) with syntax highlighting, schema validation, and expandable tree view.
 
 ### 📱 Responsive Mobile Driver Companion
 - Dedicated mobile web application (`/mobile`) optimized for smartphone screens, featuring nearby station discovery, interactive map routing, live charging controller, and driver account settings.
 
 ### 🔐 Enterprise Security & Auditability
-- Role-Based Access Control (Superadmin, Admin, User) with tenant data isolation.
+- Role-Based Access Control (Superadmin, Admin, Operator, Client Admin, User) with tenant data isolation.
 - Two-Factor Authentication (TOTP 2FA), email verification, and password reset flows.
 - Cryptographic PKI Security Profiles (`/settings/security`) and immutable Enterprise Audit Trail logging (`/settings/audit`).
 
 ---
-
-## 📸 Visual Tour & Interface Gallery
-
-The platform features a modern, dark-mode design system with real-time reactive WebSocket feedback, intuitive configuration dialogs, and responsive mobile driver tools. Below are highlights from the 75+ full-page view suite:
-
-### 1. Executive Dashboard & Fleet Telemetry
-| Executive KPI Dashboard | Live Ground Plan Floor Monitor |
-| :---: | :---: |
-| ![Executive Dashboard](Screenshots/06_Dashboard_Executive_Overview.png) | ![Live Floor Monitor](Screenshots/22_Station_Live_FloorPlan_Monitor.png) |
-
-### 2. Smart Grid, Dynamic EPEX Spot Rates & V2G
-| Dynamic EPEX Tariff Engine | 24-Hour Predictive Solar Schedule | V2G Battery Fleet Orchestration |
-| :---: | :---: | :---: |
-| ![Dynamic EPEX Tariffs](Screenshots/65_Settings_DynamicTariffs_EPEX.png) | ![Predictive Load Schedule](Screenshots/15_Charger_Detail_PredictiveLoad_Tab.png) | ![V2G Battery Orchestration](Screenshots/29_V2G_Battery_Orchestration.png) |
 
 ## Documentation & Manuals
 
@@ -244,8 +250,8 @@ OCPP-CPMS/
 │   │   │   ├── audit/                  # Enterprise audit logging
 │   │   │   ├── auth/                   # JWT Auth, 2FA TOTP, Password Reset, Email Verify
 │   │   │   ├── chargeGroups/           # Load balancing group definitions
-│   │   │   ├── chargers/               # Charger CRUD & Connector mappings
-│   │   │   ├── companies/              # Multi-tenant corporate accounts
+│   │   │   ├── chargers/               # Charger CRUD, Combiner & Connector mappings
+│   │   │   ├── companies/              # Multi-tenant corporate client accounts
 │   │   │   ├── config-profiles/        # Standardized OCPP config templates
 │   │   │   ├── connectors/             # EVSE Connector CRUD
 │   │   │   ├── dashboard/              # Metrics, live sessions, fleet capacity
@@ -274,6 +280,7 @@ OCPP-CPMS/
 │   │   ├── ocpp/                       # Dual OCPP 1.6 & 2.1 WebSocket Server & Handlers
 │   │   │   ├── handlers/               # OCPP 1.6 JSON message handlers
 │   │   │   ├── v201/                   # OCPP 2.0.1 / 2.1 message router
+│   │   │   ├── proxyRouter.ts          # Straight-through proxy & combiner logic
 │   │   │   ├── logsWebSocket.ts        # Live log stream
 │   │   │   ├── ocppServer.ts           # Central WebSocket router
 │   │   │   ├── realtime.socket.ts      # Socket.IO event broadcaster
@@ -289,12 +296,14 @@ OCPP-CPMS/
 │   │   │   ├── MeterValueService.ts
 │   │   │   ├── MollieService.ts
 │   │   │   ├── OcpiService.ts
+│   │   │   ├── OicpService.ts
 │   │   │   ├── PredictiveBalancingService.ts
 │   │   │   ├── ReimbursementService.ts
 │   │   │   ├── SepaXmlService.ts
 │   │   │   ├── StripeService.ts
 │   │   │   ├── TotpService.ts
 │   │   │   └── V2GOrchestrationService.ts
+│   │   ├── workers/                    # BullMQ asynchronous background workers
 │   │   ├── utils/                      # Validation, logger, config-profile helpers
 │   │   ├── app.ts                      # Express App factory
 │   │   └── server.ts                   # Process bootstrap entrypoint
@@ -306,7 +315,7 @@ OCPP-CPMS/
 │   │   ├── charge-groups/              # Group load balancing management
 │   │   ├── chargers/                   # Charger lists, detail, remote control, config
 │   │   ├── config-profiles/            # Standard OCPP parameter templates
-│   │   ├── connectors/                 # EVSE socket configuration
+│   │   ├── connectors/                 # EVSE connector lists & specs
 │   │   ├── dashboard/                  # KPI overview, map view, active sessions
 │   │   ├── hardware-at-risk/           # Auto-heal & hardware maintenance alerts
 │   │   ├── invoices/                   # Enterprise billing ledger & SEPA Direct Debit
@@ -316,117 +325,84 @@ OCPP-CPMS/
 │   │   ├── payments/                   # Ad-hoc charging session checkout (Stripe & Mollie)
 │   │   ├── quirk-profiles/             # Hardware quirk overrides
 │   │   ├── reimbursements/             # Home charger reimbursement ledger & SEPA
-│   │   ├── reservations/               # Charger booking & reservation manager
-│   │   ├── rfid/                       # RFID card whitelist management
+│   │   ├── reservations/               # Connector reservation scheduler
+│   │   ├── rfid/                       # RFID card management
 │   │   ├── roaming/                    # OCPI / OICP partner connections & settlement
-│   │   ├── settings/                   # Platform configurations, EPEX, PKI, mail, payment gateways
-│   │   ├── stations/                   # Stations & Ground Plan 2D builder
+│   │   ├── settings/                   # Platform configurations (Stripe, Mollie, PKI, EPEX)
+│   │   ├── stations/                   # Stations & Ground Plan builder
 │   │   ├── tariffs/                    # Tariff definitions & dynamic spot rates
-│   │   ├── transactions/               # Session records & active telemetry
-│   │   ├── users/                      # User & client administration
+│   │   ├── transactions/               # Session records
+│   │   ├── users/                      # User & corporate client administration
 │   │   ├── v2g/                        # V2G fleet battery orchestration
 │   │   └── vehicle-identity-management/# ISO 15118 vehicle contract certificates
 │   ├── components/                     # Modular UI Components (shadcn/ui + Tailwind)
-│   ├── hooks/                          # Custom React hooks
+│   ├── hooks/                          # React hooks (useAuth, useToast, etc.)
 │   ├── lib/                            # Axios API client, utils, logger
 │   ├── locales/                        # en.json, nl.json (i18n)
 │   └── package.json
 │
-├── Manual/                             # Specialized Technical & User Guides (8 Documents)
-├── Screenshots/                        # 72 High-Resolution UI Screenshots
-├── AGENTS.md                           # AI Agent & Pair Programmer Reference Manual
-└── README.md                           # Project Overview & Quick Start
+├── Manual/                             # Comprehensive Technical & Operational Manuals
+├── Screenshots/                        # Visual Interface Assets & Tour Gallery
+├── AGENTS.md                           # Autonomous AI Agent Operating Manual
+├── proposals.md                        # Architectural proposals
+└── README.md                           # This document
 ```
 
 ---
 
 ## Technology Stack
 
-### Backend
-| Component | Technology | Version | Description |
-| :--- | :--- | :--- | :--- |
-| **Runtime** | Node.js | v24+ (ESM) | Modern asynchronous JavaScript runtime |
-| **Language** | TypeScript | 5.9+ | Strongly typed application code |
-| **Framework** | Express | 5.x | High-performance HTTP/REST API server |
-| **Database & ORM**| PostgreSQL + Prisma | Postgres 15+ / Prisma 7.8 | Type-safe SQL migrations & queries |
-| **Cache & Pub/Sub**| Redis + `ioredis` | Redis 7+ | Real-time state cache and multi-instance broker |
-| **WebSocket** | `ws` (RFC 6455) | 8.x | Dual OCPP 1.6 & 2.1 server on port 9220 |
-| **Realtime Stream**| Socket.IO | 4.x | Live dashboard event push via `/api/realtime` |
-| **Cron Engine** | `node-cron` | 3.x | Scheduled balancing, auto-heal, and billing jobs |
-| **Banking XML** | `fast-xml-parser` | 5.x | ISO 20022 SEPA XML (`pain.001` & `pain.008`) |
-| **Payments** | `@mollie/api-client` | 4.x | Ad-hoc card/iDEAL PaymentIntents & webhooks |
-
-### Frontend
-| Component | Technology | Description |
+| Component | Technology / Library | Description |
 | :--- | :--- | :--- |
-| **Framework** | Next.js 16+ (App Router) | React 19 server & client components with Turbopack |
-| **Language** | TypeScript 5.x | Strict type safety across UI components |
-| **Styling** | TailwindCSS | Modern dark-mode enterprise UI design tokens |
-| **Component Kit** | Radix UI (shadcn/ui) | Accessible, unstyled primitives styled with Tailwind |
-| **Drag & Drop** | `@dnd-kit/core` & `sortable`| Interactive 2D station ground plan canvas |
-| **Mapping** | `leaflet` + `react-leaflet` | Geospatial charger and station fleet view |
-| **Internationalization** | `react-i18next` | Multi-language switching (English / Dutch) |
+| **Backend Runtime** | Node.js (v22 - v24) | Modern JavaScript / ESM |
+| **Backend Framework** | Express 5 + TypeScript 5.9 | Typed REST API Server |
+| **Database & ORM** | PostgreSQL 15+ + Prisma ORM 7.8 | Type-safe SQL migrations & queries |
+| **Cache & Message Broker** | Redis 7 + `ioredis` | Telemetry cache & pub/sub clustering |
+| **Async Background Queues** | BullMQ | Decoupled event & billing job workers |
+| **OCPP WebSocket Engine** | `ws` (RFC 6455) | Native low-level WebSocket server on port 9220 |
+| **Realtime Events** | Socket.IO 4 | WebSocket event broadcast to dashboard |
+| **Payment Gateways** | `stripe` & `@mollie/api-client` | Card/Apple Pay/Google Pay & iDEAL payments |
+| **Banking XML Standard** | `fast-xml-parser` | ISO 20022 SEPA XML generation (`pain.001` & `pain.008`) |
+| **Frontend Framework** | Next.js 16 (App Router + Turbopack) | React 19 server/client components |
+| **UI Design System** | TailwindCSS + Radix UI (shadcn/ui) | Modern dark-mode enterprise UI |
+| **Drag & Drop Canvas** | `@dnd-kit/core` & `@dnd-kit/sortable` | Station ground plan interactive 2D builder |
+| **Geospatial Mapping** | `leaflet` + `react-leaflet` | Geospatial charger & station map views |
+| **Internationalization** | `react-i18next` | Multi-language (English / Dutch) |
 
 ---
 
 ## Quick Start
 
-### Prerequisites
-- **Node.js** 24.15.0 or higher
-- **PostgreSQL** 15 or higher
-- **Redis** 7 or higher
+### 1. Prerequisites
+- **Node.js:** 22+ or 24+ LTS
+- **PostgreSQL:** 15+
+- **Redis:** 7+
 
-### 1. Backend Setup
-
+### 2. Backend Setup
 ```bash
-# 1. Navigate to backend directory
 cd Backend
-
-# 2. Configure environment variables
-cp .env.example .env
-# Edit .env and verify DATABASE_URL, REDIS_URL, and JWT_SECRET
-
-# 3. Install dependencies
 npm install
+cp .env.example .env
+# Edit .env to set your DATABASE_URL, REDIS_URL, and JWT_SECRET
 
-# 4. Generate Prisma Client & push schema to PostgreSQL
-npm run prisma:generate
+# Sync schema and generate Prisma client
+npx prisma generate
 npx prisma db push --accept-data-loss
 
-# 5. Create initial Superadmin account
-npm run create-superadmin -- "admin@example.com" "password123"
+# Create the initial Superadmin account
+npm run create-superadmin -- "admin@example.com" "SuperSecurePassword123!"
 
-# 6. Start development server (Port 3000 REST, Port 9220 OCPP)
+# Start Backend development server
 npm run dev
 ```
 
-### 2. Frontend Setup
-
+### 3. Frontend Setup
 ```bash
-# 1. Navigate to frontend directory (in a new terminal)
-cd Frontend
-
-# 2. Configure environment variables
-cat <<EOT >> .env.local
-NEXT_PUBLIC_API_URL="http://localhost:3000/api"
-EOT
-
-# 3. Install dependencies
+cd ../Frontend
 npm install
-
-# 4. Start Next.js development server (Port 3002)
 npm run dev
 ```
-
-### Service Port Map
-
-| Service | Protocol | Default URL | Purpose |
-| :--- | :--- | :--- | :--- |
-| **Admin Dashboard** | HTTP | `http://localhost:3002` | Next.js Frontend Dashboard |
-| **REST API** | HTTP | `http://localhost:3000/api` | Express REST API backend |
-| **OCPP WebSocket** | WS | `ws://localhost:9220/OCPP/...` | EV Charger WebSocket listener |
-| **Live Telemetry Stream** | WS / Socket.IO | `ws://localhost:3000/api/realtime` | Socket.IO event broadcaster |
-| **Raw Log Viewer** | WS | `ws://localhost:3001` | Live raw log packet inspector |
+Open [http://localhost:3002](http://localhost:3002) in your browser and log in with your Superadmin credentials.
 
 ---
 
@@ -434,92 +410,66 @@ npm run dev
 
 ### Key Backend Environment Variables (`Backend/.env`)
 
-```ini
-# PostgreSQL Database Connection String
-DATABASE_URL="postgresql://cms_user:your_password@localhost:5432/ocpp_cms?schema=public"
-
-# REST API Port
+```env
+# Database & Network
+DATABASE_URL="postgresql://user:password@localhost:5432/ocpp_cms?schema=public"
 PORT=3000
-
-# OCPP WebSocket Port (Charger connections)
 OCPP_PORT=9220
-
-# Raw Log WebSocket Port
 OCPP_LOG_WS_PORT=3001
-
-# Redis Connection URL
 REDIS_URL="redis://localhost:6379"
+JWT_SECRET="generate_a_random_32_byte_hex_secret"
 
-# JWT Secret for Bearer Token Authentication
-JWT_SECRET="your-very-strong-jwt-secret-key"
+# Payment Gateways (Optional)
+STRIPE_SECRET_KEY="sk_test_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+MOLLIE_API_KEY="test_..."
 
-# Timezone (Europe/Brussels, Europe/Amsterdam, UTC)
-TZ="Europe/Brussels"
-
-# Optional: ENTSO-E API Key for European spot market ingestion
+# Smart Charging & EPEX Spot Rates
 ENTSOE_API_KEY=""
 
-# Optional: Stripe API Keys for global credit card, Apple Pay & Google Pay ad-hoc checkouts
-STRIPE_SECRET_KEY=""
-STRIPE_PUBLISHABLE_KEY=""
-STRIPE_WEBHOOK_SECRET=""
-
-# Optional: Mollie API Key for European iDEAL, Bancontact & EPS ad-hoc payment processing
-MOLLIE_API_KEY=""
+# Transactional SMTP Mail
+SMTP_HOST="smtp.mailgun.org"
+SMTP_PORT=587
+SMTP_USER="postmaster@yourdomain.com"
+SMTP_PASS="your_smtp_password"
+SMTP_FROM="Mobility Pulse <no-reply@mobilitypulse.com>"
 ```
 
 ---
 
-## Connecting Chargers
+## Connecting Chargers & Proxy Setup
 
-To connect any physical or simulated OCPP charger, configure the hardware's Central System URL:
+Point physical or simulated OCPP chargers to the WebSocket server:
 
-### OCPP 1.6-J Chargers
-```
-ws://<your-server-host>:9220/OCPP/1.6/<chargerId>
-```
-*(In production with SSL: `wss://ocpp.yourdomain.com/OCPP/1.6/<chargerId>`)*
-
-### OCPP 2.0.1 / 2.1 Chargers
-```
-ws://<your-server-host>:9220/OCPP/2.1/<chargerId>
-```
-*(In production with SSL: `wss://ocpp.yourdomain.com/OCPP/2.1/<chargerId>`)*
-
-> **Important:** `<chargerId>` must correspond to a registered charger record or will enter the **Unrecognized Chargers Queue** (`/chargers/unrecognized`) for operator approval.
+* **OCPP 1.6-J Endpoint:**
+  ```text
+  ws://<YOUR_IP_OR_DOMAIN>:9220/OCPP/1.6/<CHARGER_ID>
+  ```
+* **OCPP 2.0.1 / 2.1 Endpoint:**
+  ```text
+  ws://<YOUR_IP_OR_DOMAIN>:9220/OCPP/2.1/<CHARGER_ID>
+  ```
+* **Straight-Through Proxying:**
+  Configure the upstream URL in charger settings. The CPMS will forward messages transparently while caching telemetry and inspecting packets.
 
 ---
 
 ## Testing & Quality Assurance
 
-### Running Backend Unit & Integration Tests
-The Backend uses Jest with native Node.js ESM support:
-
 ```bash
+# Run Backend Unit & Integration Tests
 cd Backend
-NODE_OPTIONS=--experimental-vm-modules npm test
-```
+npm test
 
-To run a specific test suite (e.g. V2G Orchestration or Sepa XML):
-```bash
-npx jest src/tests/services/V2GOrchestrationService.test.ts
-```
-
-### TypeScript Validation
-Verify that both Backend and Frontend compile with zero TypeScript errors:
-
-```bash
-# Typecheck Backend
-cd Backend
+# Run Frontend Typecheck
+cd ../Frontend
 npx tsc --noEmit
 
-# Typecheck Frontend
-cd ../Frontend
+# Run Backend Typecheck
+cd ../Backend
 npx tsc --noEmit
 ```
 
 ---
 
-## License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+*Authored with precision for enterprise EV infrastructure — webdotpulse/GRID-OCPP-CPMS.*

@@ -41,7 +41,7 @@ flowchart LR
     Invoice --> Mandate{"Payment Method"}
     Mandate -->|Direct Debit| SEPA["ISO 20022 Direct Debit XML\n(pain.008.001.02)"]
     Mandate -->|Credit Card / Wallets / iDEAL| Gateways["Stripe & Mollie Hosted Checkout\n& Webhook Settlement"]
-    SEPA --> Bank["Corporate Banking Portal\n(Campr.053 reconciliation)"]
+    SEPA --> Bank["Corporate Banking Portal\n(Camt.053 reconciliation)"]
 ```
 
 #### Key Capabilities of the Invoicing Suite:
@@ -145,45 +145,26 @@ sequenceDiagram
 
 ## 3. Roaming Hubs (OCPI 2.2.1 & OICP Hubject)
 
-To maximize charger utilization and allow your contracted drivers to charge on external networks, the CPMS acts as both a **Charge Point Operator (CPO)** and an **e-Mobility Service Provider (eMSP)**.
+To maximize charger utilization and allow contracted drivers to charge on external networks, the CPMS acts as both a **Charge Point Operator (CPO)** and an **e-Mobility Service Provider (eMSP)**.
 
-### Protocol Support
+### 3.1 OCPI 2.2.1 Implementation
+* **Credentials:** Secure handshake and token exchange with roaming partners.
+* **Locations & EVSEs:** Automated publishing of station geolocations, connector specs, and live availability.
+* **Tariffs:** Export 4-component pricing structures to roaming hubs.
+* **Sessions & CDRs:** Real-time push of active roaming sessions and finalized Charge Detail Records.
 
-| Protocol | Version | Role Supported | Modules Synchronized |
-| :--- | :--- | :--- | :--- |
-| **OCPI** | 2.2.1 | CPO & eMSP | Locations, Tariffs, Sessions, Tokens, CDRs, Commands |
-| **OICP** | 2.3 | CPO & eMSP | Hubject EVSE Data, EVSE Status, Authorization, CDRs |
+![OCPI Roaming Hubs](../Screenshots/48_Roaming_OCPI_Hubs.png)
 
-### Configuring Roaming Connections (`/roaming`)
+### 3.2 Hubject OICP 2.3 Integration
+* Automated EVSE status synchronization with Hubject's Open InterCharge Protocol.
+* Asynchronous Charge Detail Record (CDR) submission processed through BullMQ background event queues.
 
-* **OCPI Partner Configuration:** Configure peer-to-peer endpoints, server tokens, and client tokens for bidirectional synchronization.
-* **OICP Hubject Configuration:** Configure Hubject operator IDs, client credentials, and automated CDR push schedules.
+![Hubject OICP Roaming](../Screenshots/49_Roaming_OICP_Hubject_Tab.png)
 
-| Roaming OCPI Hubs | Roaming OICP Hubject Tab |
-| :---: | :---: |
-| ![Roaming OCPI Hubs](../Screenshots/48_Roaming_OCPI_Hubs.png) | ![Roaming OICP Hubject Tab](../Screenshots/49_Roaming_OICP_Hubject_Tab.png) |
-
----
-
-## 4. Roaming Settlement Visualizer & Screen Ad-Manager
-
-### Roaming Settlement Visualizer (`/roaming` - Settlement Tab)
-
-The Settlement Visualizer reconciles wholesale roaming costs against retail billing to ensure positive margins across all roaming partnerships:
-* Aggregates all `RoamingSession` records by partner.
-* Computes `totalWholesaleBilled`, `totalBaseCost`, and `netMargin`.
-* Provides station utilization heatmaps to identify top-performing roaming locations.
-* Direct export of monthly clearinghouse CSV reports (`monthly_clearinghouse_report.csv`).
+### 3.3 Roaming Settlement Visualizer & Clearinghouse Export
+The **Settlement Visualizer** (`/roaming`) breaks down roaming economics:
+* Compare wholesale partner energy costs against retail MSP driver billing.
+* Calculate net margin, gross revenue, and volume per roaming partner.
+* Export standardized clearinghouse CSV reconciliation files.
 
 ![Roaming Settlement Visualizer](../Screenshots/50_Roaming_Settlement_Visualizer_Tab.png)
-
----
-
-### Multimedia Screen Ad-Manager (`/settings/screen-ad-manager` / `/media-campaigns`)
-
-For charging stations equipped with digital multimedia displays, the Ad-Manager generates auxiliary advertising revenue:
-* **Asset Uploads:** Supports drag-and-drop upload of promotional images (PNG, JPG) and video commercials (MP4).
-* **Targeted Scheduling:** Target ad campaigns to specific charging stations, geographic regions, or charge groups.
-* **Network Distribution:** Distributes media assets directly to compatible OCPP EVSE screens over the network.
-
-![Screen Ad Manager](../Screenshots/68_Settings_Screen_AdManager.png)

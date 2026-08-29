@@ -88,27 +88,11 @@ Initiates a charging session remotely on a specific EVSE socket.
 **Endpoint:** `POST /api/ocpp/remote-start`  
 **Auth:** Bearer Token (Admin / Superadmin)
 
-```typescript
-interface RemoteStartRequest {
-  chargerId: number | string;
-  connectorId: number;
-  idTag: string;
-}
-```
-
 ```bash
 curl -X POST http://localhost:3000/api/ocpp/remote-start \
   -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"chargerId": "CP-ALFEN-01", "connectorId": 1, "idTag": "TAG_RFID_001"}'
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "status": "Accepted"
-}
 ```
 
 ---
@@ -158,164 +142,87 @@ Dispatches an OCPP `SetChargingProfile` to enforce site power limits, solar sche
 
 ---
 
-### 2.5 Querying Historical Transactions
-Retrieve paginated session records with filter parameters.
+### 2.5 Combining & Uncombining Dual-Socket Chargers
+Pair two single-socket chargers of identical brand and model into a single dual-channel virtual charger:
 
-**Endpoint:** `GET /api/transactions?page=1&limit=20&status=completed`
-
-**Response:**
+**Combine Endpoint:** `POST /api/chargers/combine`  
+**Request Payload:**
 ```json
 {
-  "success": true,
-  "data": {
-    "transactions": [
-      {
-        "id": 12054,
-        "transactionId": "12054",
-        "charger_id": 4,
-        "connectorId": 1,
-        "idTag": "TAG_RFID_001",
-        "meterStart": 1420500,
-        "meterStop": 1452100,
-        "totalKwh": 31.6,
-        "totalCost": 9.48,
-        "status": "completed",
-        "startTime": "2026-08-27T08:15:00.000Z",
-        "stopTime": "2026-08-27T09:45:00.000Z"
-      }
-    ]
-  },
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 1,
-    "totalPages": 1
-  }
+  "primaryChargerId": 101,
+  "secondaryChargerId": 102
+}
+```
+
+**Uncombine Endpoint:** `POST /api/chargers/uncombine`  
+**Request Payload:**
+```json
+{
+  "chargerId": 101
 }
 ```
 
 ---
 
-## 3. Real-Time WebSocket Subscriptions (Socket.IO)
+### 2.6 Invoicing & SEPA Direct Debit API
+Generate monthly invoices and export ISO 20022 SEPA Direct Debit XML batches:
 
-Clients, mobile applications, and third-party dashboards can subscribe to live telemetry via Socket.IO:
+* `GET /api/invoices` - List invoices with status, customer, and date filtering.
+* `POST /api/invoices/generate` - Consolidate unbilled transactions for a month (`{ month: "2026-08", clientId?: 42 }`).
+* `GET /api/invoices/:id/pdf` - Download generated tax invoice PDF.
+* `POST /api/invoices/sepa-export` - Export validated ISO 20022 `pain.008.001.02` direct debit XML batch.
 
-* **Endpoint:** `http(s)://<your-server-host>/api/realtime`
-* **Path:** `/api/realtime`
+---
 
-### Client Implementation Example (TypeScript / JavaScript):
+## 3. Real-Time WebSocket & Socket.IO Subscriptions
+
+### 3.1 Live Telemetry Stream (`/api/realtime`)
+Connect via Socket.IO client to receive real-time station metrics and active transaction updates:
 
 ```javascript
 import { io } from "socket.io-client";
 
-const socket = io("https://ocpp.mobilitypulse.com", {
+const socket = io("http://localhost:3000", {
   path: "/api/realtime",
-  transports: ["websocket"]
+  auth: { token: "YOUR_JWT_TOKEN" }
 });
 
 socket.on("connect", () => {
-  console.log("Connected to CPMS Realtime Stream:", socket.id);
+  console.log("Connected to Realtime Telemetry Hub");
 });
 
-// Charger state updates (Available, Charging, Faulted)
-socket.on("CHARGER_STATUS_UPDATE", (data) => {
-  console.log("Status Notification:", data);
-  // data: { chargerId: "CP-01", connectorId: 1, status: "Charging", errorCode: "NoError" }
+socket.on("charger_status_change", (data) => {
+  console.log("Charger status changed:", data);
 });
 
-// Live active meter values
-socket.on("METER_VALUES_RECEIVED", (data) => {
-  console.log("Live Telemetry:", data);
-  // data: { transactionId: 12054, powerW: 11000, currentL1: 16, soc: 68 }
-});
-
-// Interactive ground plan update events
-socket.on("GROUND_PLAN_UPDATE", (data) => {
-  console.log("Ground Plan Update:", data);
+socket.on("meter_values_update", (telemetry) => {
+  console.log("Live meter value:", telemetry);
 });
 ```
 
 ---
 
-## 4. Live Packet Inspector Console (`/ocpp`)
+### 3.2 Unbuffered OCPP Live Packet Inspector Stream (`/api/ocpp/logs`)
+Connect via native WebSocket to stream raw unbuffered JSON-RPC frames:
 
-Engineers debugging hardware integrations can monitor raw JSON-RPC WebSocket frames in real-time.
+```javascript
+const ws = new WebSocket("ws://localhost:3001/api/ocpp/logs");
 
-![OCPP Packet Inspector Console](../Screenshots/55_OCPP_PacketInspector_Console.png)
-
----
-
-## 5. Hardware Quirk Normalization (`quirkNormalizer.ts`)
-
-To normalize non-standard vendor behavior, define rules in **Quirk Profiles** (`/quirk-profiles`):
-
-![Quirk Profiles Hardware Overrides](../Screenshots/59_QuirkProfiles_HardwareOverrides.png)
-
-### Quirk Engine Capabilities:
-* `calculatePowerFromVoltageAndCurrent`: Automatically computes active power from phase voltages and currents if missing from `MeterValues`.
-* `energyMultiplier`: Scales raw meter units (e.g. converting raw pulses or Wh to kWh).
-* `estimateEnergyFromPower`: Dynamically calculates cumulative energy ($P \cdot \Delta t$) when chargers report power but omit energy registers.
-
-### Creating a Quirk Profile via API:
-
-```bash
-curl -X POST http://localhost:3000/api/quirk-profiles \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Vendor-X Power Synthesizer",
-    "brand": "VendorX",
-    "rules": {
-      "calculatePowerFromVoltageAndCurrent": true,
-      "energyMultiplier": 0.001
-    }
-  }'
+ws.onmessage = (event) => {
+  const packet = JSON.parse(event.data);
+  console.log(`[${packet.direction}] Charger ${packet.chargerId}: ${packet.action}`, packet.payload);
+};
 ```
 
 ---
 
-## 6. Standardized Configuration Profiles (`/config-profiles`)
+## 4. BullMQ Asynchronous Worker Queues
 
-Deploy baseline OCPP parameter sets across charger models in a single operation.
+The platform offloads compute-heavy tasks to BullMQ workers connected to Redis:
 
-![Config Profiles Templates](../Screenshots/58_ConfigProfiles_Templates.png)
-
----
-
-## 7. Users, Corporate Clients & RBAC Architecture
-
-The platform provides a strictly decoupled domain model for multi-tenant organizations:
-
-### 7.1 Entity Distinction: Clients vs. Users
-* **`Company` (Client)**: The legal B2B entity, billing account, and infrastructure owner (holding VAT, KvK, billing address, payment terms, and assigned charging stations).
-* **`User` (Individual Identity)**: The authenticated human login (with credentials, 2FA, email verification) assigned a specific system role.
-
-### 7.2 System Roles & Capabilities Matrix (`GET /api/roles`)
-* `superadmin`: Global platform administrator (unrestricted cross-tenant access).
-* `admin`: Platform / CPO Administrator (manages chargers, stations, tariffs, clients, users).
-* `operator`: Operations & field technician (hardware diagnostics, remote commands, live monitoring).
-* `client_admin`: Corporate fleet manager (manages company drivers, assigned chargers, invoices).
-* `user`: EV Driver / End-user (personal charging sessions, RFID tags, vehicle profiles).
-
-```bash
-# Retrieve full system roles and capabilities matrix
-curl -X GET http://localhost:3000/api/roles \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-### 7.3 Managing Corporate Clients (`/api/companies`)
-```bash
-# Create a new B2B corporate client
-curl -X POST http://localhost:3000/api/companies \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Amsterdam Fleet Logistics BV",
-    "clientNumber": "CLI-1001",
-    "contactName": "Jan de Vries",
-    "contactEmail": "jan@fleet.nl",
-    "taxNumber": "NL123456789B01",
-    "kvkNumber": "87654321",
-    "city": "Amsterdam"
-  }'
-```
+| Queue Name | Job Description | Frequency / Trigger |
+| :--- | :--- | :--- |
+| `billing-queue` | Computes monthly session aggregations & invoice generation | Monthly cron / Manual trigger |
+| `metering-queue` | Batch processes high-frequency time-series telemetry data | Near real-time buffer flush |
+| `oicp-sync-queue` | Submits Charge Detail Records (CDRs) to Hubject OICP | On transaction stop |
+| `predictive-balancing` | Calculates 24h solar & spot price schedules | Hourly cron |

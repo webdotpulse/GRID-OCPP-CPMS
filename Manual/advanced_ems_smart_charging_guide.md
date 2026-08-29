@@ -1,6 +1,6 @@
 # Smart Charging, Dynamic Tariffs & V2G Guide
 
-Welcome to the **Smart Charging, Dynamic Tariffs & V2G Guide** for the OCPP Central Processing Management System (CPMS). This document provides an in-depth technical explanation of the platform's intelligent energy routing, dynamic day-ahead pricing, predictive solar load balancing, and Vehicle-to-Grid (V2G) bidirectional battery orchestration.
+Welcome to the **Smart Charging, Dynamic Tariffs & V2G Guide** for the OCPP Central Processing Management System (CPMS). This document provides an in-depth technical explanation of the platform's intelligent energy routing, dynamic day-ahead pricing, predictive solar load balancing, 3-phase dynamic load management, and Vehicle-to-Grid (V2G) bidirectional battery orchestration.
 
 ---
 
@@ -74,13 +74,28 @@ flowchart TD
 
 ---
 
-## 3. V2G & Fleet Battery Orchestration
+## 3. 3-Phase Dynamic Load Management & Phase Balancing
+
+The `LoadManagementService` maintains grid stability across complex multi-charger sites, preventing breaker trips and mitigating phase current unbalance:
+
+### Multi-Tier OCPP Profile Stack
+* **Profile ID 100 (Site Capacity Cap, Level 1):** Limits aggregate site wattage to the physical electrical supply rating.
+* **Profile ID 101 (Phase Balancing, Level 2):** Dynamically redistributes power across individual phases (L1, L2, L3) when single-phase EVs cause phase skew.
+* **Profile ID 200 (Predictive Solar, Level 0):** Baseline 24-hour economic schedule.
+* **Profile ID 300 (V2G Discharging, Level 3):** High-priority bidirectional energy dispatch.
+
+### Safe Headroom Restoration
+If aggregate load across a station drops below **95%** of the physical safety threshold, active throttling profiles are automatically cleared to restore full charging speed to connected vehicles.
+
+![Charger Profiles Tab](../Screenshots/14_Charger_Detail_Profiles_Tab.png)
+
+---
+
+## 4. V2G & Fleet Battery Orchestration
 
 The `V2GOrchestrationService` manages bidirectional power flows, transforming EV fleet batteries into active decentralized grid assets capable of peak shaving and grid stabilization.
 
 ### Fleet Capacity & Real-Time SoC Tracking
-
-The CPMS dashboard features interactive widgets to monitor and control fleet battery capacity:
 * **Real-Time Battery Telemetry:** Ingests live battery State of Charge (`MeterValue.soc`) reported by the vehicle during active sessions.
 * **SoC Reserve Sliders:** Operators and drivers configure a `minSocThreshold` (e.g., 40%) in their `VehicleEnergyProfile` to guarantee sufficient driving range for subsequent commutes.
 
@@ -109,21 +124,3 @@ sequenceDiagram
 
 > [!WARNING]
 > **Hardware Compatibility:** V2G Orchestration requires specialized bidirectional DC chargers (ISO 15118-20 or CHAdeMO V2G protocols). Pushing negative limit charging profiles to standard unidirectional chargers may trigger hardware fault codes.
-
----
-
-## 4. Multi-Tier Dynamic Load Management (`LoadManagementService.ts`)
-
-The CPMS maintains continuous grid protection across sites and charge groups using standardized OCPP profile IDs:
-
-| Profile ID | Purpose | Stack Level | Function |
-| :--- | :--- | :--- | :--- |
-| **Profile ID 100** | Site Power Balancing | Level 1 | Limits aggregate station wattage to physical grid connection capacity. |
-| **Profile ID 101** | Amperage Balancing | Level 2 | Equalizes phase currents across active connectors to prevent breaker trips. |
-| **Profile ID 200** | Solar Predictive Schedule | Level 0 | 24-hour dynamic schedule balancing solar generation and EPEX prices. |
-| **Profile ID 300** | V2G Discharging | Level 3 | Dispatches negative current limits for bidirectional battery discharge. |
-
-### Safe Limit Headroom Restoration
-If aggregate load across a station drops below **95%** of the physical safety limit, active load management profiles are automatically cleared to restore maximum output to all connected vehicles.
-
-![Charger Profiles Tab](../Screenshots/14_Charger_Detail_Profiles_Tab.png)
