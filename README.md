@@ -7,7 +7,7 @@
 <div align="center">
 
 [![Node.js](https://img.shields.io/badge/Node.js-24+-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-16+-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Prisma](https://img.shields.io/badge/Prisma-7.8-2D3748?style=for-the-badge&logo=prisma&logoColor=white)](https://www.prisma.io/)
@@ -84,7 +84,7 @@ The system operates across a decoupled multi-tier architecture:
            ▼                                                                            ▼
   ┌──────────────────┐          HTTPS REST / Socket.IO                     ┌──────────────────────────┐
   │  Next.js Admin   │ ◄──────────────────────────────────────────────────►│   Express REST API       │
-  │  Dashboard UI    │      http(s)://host:3000/api/v1/...                 │   (TypeScript 5.9 / ESM) │
+  │  Dashboard UI    │      http(s)://host:3000/api/v1/...                 │   (TypeScript 6+ / ESM)  │
   │  (Port 3002)     │ ◄──────────────────────────────────────────────────►│                          │
   └────────┬─────────┘      Socket.IO Stream (/api/realtime)               └────────────┬─────────────┘
            │ Stripe & Mollie Ad-Hoc                                                     │ ORM Queries
@@ -243,7 +243,7 @@ Comprehensive guides tailored for administrators, operators, and developers are 
 
 ```
 OCPP-CPMS/
-├── Backend/                            # Express 5 + TypeScript 5.9 API & OCPP WebSocket Server
+├── Backend/                            # Express 5 + TypeScript 6+ API & OCPP WebSocket Server
 │   ├── prisma/
 │   │   ├── schema.prisma               # PostgreSQL Prisma Schema
 │   │   └── migrations/                 # Migration history
@@ -358,7 +358,7 @@ OCPP-CPMS/
 | Component | Technology / Library | Description |
 | :--- | :--- | :--- |
 | **Backend Runtime** | Node.js (v22 - v24) | Modern JavaScript / ESM |
-| **Backend Framework** | Express 5 + TypeScript 5.9 | Typed REST API Server |
+| **Backend Framework** | Express 5 + TypeScript 6+ | Typed REST API Server |
 | **Database & ORM** | PostgreSQL 15+ + Prisma ORM 7.8 | Type-safe SQL migrations & queries |
 | **Cache & Message Broker** | Redis 7 + `ioredis` | Telemetry cache & pub/sub clustering |
 | **Async Background Queues** | BullMQ | Decoupled event & billing job workers |

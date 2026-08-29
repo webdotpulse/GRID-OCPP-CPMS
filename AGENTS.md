@@ -150,7 +150,7 @@ OCPP-CPMS/
 | Component | Technology / Library | Description |
 | :--- | :--- | :--- |
 | **Backend Runtime** | Node.js (v22 - v24) | Modern JavaScript / ESM |
-| **Backend Framework** | Express 5 + TypeScript 5.9 | Typed REST API Server |
+| **Backend Framework** | Express 5 + TypeScript 6+ | Typed REST API Server |
 | **Database & ORM** | PostgreSQL + Prisma ORM 7.8 | Type-safe SQL migrations & queries |
 | **Cache & Pub/Sub** | Redis 7 + `ioredis` | Cross-pod communication, state & telemetry cache |
 | **OCPP WebSocket** | `ws` (RFC 6455) | Low-level WebSocket server on port 9220 |
