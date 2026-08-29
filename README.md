@@ -4,19 +4,22 @@
   An enterprise-grade, full-stack <strong>OCPP 1.6-J & 2.0.1/2.1 Charge Point Management System (CPMS)</strong> supporting multi-protocol EV charging hardware, straight-through proxy forwarding, dual-socket charger combining, real-time WebSockets, dynamic EPEX spot pricing, predictive solar load balancing, V2G battery orchestration, ISO 20022 SEPA banking exports, Stripe & Mollie payments, OCPI & Hubject roaming, interactive 2D ground plans with electrical topologies, and responsive driver mobile interfaces.
 </p>
 
-<p align="center">
-  <img alt="Node.js" src="https://img.shields.io/badge/Node.js-24%2B-green?logo=node.js" />
-  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript" />
-  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16%2B-black?logo=next.js" />
-  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-15%2B-blue?logo=postgresql" />
-  <img alt="Prisma" src="https://img.shields.io/badge/Prisma-7.8-2D3748?logo=prisma" />
-  <img alt="Redis" src="https://img.shields.io/badge/Redis-7%2B-red?logo=redis" />
-  <img alt="BullMQ" src="https://img.shields.io/badge/BullMQ-Workers-orange" />
-  <img alt="OCPP" src="https://img.shields.io/badge/OCPP-1.6%20%7C%202.0.1%20%7C%202.1-orange" />
-  <img alt="ISO 15118" src="https://img.shields.io/badge/ISO-15118%20PnC-purple" />
-  <img alt="SEPA" src="https://img.shields.io/badge/SEPA-ISO%2020022-teal" />
-  <img alt="Stripe & Mollie" src="https://img.shields.io/badge/Payments-Stripe%20%26%20Mollie-635BFF" />
-</p>
+<div align="center">
+
+[![Node.js](https://img.shields.io/badge/Node.js-24+-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16+-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-7.8-2D3748?style=for-the-badge&logo=prisma&logoColor=white)](https://www.prisma.io/)
+[![Redis](https://img.shields.io/badge/Redis-7+-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
+[![BullMQ](https://img.shields.io/badge/BullMQ-Workers-FF5722?style=for-the-badge&logo=redis&logoColor=white)](https://bullmq.io/)
+[![OCPP Protocol](https://img.shields.io/badge/OCPP-1.6--J%20%26%202.0.1%20%2F%202.1-FF6F00?style=for-the-badge&logo=socketdotio&logoColor=white)](https://openchargealliance.org/)
+[![ISO 15118](https://img.shields.io/badge/ISO-15118%20PnC-800080?style=for-the-badge&logo=plugshare&logoColor=white)](https://www.iso.org/standard/77845.html)
+[![SEPA Banking](https://img.shields.io/badge/SEPA-ISO%2020022-008080?style=for-the-badge&logo=europeanunion&logoColor=white)](https://www.europeanpaymentscouncil.eu/)
+[![Payments](https://img.shields.io/badge/Payments-Stripe%20%26%20Mollie-635BFF?style=for-the-badge&logo=stripe&logoColor=white)](https://stripe.com/)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+
+</div>
 
 ---
 
