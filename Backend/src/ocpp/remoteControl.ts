@@ -18,6 +18,33 @@ import {
 export const pendingRequests = distributedPendingRequests as any;
 export { getChargerProtocol, generateMessageId };
 
+import { prisma } from "../config/database.js";
+
+/**
+ * Resolve target physical charger and connector when commanding a combined 2-socket charger
+ */
+export async function resolveTargetChargerAndConnector(
+  chargerId: number,
+  connectorId?: number
+): Promise<{ targetChargerId: number; targetConnectorId: number }> {
+  if (connectorId === 2) {
+    try {
+      if (prisma?.charger?.findUnique) {
+        const charger = await prisma.charger.findUnique({
+          where: { charger_id: chargerId },
+          select: { isCombined: true, pairedRole: true, pairedChargerId: true }
+        });
+        if (charger?.isCombined && charger.pairedRole === "primary" && charger.pairedChargerId) {
+          return { targetChargerId: charger.pairedChargerId, targetConnectorId: 1 };
+        }
+      }
+    } catch (err) {
+      logger.error(`Error resolving paired charger target: ${err}`);
+    }
+  }
+  return { targetChargerId: chargerId, targetConnectorId: connectorId ?? 1 };
+}
+
 /**
  * Send Remote command (Start, Stop) via Distributed Redis RPC bridge
  */
@@ -35,8 +62,8 @@ export async function sendRemoteCommand(
 export async function remoteStartTransaction(
   request: RemoteStartRequest
 ): Promise<{ status: string; transactionId?: number; error?: string }> {
-  const { chargerId, connectorId, idTag } = request;
-  return await sendRemoteCommand(chargerId, "Start", { connectorId, idTag });
+  const { targetChargerId, targetConnectorId } = await resolveTargetChargerAndConnector(request.chargerId, request.connectorId);
+  return await sendRemoteCommand(targetChargerId, "Start", { connectorId: targetConnectorId, idTag: request.idTag });
 }
 
 /**
@@ -45,8 +72,21 @@ export async function remoteStartTransaction(
 export async function remoteStopTransaction(
   request: RemoteStopRequest
 ): Promise<{ status: string; error?: string }> {
-  const { chargerId, transactionId } = request;
-  return await sendRemoteCommand(chargerId, "Stop", { transactionId });
+  let targetChargerId = request.chargerId;
+  try {
+    if (prisma?.transaction?.findFirst) {
+      const tx = await prisma.transaction.findFirst({
+        where: { transactionId: String(request.transactionId) },
+        select: { charger_id: true }
+      });
+      if (tx?.charger_id) {
+        targetChargerId = tx.charger_id;
+      }
+    }
+  } catch (err) {
+    logger.error(`Error resolving transaction owner for remoteStop: ${err}`);
+  }
+  return await sendRemoteCommand(targetChargerId, "Stop", { transactionId: request.transactionId });
 }
 
 /**
@@ -81,10 +121,11 @@ export async function changeAvailability(
   type: "Inoperative" | "Operative"
 ): Promise<{ status: string; error?: string }> {
   try {
+    const { targetChargerId, targetConnectorId } = await resolveTargetChargerAndConnector(chargerId, connectorId);
     const result = await sendDistributedOcppCall(
-      chargerId,
+      targetChargerId,
       "ChangeAvailability",
-      { connectorId, type },
+      { connectorId: targetConnectorId, type },
       10000
     );
     return { ...result, status: result.status || "Accepted" };
@@ -148,10 +189,11 @@ export async function unlockConnector(
   connectorId: number
 ): Promise<{ status: string; error?: string }> {
   try {
+    const { targetChargerId, targetConnectorId } = await resolveTargetChargerAndConnector(chargerId, connectorId);
     const result = await sendDistributedOcppCall(
-      chargerId,
+      targetChargerId,
       "UnlockConnector",
-      { connectorId },
+      { connectorId: targetConnectorId },
       10000
     );
     return { ...result, status: result.status || "Accepted" };
@@ -170,10 +212,11 @@ export async function setChargingProfile(
 ): Promise<{ status: string; error?: string }> {
   const { chargerId, connectorId, csChargingProfiles } = request;
   try {
+    const { targetChargerId, targetConnectorId } = await resolveTargetChargerAndConnector(chargerId, connectorId);
     const result = await sendDistributedOcppCall(
-      chargerId,
+      targetChargerId,
       "SetChargingProfile",
-      { connectorId, csChargingProfiles },
+      { connectorId: targetConnectorId, csChargingProfiles },
       10000
     );
 
@@ -203,14 +246,15 @@ export async function clearChargingProfile(
 ): Promise<{ status: string; error?: string }> {
   const { chargerId, id, connectorId, chargingProfilePurpose, stackLevel } = request;
   try {
+    const { targetChargerId, targetConnectorId } = await resolveTargetChargerAndConnector(chargerId, connectorId);
     const payload: any = {};
     if (id !== undefined) payload.id = id;
-    if (connectorId !== undefined) payload.connectorId = connectorId;
+    if (connectorId !== undefined) payload.connectorId = targetConnectorId;
     if (chargingProfilePurpose !== undefined) payload.chargingProfilePurpose = chargingProfilePurpose;
     if (stackLevel !== undefined) payload.stackLevel = stackLevel;
 
     const result = await sendDistributedOcppCall(
-      chargerId,
+      targetChargerId,
       "ClearChargingProfile",
       payload,
       10000

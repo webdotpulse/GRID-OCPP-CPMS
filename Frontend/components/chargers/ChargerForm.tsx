@@ -26,6 +26,7 @@ const chargerSchema = z.object({
   service_contacts: z.string(),
   charging_station_id: z.number().positive("Must assign a station"),
   thirdPartyBackendUrl: z.union([z.string().url("Must be a valid URL"), z.literal("")]).optional().nullable(),
+  isStraightThroughProxy: z.boolean().optional(),
   tariffId: z.number().optional(),
   owner_id: z.number().optional(),
   chargeGroupId: z.number().optional().nullable(),
@@ -53,6 +54,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
     defaultValues: initialData ? {
       ...initialData,
       thirdPartyBackendUrl: initialData?.thirdPartyBackendUrl || undefined,
+      isStraightThroughProxy: initialData?.isStraightThroughProxy || false,
       tariffId: initialData?.tariffs?.[0]?.tariff_id || undefined,
       chargeGroupId: initialData?.chargeGroupId || undefined,
       quirkProfileId: initialData?.quirkProfileId || undefined,
@@ -61,6 +63,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
     } : {
       name: nameParam || '',
       thirdPartyBackendUrl: undefined,
+      isStraightThroughProxy: false,
       tariffId: initialData?.tariffs?.[0]?.tariff_id || undefined,
       chargeGroupId: undefined,
       quirkProfileId: undefined,
@@ -201,6 +204,19 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
               </p>
               {errors.thirdPartyBackendUrl && <p className="text-sm text-destructive">{errors.thirdPartyBackendUrl.message}</p>}
             </div>
+          </div>
+
+          <div className="flex flex-row items-center justify-between rounded-lg border p-4 bg-muted/10">
+            <div className="space-y-0.5 pr-4">
+              <Label className="text-sm font-medium">Straight-Through Authorization Mode</Label>
+              <p className="text-[12px] text-muted-foreground">
+                When active with a Third-Party Backend, user authorization rights (who can charge) are entirely managed by the third-party backend. Local load management, phase balancing, and smart telemetry continue to function locally.
+              </p>
+            </div>
+            <Switch
+              checked={watch('isStraightThroughProxy')}
+              onCheckedChange={(checked) => setValue('isStraightThroughProxy', checked)}
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">

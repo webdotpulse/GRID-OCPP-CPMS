@@ -5,7 +5,24 @@ const mockSendDistributedRemoteCommand = jest.fn() as any;
 const mockIsConnectedGlobally = jest.fn() as any;
 const mockGetConnectedChargers = jest.fn() as any;
 
-jest.mock("../../ocpp/distributedRemoteControl.js", () => ({
+jest.unstable_mockModule("../../config/redis.js", () => ({
+  redisPublisher: {
+    publish: jest.fn().mockResolvedValue(1 as never),
+  },
+  redisSubscriber: {
+    subscribe: jest.fn().mockResolvedValue("OK" as never),
+    unsubscribe: jest.fn().mockResolvedValue("OK" as never),
+    psubscribe: jest.fn().mockResolvedValue("OK" as never),
+    on: jest.fn(),
+  },
+  redisClient: {
+    get: jest.fn(),
+    hget: jest.fn(),
+    exists: jest.fn(),
+  },
+}));
+
+jest.unstable_mockModule("../../ocpp/distributedRemoteControl.js", () => ({
   sendDistributedOcppCall: mockSendDistributedOcppCall,
   sendDistributedRemoteCommand: mockSendDistributedRemoteCommand,
   getChargerProtocol: jest.fn().mockResolvedValue("ocpp1.6" as never),
@@ -13,10 +30,21 @@ jest.mock("../../ocpp/distributedRemoteControl.js", () => ({
   distributedPendingRequests: new Map(),
 }));
 
-jest.mock("../../ocpp/chargerRegistry.js", () => ({
+jest.unstable_mockModule("../../ocpp/chargerRegistry.js", () => ({
   chargerRegistry: {
     isConnectedGlobally: mockIsConnectedGlobally,
     getConnectedChargers: mockGetConnectedChargers,
+  },
+}));
+
+jest.unstable_mockModule("../../config/database.js", () => ({
+  prisma: {
+    charger: {
+      findUnique: jest.fn().mockResolvedValue(null as never),
+    },
+    transaction: {
+      findFirst: jest.fn().mockResolvedValue(null as never),
+    },
   },
 }));
 

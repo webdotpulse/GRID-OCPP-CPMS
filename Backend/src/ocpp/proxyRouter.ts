@@ -75,6 +75,33 @@ class ProxyRouter {
           const messageStr = data.toString();
           const message = JSON.parse(messageStr);
 
+          // Check if this is a CALL from 3rd party backend targeted at Channel 2 of a combined charger
+          if (message[0] === 2) {
+            const action = message[2];
+            const payload = message[3] || {};
+            const targetConnectorId = payload.connectorId ?? payload.evseId;
+
+            const charger = await prisma.charger.findUnique({
+              where: { charger_id: chargerId },
+              select: { isCombined: true, pairedRole: true, pairedChargerId: true }
+            });
+
+            if (charger?.isCombined && charger.pairedRole === "primary" && charger.pairedChargerId && targetConnectorId === 2) {
+              const secondaryConnection = chargerRegistry.getConnection(charger.pairedChargerId);
+              if (secondaryConnection?.ws && secondaryConnection.ws.readyState === WebSocket.OPEN) {
+                const translatedPayload = { ...payload };
+                if (translatedPayload.connectorId !== undefined) translatedPayload.connectorId = 1;
+                if (translatedPayload.evseId !== undefined) translatedPayload.evseId = 1;
+                const translatedMessage = [message[0], message[1], message[2], translatedPayload];
+                logger.info(`🔄 [PROXY] Forwarding remote command for Channel 2 to secondary charger ${charger.pairedChargerId}: ${JSON.stringify(translatedMessage)}`);
+                secondaryConnection.ws.send(JSON.stringify(translatedMessage));
+                return;
+              } else {
+                logger.warn(`Secondary charger ${charger.pairedChargerId} connection not available for Channel 2 command`);
+              }
+            }
+          }
+
           if (chargerConnection.ws.readyState === WebSocket.OPEN) {
              logger.info(`🔄 [PROXY] Forwarding remote message to charger ${chargerId}: ${messageStr}`);
              chargerConnection.ws.send(messageStr);
@@ -215,7 +242,18 @@ class ProxyRouter {
   }
 
   async handleMessageFromCharger(chargerId: number, message: any, protocol: string): Promise<void> {
-    const remoteWs = this.activeProxies.get(chargerId);
+    let remoteWs = this.activeProxies.get(chargerId);
+
+    // Look up charger details for paired combined charger support
+    const charger = await prisma.charger.findUnique({
+      where: { charger_id: chargerId },
+      select: { isCombined: true, pairedRole: true, pairedChargerId: true }
+    });
+
+    // If secondary charger doesn't have an active proxy connection of its own, check if primary has one
+    if (!remoteWs && charger?.isCombined && charger.pairedRole === "secondary" && charger.pairedChargerId) {
+      remoteWs = this.activeProxies.get(charger.pairedChargerId);
+    }
 
     // Do not forward CALLRESULT/CALLERROR if they are responses to local commands
     let shouldForward = true;
@@ -228,15 +266,31 @@ class ProxyRouter {
 
     let messageToForward = message;
 
-    // Check if card ID translation is required before forwarding to third-party backend
+    // Check if card ID translation or channel mapping is required before forwarding to third-party backend
     if (message[0] === 2 && message[3]) {
       try {
+        const originalPayload = message[3];
+        const forwardedPayload = JSON.parse(JSON.stringify(originalPayload));
+        let modified = false;
+
+        // If secondary charger in combined setup, map connector 1 to connector 2 (Channel 2)
+        if (charger?.isCombined && charger.pairedRole === "secondary") {
+          if (forwardedPayload.connectorId === 1) {
+            forwardedPayload.connectorId = 2;
+            modified = true;
+          }
+          if (forwardedPayload.evseId === 1) {
+            forwardedPayload.evseId = 2;
+            modified = true;
+          }
+          if (forwardedPayload.evse?.id === 1) {
+            forwardedPayload.evse.id = 2;
+            modified = true;
+          }
+        }
+
         const rules = await this.getQuirkRulesForCharger(chargerId);
         if (rules) {
-          const originalPayload = message[3];
-          const forwardedPayload = JSON.parse(JSON.stringify(originalPayload));
-          let modified = false;
-
           // 1. OCPP 1.6 idTag translation (e.g. Authorize, StartTransaction, StopTransaction)
           if (forwardedPayload.idTag && typeof forwardedPayload.idTag === "string") {
             const mappedTag = resolveMappedCardId(forwardedPayload.idTag, rules);
@@ -266,13 +320,13 @@ class ProxyRouter {
               modified = true;
             }
           }
+        }
 
-          if (modified) {
-            messageToForward = [message[0], message[1], message[2], forwardedPayload];
-          }
+        if (modified) {
+          messageToForward = [message[0], message[1], message[2], forwardedPayload];
         }
       } catch (transErr) {
-        logger.error(`🔄 [PROXY] Error evaluating card ID translation for charger ${chargerId}: ${transErr}`);
+        logger.error(`🔄 [PROXY] Error evaluating message translation for charger ${chargerId}: ${transErr}`);
       }
     }
 

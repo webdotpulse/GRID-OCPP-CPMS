@@ -70,6 +70,12 @@ export interface CreateChargerDto {
   service_contacts: string;
   charging_station_id: number;
   owner_id: number;
+  isCombined?: boolean;
+  pairedChargerId?: number | null;
+  pairedRole?: string | null;
+  isStraightThroughProxy?: boolean;
+  isPredictiveBalancingEnabled?: boolean;
+  localSolarKwp?: number | null;
   tariffId?: number;
 }
 
@@ -88,7 +94,22 @@ export interface UpdateChargerDto {
   tariffId?: number;
   requireAuth?: boolean;
   thirdPartyBackendUrl?: string | null;
+  isStraightThroughProxy?: boolean;
+  isCombined?: boolean;
+  pairedChargerId?: number | null;
+  pairedRole?: string | null;
+  isPredictiveBalancingEnabled?: boolean;
+  localSolarKwp?: number | null;
   protocol?: string;
+}
+
+export interface CombineChargersDto {
+  primaryChargerId: number;
+  secondaryChargerId: number;
+}
+
+export interface UncombineChargersDto {
+  chargerId: number;
 }
 
 export interface CreateStationDto {

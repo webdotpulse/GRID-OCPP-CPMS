@@ -163,6 +163,15 @@ export async function handleAuthorize(
       include: { quirkProfile: true },
     });
 
+    // 1. If Straight-Through Proxy is enabled with a Third-Party Backend, delegate authorization entirely
+    if (charger?.isStraightThroughProxy && charger?.thirdPartyBackendUrl) {
+      logger.info(`[Straight-Through Proxy] Delegating authorization for tag ${rawIdTag} directly to Third-Party Backend (charger ${chargerId})`);
+      let response: any = {};
+      response.idTagInfo = { status: "Accepted" };
+      await logOcppMessage(chargerId, "out", response);
+      return response;
+    }
+
     const rules = charger?.quirkProfile?.rules as any;
     const effectiveIdTag = resolveMappedCardId(rawIdTag, rules);
 
@@ -286,6 +295,13 @@ export async function handleStartTransaction(
     // Resolve mapped card ID for solar/quirk translation
     const effectiveIdTag = idTag ? resolveMappedCardId(idTag, rules) : idTag;
 
+    // Determine effective connector ID and name (handling paired secondary charger mapping to Channel 2)
+    let effectiveConnectorId = connectorId;
+    if (charger?.isCombined && charger?.pairedRole === "secondary" && connectorId === 1) {
+      effectiveConnectorId = 2;
+    }
+    const connectorName = `Channel ${effectiveConnectorId}`;
+
     // Check if RFID tag is valid (if provided)
     let rfidUserId: number | undefined;
     if (effectiveIdTag) {
@@ -301,42 +317,47 @@ export async function handleStartTransaction(
 
       let isAuthorized = true;
 
-      if (!rfidUser || !rfidUser.active) {
-        isAuthorized = false;
+      // In Straight-Through Proxy mode, authorization is delegated to the Third-Party Backend
+      if (charger?.isStraightThroughProxy && charger?.thirdPartyBackendUrl) {
+        logger.info(`[Straight-Through Proxy] Accepting StartTransaction for tag ${idTag} (effective: ${effectiveIdTag}) on charger ${chargerId}`);
+        rfidUserId = rfidUser?.rfid_user_id;
       } else {
-        // Check if charger belongs to a group and if user is in that group
-        const chargerInfo = await prisma.charger.findUnique({
-          where: { charger_id: chargerId },
-          select: { chargeGroupId: true }
-        });
-
-        if (chargerInfo && chargerInfo.chargeGroupId) {
-          const userInGroup = await prisma.chargeGroupUser.findUnique({
-            where: {
-              chargeGroupId_userId: {
-                chargeGroupId: chargerInfo.chargeGroupId,
-                userId: rfidUser.owner_id
-              }
-            }
+        if (!rfidUser || !rfidUser.active) {
+          isAuthorized = false;
+        } else {
+          // Check if charger belongs to a group and if user is in that group
+          const chargerInfo = await prisma.charger.findUnique({
+            where: { charger_id: chargerId },
+            select: { chargeGroupId: true }
           });
-          if (!userInGroup) {
-            isAuthorized = false;
+
+          if (chargerInfo && chargerInfo.chargeGroupId) {
+            const userInGroup = await prisma.chargeGroupUser.findUnique({
+              where: {
+                chargeGroupId_userId: {
+                  chargeGroupId: chargerInfo.chargeGroupId,
+                  userId: rfidUser.owner_id
+                }
+              }
+            });
+            if (!userInGroup) {
+              isAuthorized = false;
+            }
           }
         }
-      }
 
-      if (!isAuthorized) {
-        logger.warn(`StartTransaction rejected: RFID tag ${idTag} (effective: ${effectiveIdTag}) not authorized`);
-        let response: any = {};
-        response.idTagInfo = { status: "Invalid" };
-        await logOcppMessage(chargerId, "out", response);
-        return response;
+        if (!isAuthorized) {
+          logger.warn(`StartTransaction rejected: RFID tag ${idTag} (effective: ${effectiveIdTag}) not authorized`);
+          let response: any = {};
+          response.idTagInfo = { status: "Invalid" };
+          await logOcppMessage(chargerId, "out", response);
+          return response;
+        }
+        rfidUserId = rfidUser?.rfid_user_id;
       }
-      rfidUserId = rfidUser?.rfid_user_id;
     }
 
     // Always create a system Transaction record
-    const connectorName = `Channel ${connectorId}`;
     const newTransaction = await prisma.transaction.create({
       data: {
         transactionId: String(transactionId),
@@ -384,8 +405,24 @@ export async function handleStartTransaction(
       });
     }
 
+    // If paired secondary charger, also update primary charger's Channel 2 connector
+    if (charger?.isCombined && charger?.pairedRole === "secondary" && charger?.pairedChargerId) {
+      const primaryConnector = await prisma.connector.findFirst({
+        where: {
+          evse: { charger_id: charger.pairedChargerId },
+          connector_name: "Channel 2"
+        }
+      });
+      if (primaryConnector) {
+        await prisma.connector.update({
+          where: { connector_id: primaryConnector.connector_id },
+          data: { status: "Charging", updatedAt: new Date() },
+        });
+      }
+    }
+
     logger.info(
-      `Transaction ${transactionId} started on charger ${chargerId}, channel ${connectorId}`
+      `Transaction ${transactionId} started on charger ${chargerId}, channel ${effectiveConnectorId}`
     );
 
     // Consume any active reservation on this connector
@@ -552,10 +589,16 @@ export async function handleMeterValues(
       }
 
       if (hasReadings) {
+        // Handle secondary paired charger channel 2 mapping
+        let effectiveConnectorId = connectorId;
+        if (charger?.isCombined && charger?.pairedRole === "secondary" && connectorId === 1) {
+          effectiveConnectorId = 2;
+        }
+
         let parsedPayload: MeterValuePayload = {
           transactionId: String(transactionId),
           chargerId,
-          connectorId,
+          connectorId: effectiveConnectorId,
           energyValue: energyValue,
           powerValue: powerValue,
           socValue: socValue ?? null,
@@ -618,10 +661,21 @@ export async function handleStatusNotification(
     // Update registry heartbeat immediately
     await chargerRegistry.updateHeartbeat(chargerId);
 
+    // Check if this charger is a secondary paired unit -> map connector 1 to connector 2 (Channel 2)
+    const charger = await prisma.charger.findUnique({
+      where: { charger_id: chargerId },
+      select: { isCombined: true, pairedRole: true, pairedChargerId: true }
+    });
+
+    let effectiveConnectorId = connectorId;
+    if (charger?.isCombined && charger?.pairedRole === "secondary" && connectorId === 1) {
+      effectiveConnectorId = 2;
+    }
+
     // Enqueue status event to BullMQ background processor
     await enqueueStatusEvent({
       chargerId,
-      connectorId,
+      connectorId: effectiveConnectorId,
       status,
       errorCode,
       info,
@@ -630,8 +684,24 @@ export async function handleStatusNotification(
       timestamp: timestamp ? (timestamp instanceof Date ? timestamp.toISOString() : timestamp) : new Date().toISOString(),
     });
 
+    // If paired secondary charger, also update primary charger's Channel 2 connector
+    if (charger?.isCombined && charger?.pairedRole === "secondary" && charger?.pairedChargerId && effectiveConnectorId === 2) {
+      const primaryConnector = await prisma.connector.findFirst({
+        where: {
+          evse: { charger_id: charger.pairedChargerId },
+          connector_name: "Channel 2"
+        }
+      });
+      if (primaryConnector) {
+        await prisma.connector.update({
+          where: { connector_id: primaryConnector.connector_id },
+          data: { status, updatedAt: new Date() },
+        });
+      }
+    }
+
     logger.info(
-      `StatusNotification enqueued for charger ${chargerId}: channel ${connectorId} status = ${status}`
+      `StatusNotification enqueued for charger ${chargerId}: channel ${effectiveConnectorId} status = ${status}`
     );
 
     const response = {};

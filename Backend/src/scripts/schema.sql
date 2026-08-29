@@ -103,6 +103,10 @@ CREATE TABLE "Charger" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "chargeGroupId" INTEGER,
     "quirkProfileId" INTEGER,
+    "isCombined" BOOLEAN NOT NULL DEFAULT false,
+    "pairedChargerId" INTEGER,
+    "pairedRole" TEXT,
+    "isStraightThroughProxy" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "Charger_pkey" PRIMARY KEY ("charger_id")
 );

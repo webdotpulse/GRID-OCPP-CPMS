@@ -274,15 +274,29 @@ export default function ChargersPage() {
                 sortedChargers.map((charger) => (
                   <TableRow key={charger.charger_id} className="hover:bg-[#54a8c7]/5 transition-colors">
                     <TableCell className="font-medium">
-                      <Link
-                        href={`/chargers/${charger.charger_id}`}
-                        className="group flex items-center gap-2 font-bold text-foreground hover:text-[#54a8c7] transition-colors"
-                      >
-                        <div className="size-7 rounded-lg bg-[#54a8c7]/10 flex items-center justify-center text-[#54a8c7] group-hover:bg-[#54a8c7] group-hover:text-white transition-colors">
-                          <Zap className="size-3.5" />
+                      <div className="flex flex-col gap-1">
+                        <Link
+                          href={`/chargers/${charger.charger_id}`}
+                          className="group flex items-center gap-2 font-bold text-foreground hover:text-[#54a8c7] transition-colors"
+                        >
+                          <div className="size-7 rounded-lg bg-[#54a8c7]/10 flex items-center justify-center text-[#54a8c7] group-hover:bg-[#54a8c7] group-hover:text-white transition-colors">
+                            <Zap className="size-3.5" />
+                          </div>
+                          <span>{charger.name}</span>
+                        </Link>
+                        <div className="flex items-center gap-1.5 ml-9">
+                          {charger.isCombined && (
+                            <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-400 border-indigo-500/30 px-1.5 py-0 font-medium">
+                              2 Sockets ({charger.pairedRole === "primary" ? "Ch 1+2" : "Ch 2"})
+                            </Badge>
+                          )}
+                          {charger.isStraightThroughProxy && (
+                            <Badge variant="outline" className="text-[10px] bg-cyan-500/10 text-cyan-400 border-cyan-500/30 px-1.5 py-0 font-medium">
+                              Straight-Through
+                            </Badge>
+                          )}
                         </div>
-                        <span>{charger.name}</span>
-                      </Link>
+                      </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground font-medium">
                       {charger.chargingStation?.station_name || 'Unassigned'}

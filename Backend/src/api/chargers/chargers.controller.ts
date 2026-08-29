@@ -166,6 +166,7 @@ export const getAllChargers = async (req: Request, res: Response) => {
         include: {
           chargingStation: true,
           chargeGroup: true,
+          pairedCharger: true,
           evses: { include: { connectors: true } },
           owner: { select: { id: true, email: true } },
         },
@@ -221,6 +222,7 @@ export const getChargerById = async (req: Request, res: Response) => {
       where,
       include: {
         chargingStation: true,
+        pairedCharger: true,
         evses: { include: { connectors: true } },
         transactions: { take: 10, orderBy: { createdAt: "desc" } },
         owner: { select: { id: true, email: true } },
@@ -280,6 +282,10 @@ export const getChargerStatus = async (req: Request, res: Response) => {
         name: true,
         status: true,
         last_heartbeat: true,
+        isCombined: true,
+        pairedChargerId: true,
+        pairedRole: true,
+        isStraightThroughProxy: true,
       },
     });
 
@@ -349,21 +355,53 @@ export const createCharger = async (req: Request, res: Response) => {
       });
     }
 
-    const { tariffId, ...rest } = data;
+    // @ts-expect-error userRole is attached by authenticateToken middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken middleware
+    const currentUserId = req.userId;
+
+    const owner_id = (userRole === "admin" || userRole === "superadmin") && data.owner_id ? data.owner_id : currentUserId;
+
+    const { tariffId, ...chargerData } = data;
+
     const charger = await prisma.charger.create({
       data: {
-        ...rest,
-        model: rest.model || "Pending",
-        manufacturer: rest.manufacturer || "Pending",
-        serial_number: rest.serial_number || `Pending-${Date.now()}`,
-        firmware_version: rest.firmware_version || "Pending",
-        tariffs: tariffId ? { connect: { tariff_id: tariffId } } : undefined,
+        ...chargerData,
+        model: chargerData.model || "Unknown",
+        manufacturer: chargerData.manufacturer || "Unknown",
+        serial_number: chargerData.serial_number || `SN-${Date.now()}`,
+        firmware_version: chargerData.firmware_version || "Unknown",
+        power_capacity: chargerData.power_capacity || 22.0,
+        service_contacts: chargerData.service_contacts || "Support",
+        owner_id,
+        isStraightThroughProxy: chargerData.isStraightThroughProxy ?? false,
+        isCombined: chargerData.isCombined ?? false,
+        pairedChargerId: chargerData.pairedChargerId ?? null,
+        pairedRole: chargerData.pairedRole ?? null,
+        tariffs: tariffId ? { connect: [{ tariff_id: tariffId }] } : undefined,
       },
-      include: { chargingStation: true, owner: true, tariffs: true },
+      include: { chargingStation: true, owner: true, tariffs: true, pairedCharger: true },
+    });
+
+    // Automatically create default EVSE and connector
+    const evse = await prisma.evse.create({
+      data: {
+        charger_id: charger.charger_id,
+        evse_id: 1,
+      },
+    });
+
+    await prisma.connector.create({
+      data: {
+        evse_id: evse.id,
+        connector_name: "Channel 1",
+        status: "Unavailable",
+        current_type: "AC",
+        max_power: charger.power_capacity,
+      },
     });
 
     // Handle updating protocol in Redis if modified by superadmin
-    const userRole = (req as any).userRole;
     const protocol = (req.body as any).protocol;
     if (userRole === "superadmin" && protocol !== undefined) {
       try {
@@ -419,11 +457,16 @@ export const updateCharger = async (req: Request, res: Response) => {
       "service_contacts",
       "tariffId",
       "isPredictiveBalancingEnabled",
-      "localSolarKwp"
+      "localSolarKwp",
+      "thirdPartyBackendUrl",
+      "isStraightThroughProxy",
+      "isCombined",
+      "pairedChargerId",
+      "pairedRole"
     ];
 
     if (userRole === "superadmin") {
-      allowedFields.push("requireAuth", "thirdPartyBackendUrl", "protocol");
+      allowedFields.push("requireAuth", "protocol");
     }
 
     const data = req.body as UpdateChargerDto;
@@ -550,3 +593,324 @@ export const getPredictiveSchedule = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: "Failed to fetch schedule" });
   }
 };
+
+/**
+ * POST /api/chargers/combine - Combine 2 single chargers of same model/brand as 1 charger with 2 channels
+ */
+export const combineChargers = async (req: Request, res: Response) => {
+  try {
+    const { primaryChargerId, secondaryChargerId } = req.body as { primaryChargerId: number; secondaryChargerId: number };
+
+    if (!primaryChargerId || !secondaryChargerId) {
+      return res.status(400).json({
+        success: false,
+        error: "Both primaryChargerId and secondaryChargerId are required",
+      });
+    }
+
+    if (Number(primaryChargerId) === Number(secondaryChargerId)) {
+      return res.status(400).json({
+        success: false,
+        error: "Cannot combine a charger with itself",
+      });
+    }
+
+    const [primary, secondary] = await Promise.all([
+      prisma.charger.findUnique({
+        where: { charger_id: Number(primaryChargerId) },
+        include: { evses: { include: { connectors: true } } },
+      }),
+      prisma.charger.findUnique({
+        where: { charger_id: Number(secondaryChargerId) },
+        include: { evses: { include: { connectors: true } } },
+      }),
+    ]);
+
+    if (!primary || !secondary) {
+      return res.status(404).json({
+        success: false,
+        error: "One or both chargers could not be found",
+      });
+    }
+
+    // Role / ownership checks
+    // @ts-expect-error userRole is attached by authenticateToken
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken
+    const userId = req.userId;
+    if (userRole !== "admin" && userRole !== "superadmin") {
+      if (primary.owner_id !== userId || secondary.owner_id !== userId) {
+        return res.status(403).json({
+          success: false,
+          error: "Forbidden: You do not have permission to combine these chargers",
+        });
+      }
+    }
+
+    // Validate brand (manufacturer) and model match
+    const primaryMfg = (primary.manufacturer || "").trim().toLowerCase();
+    const secondaryMfg = (secondary.manufacturer || "").trim().toLowerCase();
+    const primaryModel = (primary.model || "").trim().toLowerCase();
+    const secondaryModel = (secondary.model || "").trim().toLowerCase();
+
+    if (primaryMfg !== secondaryMfg || primaryModel !== secondaryModel) {
+      return res.status(400).json({
+        success: false,
+        error: `Chargers must have the same brand and model to be combined. Found: Primary [${primary.manufacturer} / ${primary.model}] vs Secondary [${secondary.manufacturer} / ${secondary.model}]`,
+      });
+    }
+
+    // Check if either is already paired with a different charger
+    if (primary.isCombined && primary.pairedChargerId && primary.pairedChargerId !== secondary.charger_id) {
+      return res.status(400).json({
+        success: false,
+        error: `Primary charger ${primary.name} is already paired with charger #${primary.pairedChargerId}. Uncombine it first.`,
+      });
+    }
+    if (secondary.isCombined && secondary.pairedChargerId && secondary.pairedChargerId !== primary.charger_id) {
+      return res.status(400).json({
+        success: false,
+        error: `Secondary charger ${secondary.name} is already paired with charger #${secondary.pairedChargerId}. Uncombine it first.`,
+      });
+    }
+
+    // Setup EVSE and connectors for Primary (representing the combined 2 sockets)
+    let primaryEvse = primary.evses.find(e => e.evse_id === 1) || primary.evses[0];
+    if (!primaryEvse) {
+      primaryEvse = await prisma.evse.create({
+        data: {
+          charger_id: primary.charger_id,
+          evse_id: 1,
+        },
+        include: { connectors: true },
+      });
+    }
+
+    // Ensure Channel 1 on Primary
+    const primaryConnectors = primaryEvse.connectors || [];
+    const channel1 = primaryConnectors.find(c => c.connector_name === "Channel 1") || primaryConnectors[0];
+    if (channel1) {
+      if (channel1.connector_name !== "Channel 1") {
+        await prisma.connector.update({
+          where: { connector_id: channel1.connector_id },
+          data: { connector_name: "Channel 1" },
+        });
+      }
+    } else {
+      await prisma.connector.create({
+        data: {
+          evse_id: primaryEvse.id,
+          connector_name: "Channel 1",
+          status: primary.status === "offline" ? "Unavailable" : "Available",
+          current_type: "AC",
+          max_power: primary.power_capacity,
+        },
+      });
+    }
+
+    // Ensure Channel 2 on Primary
+    const channel2 = primaryConnectors.find(c => c.connector_name === "Channel 2");
+    if (!channel2) {
+      const secConn = secondary.evses?.[0]?.connectors?.[0];
+      const secStatus = secConn?.status || (secondary.status === "offline" ? "Unavailable" : "Available");
+      await prisma.connector.create({
+        data: {
+          evse_id: primaryEvse.id,
+          connector_name: "Channel 2",
+          status: secStatus,
+          current_type: "AC",
+          max_power: secondary.power_capacity,
+        },
+      });
+    }
+
+    // Ensure Secondary's connector is labeled Channel 2
+    const secEvse = secondary.evses[0];
+    if (secEvse && secEvse.connectors?.length > 0) {
+      await prisma.connector.update({
+        where: { connector_id: secEvse.connectors[0].connector_id },
+        data: { connector_name: "Channel 2" },
+      });
+    }
+
+    // Update both chargers in database
+    await prisma.$transaction([
+      prisma.charger.update({
+        where: { charger_id: primary.charger_id },
+        data: {
+          isCombined: true,
+          pairedChargerId: secondary.charger_id,
+          pairedRole: "primary",
+        },
+      }),
+      prisma.charger.update({
+        where: { charger_id: secondary.charger_id },
+        data: {
+          isCombined: true,
+          pairedChargerId: primary.charger_id,
+          pairedRole: "secondary",
+        },
+      }),
+    ]);
+
+    logger.info(
+      `Successfully combined chargers ${primary.name} (Primary - Channel 1) and ${secondary.name} (Secondary - Channel 2)`
+    );
+
+    res.json({
+      success: true,
+      message: `Chargers combined successfully: ${primary.name} as Channel 1 and ${secondary.name} as Channel 2`,
+      data: {
+        primaryChargerId: primary.charger_id,
+        secondaryChargerId: secondary.charger_id,
+      },
+    });
+  } catch (error) {
+    logger.error(`Error combining chargers: ${error}`);
+    res.status(500).json({
+      success: false,
+      error: "Failed to combine chargers",
+    });
+  }
+};
+
+/**
+ * POST /api/chargers/uncombine - Uncombine paired chargers
+ */
+export const uncombineChargers = async (req: Request, res: Response) => {
+  try {
+    const { chargerId } = req.body as { chargerId: number };
+
+    if (!chargerId) {
+      return res.status(400).json({
+        success: false,
+        error: "chargerId is required",
+      });
+    }
+
+    const charger = await prisma.charger.findUnique({
+      where: { charger_id: Number(chargerId) },
+    });
+
+    if (!charger) {
+      return res.status(404).json({
+        success: false,
+        error: "Charger not found",
+      });
+    }
+
+    // Role / ownership checks
+    // @ts-expect-error userRole is attached by authenticateToken
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken
+    const userId = req.userId;
+    if (userRole !== "admin" && userRole !== "superadmin") {
+      if (charger.owner_id !== userId) {
+        return res.status(403).json({
+          success: false,
+          error: "Forbidden: You do not have permission to uncombine this charger",
+        });
+      }
+    }
+
+    const pairedId = charger.pairedChargerId;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.charger.update({
+        where: { charger_id: charger.charger_id },
+        data: {
+          isCombined: false,
+          pairedChargerId: null,
+          pairedRole: null,
+        },
+      });
+
+      if (pairedId) {
+        await tx.charger.update({
+          where: { charger_id: pairedId },
+          data: {
+            isCombined: false,
+            pairedChargerId: null,
+            pairedRole: null,
+          },
+        });
+      }
+    });
+
+    logger.info(`Successfully uncombined charger ${charger.name}`);
+    res.json({
+      success: true,
+      message: "Chargers uncombined successfully into independent units",
+    });
+  } catch (error) {
+    logger.error(`Error uncombining chargers: ${error}`);
+    res.status(500).json({
+      success: false,
+      error: "Failed to uncombine chargers",
+    });
+  }
+};
+
+/**
+ * GET /api/chargers/:id/combine-candidates - Get eligible pairing candidates
+ */
+export const getCombineCandidates = async (req: Request, res: Response) => {
+  try {
+    const chargerId = parseId(req.params.id);
+    if (!chargerId) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid charger ID",
+      });
+    }
+
+    const targetCharger = await prisma.charger.findUnique({
+      where: { charger_id: chargerId },
+    });
+
+    if (!targetCharger) {
+      return res.status(404).json({
+        success: false,
+        error: "Charger not found",
+      });
+    }
+
+    // @ts-expect-error userRole is attached by authenticateToken
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken
+    const userId = req.userId;
+
+    const where: any = {
+      charger_id: { not: chargerId },
+      isCombined: false,
+      manufacturer: { equals: targetCharger.manufacturer, mode: "insensitive" },
+      model: { equals: targetCharger.model, mode: "insensitive" },
+      charging_station_id: targetCharger.charging_station_id,
+    };
+
+    if (userRole !== "admin" && userRole !== "superadmin") {
+      where.owner_id = userId;
+    }
+
+    const candidates = await prisma.charger.findMany({
+      where,
+      include: {
+        chargingStation: true,
+        evses: { include: { connectors: true } },
+      },
+      orderBy: { name: "asc" },
+    });
+
+    res.json({
+      success: true,
+      data: candidates,
+    });
+  } catch (error) {
+    logger.error(`Error getting combine candidates: ${error}`);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get combine candidates",
+    });
+  }
+};
+

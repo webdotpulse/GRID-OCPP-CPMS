@@ -10,7 +10,8 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Edit, Zap, Info, Clock, CheckCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { ChevronLeft, Edit, Zap, Info, Clock, CheckCircle, Layers, Link2, Unlink, Share2, AlertCircle } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { RemoteControlPanel } from "@/components/chargers/RemoteControlPanel";
 import { ConnectorList } from "@/components/chargers/ConnectorList";
@@ -45,6 +46,17 @@ interface ChargerDetail {
   };
   connectors: any[];
   thirdPartyBackendUrl?: string | null;
+  isStraightThroughProxy?: boolean;
+  isCombined?: boolean;
+  pairedChargerId?: number | null;
+  pairedRole?: string | null;
+  pairedCharger?: {
+    charger_id: number;
+    name: string;
+    manufacturer: string;
+    model: string;
+    status: string;
+  } | null;
 }
 
 export default function ChargerDetailPage() {
@@ -57,18 +69,25 @@ export default function ChargerDetailPage() {
   const [selectedProfile, setSelectedProfile] = useState<string>("");
   const [applyingProfile, setApplyingProfile] = useState(false);
 
-  useEffect(() => {
-    const fetchCharger = async () => {
-      try {
-        const response = await api.get(`/chargers/${id}`);
-        setCharger(response.data);
-      } catch (error) {
-        logger.error("Failed to fetch charger details", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Combine dialog state
+  const [combineDialogOpen, setCombineDialogOpen] = useState(false);
+  const [candidates, setCandidates] = useState<any[]>([]);
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string>("");
+  const [isCombining, setIsCombining] = useState(false);
+  const [isUncombining, setIsUncombining] = useState(false);
 
+  const fetchCharger = async () => {
+    try {
+      const response = await api.get(`/chargers/${id}`);
+      setCharger(response.data);
+    } catch (error) {
+      logger.error("Failed to fetch charger details", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     const fetchProfiles = async () => {
       try {
         const response = await api.get('/config-profiles');
@@ -120,6 +139,51 @@ export default function ChargerDetailPage() {
     }
   };
 
+  const handleOpenCombineDialog = async () => {
+    try {
+      const res = await api.get(`/chargers/${id}/combine-candidates`);
+      setCandidates(res.data?.data || res.data || []);
+      setCombineDialogOpen(true);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to fetch eligible chargers for combining");
+    }
+  };
+
+  const handleCombineChargers = async () => {
+    if (!selectedCandidateId || !charger) return;
+    setIsCombining(true);
+    try {
+      await api.post('/chargers/combine', {
+        primaryChargerId: charger.charger_id,
+        secondaryChargerId: Number(selectedCandidateId),
+      });
+      toast.success("Successfully combined 2 chargers into a 1-charger 2-socket configuration!");
+      setCombineDialogOpen(false);
+      fetchCharger();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to combine chargers");
+    } finally {
+      setIsCombining(false);
+    }
+  };
+
+  const handleUncombineChargers = async () => {
+    if (!charger) return;
+    if (!confirm("Are you sure you want to uncombine these chargers back into independent units?")) return;
+    setIsUncombining(true);
+    try {
+      await api.post('/chargers/uncombine', {
+        chargerId: charger.charger_id,
+      });
+      toast.success("Chargers uncombined successfully into independent units");
+      fetchCharger();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to uncombine chargers");
+    } finally {
+      setIsUncombining(false);
+    }
+  };
+
   if (isLoading) return <AppShell><div className="p-8">Loading charger details...</div></AppShell>;
   if (!charger) return <AppShell><div className="p-8 text-red-500">Charger not found</div></AppShell>;
 
@@ -159,19 +223,41 @@ export default function ChargerDetailPage() {
 
   return (
     <AppShell>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="space-y-4">
           <Link href="/chargers">
             <Button variant="ghost" size="sm" className="-ml-4 text-muted-foreground">
               <ChevronLeft className="mr-2 h-4 w-4" /> Back to Chargers
             </Button>
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="bg-primary/10 p-2 rounded-lg">
               <Zap className="h-6 w-6 text-primary" />
             </div>
             <h1 className="text-3xl font-bold tracking-tight">{charger.name}</h1>
             {getStatusBadge(charger.status)}
+
+            {/* Combined Setup Badge */}
+            {charger.isCombined && charger.pairedRole === "primary" && (
+              <Badge className="bg-indigo-500/20 text-indigo-400 border-indigo-500/30 gap-1.5 px-3 py-1 text-xs font-bold">
+                <Layers className="h-3.5 w-3.5" />
+                COMBINED 2-SOCKET (PRIMARY)
+              </Badge>
+            )}
+            {charger.isCombined && charger.pairedRole === "secondary" && (
+              <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 gap-1.5 px-3 py-1 text-xs font-bold">
+                <Layers className="h-3.5 w-3.5" />
+                PAIRED (CHANNEL 2 of #{charger.pairedChargerId})
+              </Badge>
+            )}
+
+            {/* Straight-Through Proxy Badge */}
+            {charger.isStraightThroughProxy && (
+              <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 gap-1.5 px-3 py-1 text-xs font-bold">
+                <Share2 className="h-3.5 w-3.5" />
+                STRAIGHT-THROUGH PROXY
+              </Badge>
+            )}
           </div>
           <p className="text-muted-foreground flex items-center gap-2">
             Installed at {charger.chargingStation ? (
@@ -181,12 +267,88 @@ export default function ChargerDetailPage() {
             )}
           </p>
         </div>
-        <Link href={`/chargers/${id}/edit`}>
-          <Button>
-            <Edit className="mr-2 h-4 w-4" /> Edit Hardware Details
-          </Button>
-        </Link>
+
+        <div className="flex items-center gap-3">
+          {(user?.role === "admin" || user?.role === "superadmin") && (
+            <>
+              {!charger.isCombined ? (
+                <Button variant="outline" onClick={handleOpenCombineDialog}>
+                  <Link2 className="mr-2 h-4 w-4 text-indigo-400" /> Combine into 2-Socket Charger
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={handleUncombineChargers} disabled={isUncombining} className="text-destructive hover:bg-destructive/10">
+                  <Unlink className="mr-2 h-4 w-4" /> {isUncombining ? "Uncombining..." : "Uncombine"}
+                </Button>
+              )}
+            </>
+          )}
+
+          <Link href={`/chargers/${id}/edit`}>
+            <Button>
+              <Edit className="mr-2 h-4 w-4" /> Edit Hardware Details
+            </Button>
+          </Link>
+        </div>
       </div>
+
+      {/* Combine Chargers Modal Dialog */}
+      <Dialog open={combineDialogOpen} onOpenChange={setCombineDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="h-5 w-5 text-indigo-400" />
+              Combine 2 Single Chargers
+            </DialogTitle>
+            <DialogDescription>
+              Combine 2 single chargers of the same brand ({charger.manufacturer || "N/A"}) and model ({charger.model || "N/A"}) into a single 2-socket unit. This charger ({charger.name}) will become <strong>Channel 1</strong>, and the selected charger will become <strong>Channel 2</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            {candidates.length === 0 ? (
+              <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm text-amber-300 flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold">No matching eligible chargers found</p>
+                  <p className="text-xs text-amber-200/80 mt-1">
+                    To combine, there must be another unpaired charger at the same station with the exact same manufacturer (<strong>{charger.manufacturer}</strong>) and model (<strong>{charger.model}</strong>).
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Select Secondary Charger (Channel 2)</label>
+                <Select value={selectedCandidateId} onValueChange={setSelectedCandidateId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a matching charger" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {candidates.map(c => (
+                      <SelectItem key={c.charger_id} value={c.charger_id.toString()}>
+                        {c.name} ({c.manufacturer} {c.model} - #{c.charger_id})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Upstream proxy and load management will automatically treat both units as one dual-socket station.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setCombineDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleCombineChargers}
+              disabled={!selectedCandidateId || isCombining || candidates.length === 0}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              {isCombining ? "Combining..." : "Combine Chargers"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="mb-6">
@@ -274,6 +436,61 @@ export default function ChargerDetailPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Combined Pair Configuration Card */}
+          {charger.isCombined && (
+            <div className="mb-6">
+              <Card className="border-indigo-500/30 bg-gradient-to-r from-indigo-950/20 via-background to-purple-950/20">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Layers className="h-5 w-5 text-indigo-400" />
+                      <CardTitle className="text-base font-semibold">Combined 2-Socket Charger Setup</CardTitle>
+                    </div>
+                    <Badge variant="outline" className="text-xs text-indigo-300 border-indigo-500/40">
+                      {charger.pairedRole === "primary" ? "Primary Unit (Channel 1 + Channel 2)" : "Secondary Unit (Channel 2)"}
+                    </Badge>
+                  </div>
+                  <CardDescription>
+                    Two physical chargers of identical brand & model configured as a unified dual-socket station.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-3 rounded-lg border bg-card/60 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Socket 1 / Channel 1</span>
+                        <Badge variant="soft-primary" className="text-[10px]">Physical Master</Badge>
+                      </div>
+                      <p className="font-semibold text-sm">{charger.pairedRole === "primary" ? charger.name : (charger.pairedCharger?.name || `Primary Charger #${charger.pairedChargerId}`)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {charger.manufacturer} {charger.model} ({charger.power_capacity} kW)
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-lg border bg-card/60 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Socket 2 / Channel 2</span>
+                        <Badge variant="soft-secondary" className="text-[10px]">Paired Secondary</Badge>
+                      </div>
+                      <p className="font-semibold text-sm">
+                        {charger.pairedRole === "primary" ? (
+                          charger.pairedCharger ? (
+                            <Link href={`/chargers/${charger.pairedCharger.charger_id}`} className="hover:underline text-indigo-400">
+                              {charger.pairedCharger.name} (#{charger.pairedCharger.charger_id})
+                            </Link>
+                          ) : `Secondary Charger #${charger.pairedChargerId}`
+                        ) : charger.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {charger.manufacturer} {charger.model} ({charger.power_capacity} kW)
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           <div className="mb-6">
             <LoadManagementOverview chargerId={charger.charger_id} />
