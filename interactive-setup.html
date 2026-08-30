@@ -652,7 +652,7 @@
                 <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()">
                     <span id="theme-icon">☀️</span> Light Mode
                 </button>
-                <a href="https://github.com/webdotpulse/OCPP-CPMS" target="_blank" class="btn-secondary"
+                <a href="https://github.com/webdotpulse/GRID-OCPP-CPMS" target="_blank" class="btn-secondary"
                     style="text-decoration:none;">
                     GitHub Repo ↗
                 </a>
@@ -942,7 +942,7 @@ sudo -u postgres psql -d <span class="var-dbName">ocpp_cms</span> -c "GRANT ALL 
                 <div class="code-container">
                     <pre><code>sudo mkdir -p <span class="var-installPath">/var/www/ocpp-cms</span>
 sudo chown -R $USER:$USER <span class="var-installPath">/var/www/ocpp-cms</span>
-git clone <span class="var-gitRepo">https://github.com/webdotpulse/OCPP-CPMS.git</span> <span class="var-installPath">/var/www/ocpp-cms</span>
+git clone <span class="var-gitRepo">https://github.com/webdotpulse/GRID-OCPP-CPMS.git</span> <span class="var-installPath">/var/www/ocpp-cms</span>
 
 cd <span class="var-installPath">/var/www/ocpp-cms</span>/Backend
 
@@ -1323,7 +1323,7 @@ sudo systemctl restart nginx</code></pre>
             superadminPassword: "SuperSecureAdmin2026!",
             installPath: "/var/www/ocpp-cms",
             timezone: "Europe/Brussels",
-            gitRepo: "https://github.com/webdotpulse/OCPP-CPMS.git"
+            gitRepo: "https://github.com/webdotpulse/GRID-OCPP-CPMS.git"
         };
 
         // State Manager
@@ -1442,7 +1442,7 @@ sudo systemctl restart nginx</code></pre>
 
         // Generate One-Liner Command
         function getOneLinerCommand() {
-            return `curl -sSL https://raw.githubusercontent.com/webdotpulse/OCPP-CPMS/main/install.sh | sudo bash -s -- \\
+            return `curl -sSL https://raw.githubusercontent.com/webdotpulse/GRID-OCPP-CPMS/main/install.sh | sudo bash -s -- \\
   --frontend-domain "${state.frontendUrl}" \\
   --backend-domain "${state.backendUrl}" \\
   --db-name "${state.dbName}" \\
