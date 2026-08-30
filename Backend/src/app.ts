@@ -45,6 +45,7 @@ import localAuthListRoutes from "./api/localAuthList/localAuthList.routes.js";
 import reservationsRoutes from "./api/reservations/reservations.routes.js";
 import securityRoutes from "./api/security/security.routes.js";
 import rolesRoutes from "./api/roles/roles.routes.js";
+import simulatorRoutes from "./api/simulator/simulator.routes.js";
 
 // Import OCPP servers
 import { ocppServer } from "./ocpp/ocppServer.js";
@@ -141,6 +142,7 @@ export function createApp(): Application {
   app.use("/api/reservations", authenticateToken, reservationsRoutes);
   app.use("/api/security", authenticateToken, securityRoutes);
   app.use("/api/roles", authenticateToken, rolesRoutes);
+  app.use("/api/simulator", authenticateToken, simulatorRoutes);
 
   // Error handling
   app.use(notFoundHandler);

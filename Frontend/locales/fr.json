@@ -23,6 +23,7 @@
       "auditTrail": "Journal d'Audit",
       "pkiCertificates": "Sécurité & PKI",
       "ocppConsole": "Console OCPP",
+      "simulator": "Simulateur / Lab de Test",
       "liveView": "Vue en Direct",
       "sections": {
         "infrastructure": "Infrastructure",

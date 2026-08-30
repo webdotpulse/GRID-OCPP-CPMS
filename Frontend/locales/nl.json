@@ -23,6 +23,7 @@
       "auditTrail": "Auditlogboek",
       "pkiCertificates": "Beveiliging & PKI",
       "ocppConsole": "OCPP Console",
+      "simulator": "Simulator / Test Lab",
       "liveView": "Live Weergave",
       "sections": {
         "infrastructure": "Infrastructuur",
