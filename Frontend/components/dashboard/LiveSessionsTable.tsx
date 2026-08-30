@@ -9,8 +9,10 @@ import { useTelemetryStore } from "@/store/useTelemetryStore";
 import { Zap, Activity, ArrowRight, BatteryCharging, Radio } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 export function LiveSessionsTable() {
+  const { t } = useTranslation();
   const sessions = useTelemetryStore((state) => state.sessions);
   const isSessionsLoading = useTelemetryStore((state) => state.isSessionsLoading);
   const fetchSessions = useTelemetryStore((state) => state.fetchSessions);
@@ -29,20 +31,20 @@ export function LiveSessionsTable() {
             <div className="size-8 rounded-xl bg-[#45c4a0]/15 text-[#45c4a0] flex items-center justify-center">
               <Radio className="size-4 animate-pulse" />
             </div>
-            <CardTitle>Live Charging Sessions</CardTitle>
+            <CardTitle>{t('dashboard.liveSessions', 'Live Charging Sessions')}</CardTitle>
           </div>
           <CardDescription>
-            Real-time power delivery & active transaction telemetry
+            {t('dashboard.liveSessionsDesc', 'Real-time power delivery & active transaction telemetry')}
           </CardDescription>
         </div>
         <div className="flex items-center gap-3">
           <Badge variant="soft-success" className="gap-1.5 px-3 py-1 text-xs">
             <span className="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            {sessions.length} Active {sessions.length === 1 ? 'Session' : 'Sessions'}
+            {sessions.length} {t('dashboard.activeSessions', 'Active Sessions')}
           </Badge>
           <Link href="/transactions">
             <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground">
-              View All <ArrowRight className="size-3.5 ml-1" />
+              {t('common.details', 'View All')} <ArrowRight className="size-3.5 ml-1" />
             </Button>
           </Link>
         </div>
@@ -51,16 +53,16 @@ export function LiveSessionsTable() {
         {isSessionsLoading ? (
           <div className="flex flex-col items-center justify-center p-12 text-muted-foreground gap-3">
             <div className="size-8 border-2 border-[#54a8c7] border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-xs font-medium">Fetching real-time sessions...</span>
+            <span className="text-xs font-medium">{t('common.loading', 'Loading...')}</span>
           </div>
         ) : sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground gap-2">
             <div className="size-12 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground mb-1">
               <Zap className="size-6" />
             </div>
-            <p className="font-semibold text-sm text-foreground">No Active Sessions</p>
+            <p className="font-semibold text-sm text-foreground">{t('dashboard.noActiveSessions', 'No Active Sessions')}</p>
             <p className="text-xs text-muted-foreground max-w-sm">
-              All charge points are currently idle or awaiting EV connection.
+              {t('dashboard.systemOverviewDesc', 'All charge points are currently idle or awaiting EV connection.')}
             </p>
           </div>
         ) : (

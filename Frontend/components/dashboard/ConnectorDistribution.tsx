@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Cpu, PieChart as PieIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useTranslation } from 'react-i18next';
 
 interface DistributionData {
   status: string;
@@ -23,6 +24,7 @@ const COLORS: Record<string, string> = {
 };
 
 export function ConnectorDistribution() {
+  const { t } = useTranslation();
   const [data, setData] = useState<DistributionData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -60,14 +62,14 @@ export function ConnectorDistribution() {
             <div className="size-8 rounded-xl bg-[#54a8c7]/15 text-[#54a8c7] flex items-center justify-center">
               <PieIcon className="size-4" />
             </div>
-            <CardTitle>Channel Status</CardTitle>
+            <CardTitle>{t('dashboard.connectorDistribution', 'Connector Distribution')}</CardTitle>
           </div>
           <Badge variant="outline" className="text-xs font-semibold">
-            {totalConnectors} Connectors
+            {totalConnectors} {t('chargers.connectors', 'Connectors')}
           </Badge>
         </div>
         <CardDescription>
-          Real-time connector availability distribution
+          {t('dashboard.energyOverviewDesc', 'Real-time connector availability distribution')}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-1 flex items-center justify-center min-h-[280px]">

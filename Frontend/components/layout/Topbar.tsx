@@ -98,7 +98,7 @@ export function Topbar() {
                 isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
               }`}
             />
-            {isConnected ? 'Live Sync Active' : 'Connecting...'}
+            {isConnected ? t('topbar.liveSyncActive', 'Live Sync Active') : t('topbar.connecting', 'Connecting...')}
           </Badge>
         </div>
       </div>
@@ -112,13 +112,13 @@ export function Topbar() {
               variant="ghost"
               size="icon-sm"
               className="rounded-xl text-muted-foreground hover:text-foreground"
-              title="Language"
+              title={t('topbar.language', 'Language')}
             >
               <Languages className="size-4" />
-              <span className="sr-only">Language switcher</span>
+              <span className="sr-only">{t('topbar.language', 'Language switcher')}</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="rounded-xl min-w-[130px]">
+          <DropdownMenuContent align="end" className="rounded-xl min-w-[140px]">
             <DropdownMenuItem
               onClick={() => i18n.changeLanguage('en')}
               className={i18n.language === 'en' ? 'font-bold text-primary' : ''}
@@ -131,6 +131,12 @@ export function Topbar() {
             >
               🇳🇱 Nederlands
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => i18n.changeLanguage('fr')}
+              className={i18n.language === 'fr' ? 'font-bold text-primary' : ''}
+            >
+              🇫🇷 Français
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -140,7 +146,7 @@ export function Topbar() {
           size="icon-sm"
           className="rounded-xl text-muted-foreground hover:text-foreground"
           onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-          title="Toggle Theme"
+          title={t('topbar.toggleTheme', 'Toggle Theme')}
         >
           <Sun className="size-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
           <Moon className="absolute size-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
@@ -189,7 +195,7 @@ export function Topbar() {
             <DropdownMenuItem asChild>
               <Link href="/ocpp" className="w-full cursor-pointer flex items-center gap-2 rounded-lg py-2">
                 <Activity className="size-4 text-muted-foreground" />
-                <span>OCPP Diagnostic Logs</span>
+                <span>{t('topbar.diagnosticLogs', 'OCPP Diagnostic Logs')}</span>
               </Link>
             </DropdownMenuItem>
 

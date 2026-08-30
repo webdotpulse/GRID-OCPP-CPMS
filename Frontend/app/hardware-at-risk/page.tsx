@@ -73,11 +73,11 @@ export default function HardwareAtRiskPage() {
               <ShieldAlert className="size-5" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight text-foreground">
-              Hardware Health & Predictive Maintenance
+              {t('hardwareAtRisk.title', 'Hardware Health & Predictive Maintenance')}
             </h1>
           </div>
           <p className="text-sm text-muted-foreground">
-            Automated fault detection, self-healing reboot logs, and technician work orders.
+            {t('hardwareAtRisk.subtitle', 'Automated fault detection, self-healing reboot logs, and technician work orders.')}
           </p>
         </div>
 
@@ -87,12 +87,14 @@ export default function HardwareAtRiskPage() {
           <Card hoverLift className="card-border-top-success">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="size-4.5" /> Fleet Health
+                <CheckCircle2 className="size-4.5" /> {t('hardwareAtRisk.fleetHealth', 'Fleet Health')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="text-3xl font-heading font-extrabold text-foreground">
-                {chargersAtRisk.size === 0 ? '100% Operational' : `${chargersAtRisk.size} Units At Risk`}
+                {chargersAtRisk.size === 0
+                  ? t('hardwareAtRisk.fullyOperational', '100% Operational')
+                  : `${chargersAtRisk.size} ${t('hardwareAtRisk.unitsAtRisk', 'Units At Risk')}`}
               </div>
               <p className="text-xs text-muted-foreground">
                 Continuous automated heartbeat & error code monitoring.
@@ -104,7 +106,7 @@ export default function HardwareAtRiskPage() {
           <Card hoverLift className="card-border-top-primary">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base text-[#54a8c7]">
-                <Sparkles className="size-4.5" /> Auto-Heal Interventions
+                <Sparkles className="size-4.5" /> {t('hardwareAtRisk.autoHealInterventions', 'Auto-Heal Interventions')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -121,7 +123,7 @@ export default function HardwareAtRiskPage() {
           <Card hoverLift>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base text-[#fab758]">
-                <Wrench className="size-4.5" /> Physical Service
+                <Wrench className="size-4.5" /> {t('hardwareAtRisk.physicalService', 'Physical Service')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -140,11 +142,11 @@ export default function HardwareAtRiskPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Recent Diagnostics & Auto-Healing Stream</CardTitle>
-                <CardDescription>Live diagnostic alerts and automated remediation logs</CardDescription>
+                <CardTitle>{t('hardwareAtRisk.recentDiagnostics', 'Recent Diagnostics & Auto-Healing Stream')}</CardTitle>
+                <CardDescription>{t('hardwareAtRisk.recentDiagnosticsDesc', 'Live diagnostic alerts and automated remediation logs')}</CardDescription>
               </div>
               <Badge variant="outline" className="text-xs font-semibold">
-                {events.length} Recorded Events
+                {events.length} {t('hardwareAtRisk.recordedEvents', 'Recorded Events')}
               </Badge>
             </div>
           </CardHeader>
@@ -152,8 +154,8 @@ export default function HardwareAtRiskPage() {
             {events.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground gap-2">
                 <CheckCircle2 className="size-10 text-emerald-500/50" />
-                <p className="font-bold text-sm text-foreground">All Hardware Operational</p>
-                <p className="text-xs text-muted-foreground">No hardware risk events or anomalies detected.</p>
+                <p className="font-bold text-sm text-foreground">{t('hardwareAtRisk.noEvents', 'All Hardware Operational')}</p>
+                <p className="text-xs text-muted-foreground">{t('hardwareAtRisk.noEventsDesc', 'No hardware risk events or anomalies detected.')}</p>
               </div>
             ) : (
               <div className="divide-y divide-border/40 p-4 pt-0">

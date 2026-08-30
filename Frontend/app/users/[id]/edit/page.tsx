@@ -212,6 +212,7 @@ export default function EditUserPage() {
                       <SelectContent>
                         <SelectItem value="en">English</SelectItem>
                         <SelectItem value="nl">Nederlands (Dutch)</SelectItem>
+                        <SelectItem value="fr">Français (French)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

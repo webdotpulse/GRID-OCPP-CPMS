@@ -38,7 +38,12 @@ export default function DashboardPage() {
 
   // Greeting based on time of day
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const greeting =
+    hour < 12
+      ? t('dashboard.goodMorning', 'Good morning')
+      : hour < 18
+      ? t('dashboard.goodAfternoon', 'Good afternoon')
+      : t('dashboard.goodEvening', 'Good evening');
 
   return (
     <AppShell>
@@ -52,7 +57,7 @@ export default function DashboardPage() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Badge variant="soft-primary" className="bg-[#54a8c7]/20 text-[#54a8c7] border-[#54a8c7]/30 text-xs font-semibold py-0.5 px-3">
-                  <Sparkles className="size-3 mr-1" /> Enterprise CPMS
+                  <Sparkles className="size-3 mr-1" /> {t('dashboard.enterpriseBadge', 'Enterprise CPMS')}
                 </Badge>
                 <span className="text-xs text-white/60">
                   {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
@@ -62,7 +67,7 @@ export default function DashboardPage() {
                 {greeting}, <span className="text-[#54a8c7]">{user?.email?.split('@')[0] || 'Operator'}</span>
               </h1>
               <p className="text-sm text-white/70 max-w-xl">
-                Real-time overview of your EV charging network, active sessions, grid telemetry, and dynamic load balancing.
+                {t('dashboard.heroSubtitle', 'Real-time overview of your EV charging network, active sessions, grid telemetry, and dynamic load balancing.')}
               </p>
             </div>
 
@@ -70,13 +75,13 @@ export default function DashboardPage() {
               <Link href="/chargers">
                 <Button variant="outline" className="rounded-xl bg-white/10 hover:bg-white/20 text-white border-white/20 shadow-none hover:text-white">
                   <Zap className="size-4 text-[#54a8c7]" />
-                  Charger Fleet
+                  {t('dashboard.chargerFleet', 'Charger Fleet')}
                 </Button>
               </Link>
               {(user?.role === 'admin' || user?.role === 'superadmin') && (
                 <Link href="/chargers/new">
                   <Button className="rounded-xl bg-[#54a8c7] hover:bg-[#54a8c7]/90 text-white shadow-md shadow-[#54a8c7]/30">
-                    <Plus className="size-4 mr-1" /> Add Charger
+                    <Plus className="size-4 mr-1" /> {t('dashboard.addCharger', 'Add Charger')}
                   </Button>
                 </Link>
               )}

@@ -134,7 +134,7 @@ OCPP-CPMS/
 │   ├── components/                     # Modular UI Components (shadcn/ui + Tailwind)
 │   ├── hooks/                          # React hooks (useAuth, useToast, etc.)
 │   ├── lib/                            # Axios API client, utils, logger
-│   ├── locales/                        # en.json, nl.json (i18n)
+│   ├── locales/                        # en.json, nl.json, fr.json (i18n)
 │   └── package.json
 │
 ├── Manual/                             # Technical & User Guides
@@ -162,7 +162,7 @@ OCPP-CPMS/
 | **UI Design System** | TailwindCSS + Radix UI (shadcn/ui) | Modern dark-mode enterprise UI |
 | **Drag & Drop** | `@dnd-kit/core` & `@dnd-kit/sortable` | Station ground plan interactive canvas |
 | **Mapping** | `leaflet` + `react-leaflet` | Geospatial charger & station map views |
-| **Internationalization** | `react-i18next` | Multi-language (English / Dutch) |
+| **Internationalization** | `react-i18next` | Multi-language (English / Dutch / French) |
 
 ---
 

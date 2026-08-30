@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import { MapPin, Navigation } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useTranslation } from 'react-i18next';
 import 'leaflet/dist/leaflet.css';
 
 // Dynamically import Leaflet components to avoid SSR window issues
@@ -30,6 +31,7 @@ const Popup = dynamic(
 );
 
 export function LocationsMap() {
+  const { t } = useTranslation();
   const [stations, setStations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
@@ -102,13 +104,13 @@ export function LocationsMap() {
             <div className="size-8 rounded-xl bg-[#3f78e0]/15 text-[#3f78e0] flex items-center justify-center">
               <MapPin className="size-4" />
             </div>
-            <CardTitle>Station Locations</CardTitle>
+            <CardTitle>{t('dashboard.locationsMap', 'Station Locations')}</CardTitle>
           </div>
           <Badge variant="soft-primary" className="text-xs font-semibold">
-            {stations.length} Active {stations.length === 1 ? 'Station' : 'Stations'}
+            {stations.length} {t('stations.title', 'Stations')}
           </Badge>
         </div>
-        <CardDescription>Geographic overview of your deployed charging network</CardDescription>
+        <CardDescription>{t('stations.subtitle', 'Geographic overview of your deployed charging network')}</CardDescription>
       </CardHeader>
       <CardContent className="flex-1 min-h-[340px] p-0 relative overflow-hidden rounded-b-2xl z-0">
         {isLoading || !icon ? (

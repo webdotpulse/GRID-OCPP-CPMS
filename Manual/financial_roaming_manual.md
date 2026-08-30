@@ -32,7 +32,7 @@ flowchart TD
 
 ### Invoicing & Automated Billing Suite ("Facturen")
 
-The platform provides a complete enterprise invoicing subsystem located under `/invoices` (localized in Dutch as **Facturen**), supporting both B2B corporate billing and private subscriber accounting.
+The platform provides a complete enterprise invoicing subsystem located under `/invoices` (localized in Dutch as **Facturen** and French as **Factures**), supporting both B2B corporate billing and private subscriber accounting.
 
 ```mermaid
 flowchart LR

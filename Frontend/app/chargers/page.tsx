@@ -4,6 +4,7 @@ import { logger } from "@/lib/logger";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/layout/AppShell";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export default function ChargersPage() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [chargers, setChargers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -62,7 +64,7 @@ export default function ChargersPage() {
   }, [fetchChargers]);
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this charger?")) return;
+    if (!confirm(t('chargers.deleteConfirm', "Are you sure you want to delete this charger?"))) return;
     try {
       await api.delete(`/chargers/${id}`);
       setChargers(chargers.filter(c => c.charger_id !== id));
@@ -78,7 +80,7 @@ export default function ChargersPage() {
       return (
         <Badge variant="soft-success" className="gap-1 px-2.5 py-0.5 text-[11px] font-bold">
           <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          ONLINE
+          {t('chargers.statusOnline', 'ONLINE')}
         </Badge>
       );
     }
@@ -86,7 +88,7 @@ export default function ChargersPage() {
       return (
         <Badge variant="soft-primary" className="gap-1 px-2.5 py-0.5 text-[11px] font-bold">
           <span className="size-1.5 rounded-full bg-[#54a8c7] animate-pulse" />
-          CHARGING
+          {t('chargers.statusCharging', 'CHARGING')}
         </Badge>
       );
     }
@@ -94,14 +96,14 @@ export default function ChargersPage() {
       return (
         <Badge variant="soft-danger" className="gap-1 px-2.5 py-0.5 text-[11px] font-bold">
           <span className="size-1.5 rounded-full bg-rose-500" />
-          FAULTED
+          {t('chargers.statusFaulted', 'FAULTED')}
         </Badge>
       );
     }
     return (
       <Badge variant="soft-secondary" className="gap-1 px-2.5 py-0.5 text-[11px] font-bold">
         <span className="size-1.5 rounded-full bg-slate-400" />
-        OFFLINE
+        {t('chargers.statusOffline', 'OFFLINE')}
       </Badge>
     );
   };
@@ -160,11 +162,11 @@ export default function ChargersPage() {
                 <Zap className="size-5" />
               </div>
               <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight text-foreground">
-                Charging Fleet
+                {t('chargers.title', 'Charging Fleet')}
               </h1>
             </div>
             <p className="text-sm text-muted-foreground">
-              Monitor, configure, and operate OCPP charge points in real-time.
+              {t('chargers.subtitle', 'Monitor, configure, and operate OCPP charge points in real-time.')}
             </p>
           </div>
 
@@ -172,14 +174,14 @@ export default function ChargersPage() {
             {(user?.role === "admin" || user?.role === "superadmin") && (
               <Link href="/chargers/unrecognized">
                 <Button variant="outline" className="rounded-xl">
-                  Unrecognized
+                  {t('chargers.unrecognized', 'Unrecognized')}
                 </Button>
               </Link>
             )}
             {(user?.role === "admin" || user?.role === "superadmin") && (
               <Link href="/chargers/new">
                 <Button className="rounded-xl bg-[#54a8c7] hover:bg-[#54a8c7]/90 text-white shadow-md shadow-[#54a8c7]/20">
-                  <Plus className="size-4 mr-1.5" /> Add Charger
+                  <Plus className="size-4 mr-1.5" /> {t('chargers.addCharger', 'Add Charger')}
                 </Button>
               </Link>
             )}
@@ -191,7 +193,7 @@ export default function ChargersPage() {
           <div className="relative w-full md:max-w-md">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
-              placeholder="Search by identity, location, manufacturer..."
+              placeholder={t('chargers.searchPlaceholder', 'Search by identity, location, manufacturer...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 h-9.5 bg-muted/40 border-border/60"
@@ -201,11 +203,11 @@ export default function ChargersPage() {
           {/* Status Filter Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
             {[
-              { label: 'All', value: 'ALL' },
-              { label: 'Online', value: 'ONLINE' },
-              { label: 'Charging', value: 'CHARGING' },
-              { label: 'Faulted', value: 'FAULTED' },
-              { label: 'Offline', value: 'OFFLINE' },
+              { label: t('chargers.filterAll', 'All'), value: 'ALL' },
+              { label: t('chargers.filterOnline', 'Online'), value: 'ONLINE' },
+              { label: t('chargers.filterCharging', 'Charging'), value: 'CHARGING' },
+              { label: t('chargers.filterFaulted', 'Faulted'), value: 'FAULTED' },
+              { label: t('chargers.filterOffline', 'Offline'), value: 'OFFLINE' },
             ].map((tab) => (
               <button
                 key={tab.value}
@@ -228,25 +230,25 @@ export default function ChargersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
-                  <div className="flex items-center gap-1.5">Charge Point <ArrowUpDown className="size-3" /></div>
+                  <div className="flex items-center gap-1.5">{t('chargers.colChargePoint', 'Charge Point')} <ArrowUpDown className="size-3" /></div>
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('location')}>
-                  <div className="flex items-center gap-1.5">Station Location <ArrowUpDown className="size-3" /></div>
+                  <div className="flex items-center gap-1.5">{t('chargers.colLocation', 'Station Location')} <ArrowUpDown className="size-3" /></div>
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('charge_group')}>
-                  <div className="flex items-center gap-1.5">Charge Group <ArrowUpDown className="size-3" /></div>
+                  <div className="flex items-center gap-1.5">{t('chargers.colGroup', 'Charge Group')} <ArrowUpDown className="size-3" /></div>
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('manufacturer_model')}>
-                  <div className="flex items-center gap-1.5">Hardware <ArrowUpDown className="size-3" /></div>
+                  <div className="flex items-center gap-1.5">{t('chargers.colHardware', 'Hardware')} <ArrowUpDown className="size-3" /></div>
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
-                  <div className="flex items-center gap-1.5">Status <ArrowUpDown className="size-3" /></div>
+                  <div className="flex items-center gap-1.5">{t('chargers.colStatus', 'Status')} <ArrowUpDown className="size-3" /></div>
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('last_heartbeat')}>
-                  <div className="flex items-center gap-1.5">Heartbeat <ArrowUpDown className="size-3" /></div>
+                  <div className="flex items-center gap-1.5">{t('chargers.colHeartbeat', 'Heartbeat')} <ArrowUpDown className="size-3" /></div>
                 </TableHead>
                 {(user?.role === "admin" || user?.role === "superadmin") && (
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-right">{t('chargers.colActions', 'Actions')}</TableHead>
                 )}
               </TableRow>
             </TableHeader>
@@ -265,8 +267,8 @@ export default function ChargersPage() {
                   <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-1.5">
                       <Zap className="size-8 text-muted-foreground/50" />
-                      <p className="font-semibold text-foreground text-sm">No Chargers Found</p>
-                      <p className="text-xs text-muted-foreground">Try adjusting your search query or filters.</p>
+                      <p className="font-semibold text-foreground text-sm">{t('chargers.noChargersFound', 'No Chargers Found')}</p>
+                      <p className="text-xs text-muted-foreground">{t('chargers.noChargersDesc', 'Try adjusting your search query or filters.')}</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -348,11 +350,15 @@ export default function ChargersPage() {
         {/* Pagination */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
           <div className="text-xs text-muted-foreground">
-            Showing <span className="font-semibold text-foreground">{filteredChargers.length}</span> of{" "}
-            <span className="font-semibold text-foreground">{totalCount}</span> units
+            {t('common.showing', 'Showing')}{" "}
+            <span className="font-semibold text-foreground">{filteredChargers.length}</span>{" "}
+            {t('common.of', 'of')}{" "}
+            <span className="font-semibold text-foreground">{totalCount}</span>{" "}
+            {t('common.units', 'units')}
             {totalPages > 1 && (
               <span className="ml-1">
-                (Page <span className="font-semibold text-foreground">{page}</span> of{" "}
+                ({t('common.page', 'Page')} <span className="font-semibold text-foreground">{page}</span>{" "}
+                {t('common.of', 'of')}{" "}
                 <span className="font-semibold text-foreground">{totalPages}</span>)
               </span>
             )}
@@ -365,7 +371,7 @@ export default function ChargersPage() {
               disabled={page <= 1 || isLoading}
               className="h-8.5 px-3 rounded-xl"
             >
-              <ChevronLeft className="size-4 mr-1" /> Previous
+              <ChevronLeft className="size-4 mr-1" /> {t('common.previous', 'Previous')}
             </Button>
             <div className="text-xs font-semibold px-3 py-1.5 bg-card rounded-xl border border-border/80 min-w-[3.5rem] text-center shadow-2xs">
               {page} / {totalPages || 1}
@@ -377,7 +383,7 @@ export default function ChargersPage() {
               disabled={page >= totalPages || isLoading}
               className="h-8.5 px-3 rounded-xl"
             >
-              Next <ChevronRight className="size-4 ml-1" />
+              {t('common.next', 'Next')} <ChevronRight className="size-4 ml-1" />
             </Button>
           </div>
         </div>

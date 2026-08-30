@@ -161,7 +161,7 @@ flowchart TD
 - Dark-mode executive analytics with real-time KPI tiles, power draw gauges, and revenue trends.
 - Interactive geospatial station mapping using `react-leaflet` with clustered status indicators.
 - Live active session monitor with continuous duration counters, energy metering, and dynamic charts.
-- Full internationalization support (`react-i18next`) with English and Dutch locale dictionaries.
+- Full internationalization support (`react-i18next`) with English, Dutch, and French locale dictionaries.
 
 ### 🗺️ Interactive 2D Ground Plan Builder & Floor Monitor
 - Visual drag-and-drop canvas powered by `@dnd-kit` for station parking bay layouts.
@@ -341,7 +341,7 @@ OCPP-CPMS/
 │   ├── components/                     # Modular UI Components (shadcn/ui + Tailwind)
 │   ├── hooks/                          # React hooks (useAuth, useToast, etc.)
 │   ├── lib/                            # Axios API client, utils, logger
-│   ├── locales/                        # en.json, nl.json (i18n)
+│   ├── locales/                        # en.json, nl.json, fr.json (i18n)
 │   └── package.json
 │
 ├── Manual/                             # Comprehensive Technical & Operational Manuals
@@ -370,7 +370,7 @@ OCPP-CPMS/
 | **UI Design System** | TailwindCSS + Radix UI (shadcn/ui) | Modern dark-mode enterprise UI |
 | **Drag & Drop Canvas** | `@dnd-kit/core` & `@dnd-kit/sortable` | Station ground plan interactive 2D builder |
 | **Geospatial Mapping** | `leaflet` + `react-leaflet` | Geospatial charger & station map views |
-| **Internationalization** | `react-i18next` | Multi-language (English / Dutch) |
+| **Internationalization** | `react-i18next` | Multi-language (English / Dutch / French) |
 
 ---
 

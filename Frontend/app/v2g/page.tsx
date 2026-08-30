@@ -19,11 +19,11 @@ export default function V2GPage() {
               <Radio className="size-5" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight text-foreground">
-              Vehicle-to-Grid (V2G) Orchestration
+              {t('v2g.title', 'Vehicle-to-Grid (V2G) Orchestration')}
             </h1>
           </div>
           <p className="text-sm text-muted-foreground">
-            Bi-directional charging controls, minimum state-of-charge reserve thresholds, and grid arbitrage.
+            {t('v2g.subtitle', 'Bi-directional charging controls, minimum state-of-charge reserve thresholds, and grid arbitrage.')}
           </p>
         </div>
 

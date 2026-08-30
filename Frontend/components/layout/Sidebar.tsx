@@ -41,6 +41,7 @@ interface NavItem {
 
 interface NavSection {
   title?: string;
+  titleKey?: string;
   items: NavItem[];
 }
 
@@ -80,12 +81,13 @@ export function Sidebar({
       items: [
         { key: 'nav.dashboard', path: '/dashboard', icon: LayoutDashboard },
         ...(liveViewStationId && user?.role !== 'admin' && user?.role !== 'superadmin'
-          ? [{ key: 'Live View', path: `/stations/${liveViewStationId}/live`, icon: Monitor }]
+          ? [{ key: 'nav.liveView', path: `/stations/${liveViewStationId}/live`, icon: Monitor }]
           : []),
       ],
     },
     {
       title: 'Infrastructure',
+      titleKey: 'nav.sections.infrastructure',
       items: [
         { key: 'nav.chargers', path: '/chargers', icon: Zap },
         { key: 'nav.locations', path: '/stations', icon: MapPin },
@@ -94,6 +96,7 @@ export function Sidebar({
     },
     {
       title: 'Fleet & Access',
+      titleKey: 'nav.sections.fleetAndAccess',
       items: [
         { key: 'nav.rfidTags', path: '/rfid', icon: CreditCard },
         { key: 'nav.vehicleIdentity', path: '/vehicle-identity-management', icon: Car },
@@ -106,12 +109,14 @@ export function Sidebar({
     },
     {
       title: 'Energy & Smart Grid',
+      titleKey: 'nav.sections.energyAndSmartGrid',
       items: [
         { key: 'nav.v2g', path: '/v2g', icon: Radio },
       ],
     },
     {
       title: 'Operations',
+      titleKey: 'nav.sections.operations',
       items: [
         { key: 'nav.customers', path: '/users', icon: Users, adminOnly: true },
         { key: 'nav.hardwareAtRisk', path: '/hardware-at-risk', icon: AlertCircle },
@@ -175,7 +180,7 @@ export function Sidebar({
             <div key={section.title || sIdx} className="space-y-1">
               {!isCollapsed && section.title && (
                 <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-[#60697b] mb-1.5">
-                  {section.title}
+                  {section.titleKey ? t(section.titleKey, section.title) : section.title}
                 </p>
               )}
               <div className="space-y-1">
