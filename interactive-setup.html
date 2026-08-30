@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OCPP-CPMS | Interactive Deployment & Setup Wizard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
     <style>
         :root {
             --bg-body: #0b0f17;
@@ -126,7 +129,9 @@
             gap: 10px;
         }
 
-        .theme-toggle, .btn-secondary, .btn-primary {
+        .theme-toggle,
+        .btn-secondary,
+        .btn-primary {
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -146,6 +151,7 @@
             border-color: var(--border-color);
             color: var(--text-primary);
         }
+
         .theme-toggle:hover {
             border-color: var(--accent-blue);
         }
@@ -155,6 +161,7 @@
             color: #ffffff;
             box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
         }
+
         .btn-primary:hover {
             transform: translateY(-1px);
             box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
@@ -165,6 +172,7 @@
             border-color: var(--border-color);
             color: var(--text-primary);
         }
+
         .btn-secondary:hover {
             border-color: var(--text-muted);
             background-color: var(--bg-card-subtle);
@@ -271,7 +279,9 @@
             align-items: center;
         }
 
-        input[type="text"], input[type="password"], select {
+        input[type="text"],
+        input[type="password"],
+        select {
             width: 100%;
             padding: 10px 14px;
             background-color: var(--bg-card-subtle);
@@ -283,7 +293,8 @@
             transition: all 0.2s ease;
         }
 
-        input:focus, select:focus {
+        input:focus,
+        select:focus {
             outline: none;
             border-color: var(--accent-blue);
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
@@ -368,8 +379,15 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         /* 1-Click Installer Hero Box */
@@ -588,8 +606,15 @@
         }
 
         @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
 
         /* Responsive */
@@ -598,16 +623,19 @@
                 flex-direction: column;
                 align-items: flex-start;
             }
+
             .header-actions {
                 width: 100%;
                 justify-content: space-between;
             }
+
             .form-grid {
                 grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
+
 <body>
 
     <div class="container">
@@ -624,7 +652,8 @@
                 <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()">
                     <span id="theme-icon">☀️</span> Light Mode
                 </button>
-                <a href="https://github.com/webdotpulse/OCPP-CPMS" target="_blank" class="btn-secondary" style="text-decoration:none;">
+                <a href="https://github.com/webdotpulse/OCPP-CPMS" target="_blank" class="btn-secondary"
+                    style="text-decoration:none;">
                     GitHub Repo ↗
                 </a>
             </div>
@@ -658,12 +687,14 @@
             <div class="form-grid">
                 <div class="form-group">
                     <label for="frontendUrl">Frontend Dashboard Domain</label>
-                    <input type="text" id="frontendUrl" value="ui.mobilitypulse.com" data-key="frontendUrl" placeholder="ui.yourdomain.com">
+                    <input type="text" id="frontendUrl" value="cpo.thechargegrid.com" data-key="frontendUrl"
+                        placeholder="ui.yourdomain.com">
                 </div>
 
                 <div class="form-group">
                     <label for="backendUrl">Backend API &amp; OCPP Domain</label>
-                    <input type="text" id="backendUrl" value="ocpp.mobilitypulse.com" data-key="backendUrl" placeholder="ocpp.yourdomain.com">
+                    <input type="text" id="backendUrl" value="ocpp.thechargegrid.com" data-key="backendUrl"
+                        placeholder="ocpp.yourdomain.com">
                 </div>
 
                 <div class="form-group">
@@ -696,14 +727,18 @@
                         <label for="jwtSecret">JWT Secret (64-Hex)</label>
                     </div>
                     <div class="input-wrapper">
-                        <input type="text" id="jwtSecret" value="4f9d8a7c2e1b3d5f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a4c6e8b0d2f" data-key="jwtSecret">
-                        <button class="btn-input-action" onclick="generateSingleSecret('jwtSecret', 'hex')">🎲 Rand</button>
+                        <input type="text" id="jwtSecret"
+                            value="4f9d8a7c2e1b3d5f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a4c6e8b0d2f"
+                            data-key="jwtSecret">
+                        <button class="btn-input-action" onclick="generateSingleSecret('jwtSecret', 'hex')">🎲
+                            Rand</button>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label for="superadminEmail">Primary Superadmin Email</label>
-                    <input type="text" id="superadminEmail" value="superadmin@mobilitypulse.com" data-key="superadminEmail">
+                    <input type="text" id="superadminEmail" value="superadmin@thechargegrid.com"
+                        data-key="superadminEmail">
                 </div>
 
                 <div class="form-group">
@@ -711,8 +746,10 @@
                         <label for="superadminPassword">Superadmin Password</label>
                     </div>
                     <div class="input-wrapper">
-                        <input type="text" id="superadminPassword" value="SuperSecureAdmin2026!" data-key="superadminPassword">
-                        <button class="btn-input-action" onclick="generateSingleSecret('superadminPassword')">🎲 Rand</button>
+                        <input type="text" id="superadminPassword" value="SuperSecureAdmin2026!"
+                            data-key="superadminPassword">
+                        <button class="btn-input-action" onclick="generateSingleSecret('superadminPassword')">🎲
+                            Rand</button>
                     </div>
                 </div>
 
@@ -737,13 +774,15 @@
 
                 <div class="form-group">
                     <label for="gitRepo">Git Repository URL</label>
-                    <input type="text" id="gitRepo" value="https://github.com/webdotpulse/OCPP-CPMS.git" data-key="gitRepo">
+                    <input type="text" id="gitRepo" value="https://github.com/webdotpulse/GRID-OCPP-CPMS.git"
+                        data-key="gitRepo">
                 </div>
             </div>
 
             <div class="form-actions">
                 <div style="color:var(--text-muted); font-size:0.8125rem; display:flex; align-items:center; gap:6px;">
-                    <span>💾</span> Inputs are automatically saved to browser storage. All scripts and manual snippets update in real time.
+                    <span>💾</span> Inputs are automatically saved to browser storage. All scripts and manual snippets
+                    update in real time.
                 </div>
             </div>
         </div>
@@ -765,7 +804,9 @@
                     <span>⚡</span> 1-Command Automated VM Deployment
                 </div>
                 <div class="hero-subtitle">
-                    Run this single command on your clean Ubuntu 22.04/24.04 or Debian 12 VM. It fully installs Node 24, PM2, Postgres, Redis, Nginx, Certbot SSL, builds both apps, and configures the Superadmin user in &lt; 5 minutes.
+                    Run this single command on your clean Ubuntu 22.04/24.04 or Debian 12 VM. It fully installs Node 24,
+                    PM2, Postgres, Redis, Nginx, Certbot SSL, builds both apps, and configures the Superadmin user in
+                    &lt; 5 minutes.
                 </div>
 
                 <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
@@ -806,7 +847,9 @@
         <div id="tab-manual" class="tab-pane">
             <div class="alert-box alert-info">
                 <span>ℹ️</span>
-                <div>All command snippets below automatically reflect your custom domains, database credentials, and superadmin configuration. Click <strong>Copy</strong> on any block to paste directly into your terminal.</div>
+                <div>All command snippets below automatically reflect your custom domains, database credentials, and
+                    superadmin configuration. Click <strong>Copy</strong> on any block to paste directly into your
+                    terminal.</div>
             </div>
 
             <!-- Step 1 -->
@@ -818,7 +861,8 @@
                     </div>
                     <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
                 </div>
-                <div class="step-desc">Update system repositories and open HTTP (80), HTTPS (443), and SSH (22) in UFW firewall.</div>
+                <div class="step-desc">Update system repositories and open HTTP (80), HTTPS (443), and SSH (22) in UFW
+                    firewall.</div>
                 <div class="code-container">
                     <pre><code>sudo apt update && sudo apt upgrade -y
 sudo apt install -y git curl wget ufw build-essential openssl
@@ -837,11 +881,13 @@ sudo ufw --force enable</code></pre>
                 <div class="step-header">
                     <div class="step-title-group">
                         <div class="step-number">2</div>
-                        <div class="step-title">Install Runtime Dependencies (Node 24, PostgreSQL, Redis, Nginx, Certbot)</div>
+                        <div class="step-title">Install Runtime Dependencies (Node 24, PostgreSQL, Redis, Nginx,
+                            Certbot)</div>
                     </div>
                     <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
                 </div>
-                <div class="step-desc">Install Node.js 24 LTS, PM2 with log rotation, PostgreSQL 15+, Redis Server, Nginx, and Certbot.</div>
+                <div class="step-desc">Install Node.js 24 LTS, PM2 with log rotation, PostgreSQL 15+, Redis Server,
+                    Nginx, and Certbot.</div>
                 <div class="code-container">
                     <pre><code># Install Node.js 24 LTS via NodeSource
 curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
@@ -869,7 +915,8 @@ sudo systemctl start postgresql redis-server nginx</code></pre>
                     </div>
                     <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
                 </div>
-                <div class="step-desc">Create PostgreSQL database and user with UTF-8 encoding and schema permissions.</div>
+                <div class="step-desc">Create PostgreSQL database and user with UTF-8 encoding and schema permissions.
+                </div>
                 <div class="code-container">
                     <pre><code>sudo -u postgres psql -c "CREATE DATABASE <span class="var-dbName">ocpp_cms</span>;"
 sudo -u postgres psql -c "CREATE USER <span class="var-dbUser">cms_user</span> WITH PASSWORD '<span class="var-dbPassword">cms_secure_pass_2026</span>';"
@@ -890,7 +937,8 @@ sudo -u postgres psql -d <span class="var-dbName">ocpp_cms</span> -c "GRANT ALL 
                     </div>
                     <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
                 </div>
-                <div class="step-desc">Clone repository, create Backend environment file, synchronize Prisma schema, and build TypeScript.</div>
+                <div class="step-desc">Clone repository, create Backend environment file, synchronize Prisma schema, and
+                    build TypeScript.</div>
                 <div class="code-container">
                     <pre><code>sudo mkdir -p <span class="var-installPath">/var/www/ocpp-cms</span>
 sudo chown -R $USER:$USER <span class="var-installPath">/var/www/ocpp-cms</span>
@@ -928,7 +976,8 @@ npm run build</code></pre>
                     </div>
                     <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
                 </div>
-                <div class="step-desc">Install Frontend dependencies, configure API URL, and build the Next.js production bundle.</div>
+                <div class="step-desc">Install Frontend dependencies, configure API URL, and build the Next.js
+                    production bundle.</div>
                 <div class="code-container">
                     <pre><code>cd <span class="var-installPath">/var/www/ocpp-cms</span>/Frontend
 
@@ -952,7 +1001,8 @@ npm run build</code></pre>
                     </div>
                     <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
                 </div>
-                <div class="step-desc">Create the PM2 ecosystem file, start backend and frontend, and register systemd boot auto-restart.</div>
+                <div class="step-desc">Create the PM2 ecosystem file, start backend and frontend, and register systemd
+                    boot auto-restart.</div>
                 <div class="code-container">
                     <pre><code>cd <span class="var-installPath">/var/www/ocpp-cms</span>
 
@@ -972,7 +1022,8 @@ pm2 startup</code></pre>
                     </div>
                     <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
                 </div>
-                <div class="step-desc">Configure Nginx to proxy Frontend on port 3002, REST API on port 3000, OCPP WebSockets on port 9220, and Logs on 3001.</div>
+                <div class="step-desc">Configure Nginx to proxy Frontend on port 3002, REST API on port 3000, OCPP
+                    WebSockets on port 9220, and Logs on 3001.</div>
                 <div class="code-container">
                     <pre><code>sudo tee /etc/nginx/sites-available/ocpp-cpms.conf &gt; /dev/null &lt;&lt;'EOT'
 # 1. Frontend Dashboard
@@ -1068,7 +1119,8 @@ sudo nginx -t && sudo systemctl restart nginx</code></pre>
                     </div>
                     <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
                 </div>
-                <div class="step-desc">Fetch Let's Encrypt SSL certificates and create your primary Superadmin user.</div>
+                <div class="step-desc">Fetch Let's Encrypt SSL certificates and create your primary Superadmin user.
+                </div>
                 <div class="code-container">
                     <pre><code># Obtain SSL Certificates
 sudo certbot --nginx -d <span class="var-frontendUrl">ui.mobilitypulse.com</span> -d <span class="var-backendUrl">ocpp.mobilitypulse.com</span>
@@ -1089,7 +1141,8 @@ npm run create-superadmin -- "<span class="var-superadminEmail">superadmin@mobil
                     </div>
                     <button class="btn-copy" onclick="copyCodeBlock(this)">Copy All Commands</button>
                 </div>
-                <div class="step-desc">Run the entire CPMS stack locally on your workstation for development, simulation, and testing.</div>
+                <div class="step-desc">Run the entire CPMS stack locally on your workstation for development,
+                    simulation, and testing.</div>
                 <div class="code-container">
                     <pre><code># 1. Start PostgreSQL & Redis locally (or via Docker)
 docker run -d --name ocpp-postgres -p 5432:5432 -e POSTGRES_DB=ocpp_cms -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres postgres:16-alpine
@@ -1130,37 +1183,43 @@ npm run dev
                     <div class="port-item">
                         <div class="port-badge">PORT 3002 (HTTP)</div>
                         <div class="port-name">Next.js Frontend</div>
-                        <div class="port-desc">Admin Dashboard UI (served via Nginx on <code>https://<span class="var-frontendUrl">ui.mobilitypulse.com</span></code>)</div>
+                        <div class="port-desc">Admin Dashboard UI (served via Nginx on
+                            <code>https://<span class="var-frontendUrl">ui.mobilitypulse.com</span></code>)</div>
                     </div>
 
                     <div class="port-item">
                         <div class="port-badge">PORT 3000 (HTTP/WS)</div>
                         <div class="port-name">Express REST API &amp; Socket.IO</div>
-                        <div class="port-desc">API endpoints (<code>/api/*</code>) &amp; Real-time Socket.IO stream (<code>/api/realtime/</code>)</div>
+                        <div class="port-desc">API endpoints (<code>/api/*</code>) &amp; Real-time Socket.IO stream
+                            (<code>/api/realtime/</code>)</div>
                     </div>
 
                     <div class="port-item">
                         <div class="port-badge">PORT 9220 (WS/WSS)</div>
                         <div class="port-name">OCPP WebSocket Server</div>
-                        <div class="port-desc">OCPP 1.6-J &amp; 2.1 JSON WebSocket listener (<code>/OCPP/[1.6|2.1]/{id}</code>)</div>
+                        <div class="port-desc">OCPP 1.6-J &amp; 2.1 JSON WebSocket listener
+                            (<code>/OCPP/[1.6|2.1]/{id}</code>)</div>
                     </div>
 
                     <div class="port-item">
                         <div class="port-badge">PORT 3001 (WS)</div>
                         <div class="port-name">OCPP Live Logs WS</div>
-                        <div class="port-desc">Raw JSON-RPC packet stream for Live Packet Inspector (<code>/api/ocpp/logs</code>)</div>
+                        <div class="port-desc">Raw JSON-RPC packet stream for Live Packet Inspector
+                            (<code>/api/ocpp/logs</code>)</div>
                     </div>
 
                     <div class="port-item">
                         <div class="port-badge">PORT 5432 (TCP)</div>
                         <div class="port-name">PostgreSQL 15+</div>
-                        <div class="port-desc">Relational database storing stations, chargers, transactions, tariffs, and invoices</div>
+                        <div class="port-desc">Relational database storing stations, chargers, transactions, tariffs,
+                            and invoices</div>
                     </div>
 
                     <div class="port-item">
                         <div class="port-badge">PORT 6379 (TCP)</div>
                         <div class="port-name">Redis 7+</div>
-                        <div class="port-desc">In-memory telemetry caching, rate limiter, and BullMQ worker job queues</div>
+                        <div class="port-desc">In-memory telemetry caching, rate limiter, and BullMQ worker job queues
+                        </div>
                     </div>
                 </div>
 
@@ -1168,8 +1227,10 @@ npm run dev
                     <span>⚡</span>
                     <div>
                         <strong>Charger Connection Endpoints:</strong><br>
-                        &bull; <strong>OCPP 1.6-J:</strong> <code>wss://<span class="var-backendUrl">ocpp.mobilitypulse.com</span>/OCPP/1.6/{chargerId}</code><br>
-                        &bull; <strong>OCPP 2.1 / 2.0.1:</strong> <code>wss://<span class="var-backendUrl">ocpp.mobilitypulse.com</span>/OCPP/2.1/{chargerId}</code>
+                        &bull; <strong>OCPP 1.6-J:</strong>
+                        <code>wss://<span class="var-backendUrl">ocpp.mobilitypulse.com</span>/OCPP/1.6/{chargerId}</code><br>
+                        &bull; <strong>OCPP 2.1 / 2.0.1:</strong>
+                        <code>wss://<span class="var-backendUrl">ocpp.mobilitypulse.com</span>/OCPP/2.1/{chargerId}</code>
                     </div>
                 </div>
             </div>
@@ -1184,7 +1245,8 @@ npm run dev
                     </div>
                     <button class="btn-copy" onclick="copyCodeBlock(this)">Copy Diagnostics</button>
                 </div>
-                <div class="step-desc">Run these diagnostic commands on your VM to verify all services are running properly.</div>
+                <div class="step-desc">Run these diagnostic commands on your VM to verify all services are running
+                    properly.</div>
                 <div class="code-container">
                     <pre><code># 1. Check PM2 Application Status
 pm2 status
@@ -1219,7 +1281,8 @@ pm2 logs --lines 50</code></pre>
                 </div>
                 <div class="alert-box alert-warning">
                     <span>⚠️</span>
-                    <div><strong>Caution:</strong> Running these commands will completely wipe the database, delete application files, stop PM2 services, and remove Nginx configurations.</div>
+                    <div><strong>Caution:</strong> Running these commands will completely wipe the database, delete
+                        application files, stop PM2 services, and remove Nginx configurations.</div>
                 </div>
                 <div class="code-container">
                     <pre><code># 1. Stop & Remove PM2 Processes
@@ -1764,4 +1827,5 @@ echo "=========================================================="
         loadSavedState();
     </script>
 </body>
+
 </html>
