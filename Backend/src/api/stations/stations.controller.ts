@@ -44,7 +44,7 @@ export const getAllStations = async (req: Request, res: Response) => {
         where,
         include: {
           owner: { select: { id: true, email: true } },
-        parkingSpots: true,
+          parkingSpots: true,
           chargers: {
             include: { evses: { include: { connectors: true } } },
           },
@@ -56,7 +56,14 @@ export const getAllStations = async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      data: stations.map(s => ({ ...s, owner: s.owner ? sanitizeUser(s.owner) : s.owner })),
+      data: stations.map(s => ({
+        ...s,
+        owner: s.owner ? sanitizeUser(s.owner) : s.owner,
+        _count: {
+          chargers: Array.isArray(s.chargers) ? s.chargers.length : 0,
+          parkingSpots: Array.isArray(s.parkingSpots) ? s.parkingSpots.length : 0,
+        },
+      })),
       pagination: {
         page: Number(page),
         limit: take,
@@ -120,7 +127,16 @@ export const getStationById = async (req: Request, res: Response) => {
       station.owner = sanitizeUser(station.owner) as any;
     }
 
-    res.json({ success: true, data: station });
+    res.json({
+      success: true,
+      data: {
+        ...station,
+        _count: {
+          chargers: Array.isArray(station.chargers) ? station.chargers.length : 0,
+          parkingSpots: Array.isArray(station.parkingSpots) ? station.parkingSpots.length : 0,
+        },
+      },
+    });
   } catch (error) {
     logger.error(`Error getting station: ${error}`);
     res.status(500).json({

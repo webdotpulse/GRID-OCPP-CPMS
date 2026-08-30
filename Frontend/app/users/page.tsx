@@ -738,12 +738,12 @@ export default function UsersAdminPage() {
                     users.map((u) => (
                       <TableRow key={u.id} className="hover:bg-[#54a8c7]/5 transition-colors">
                         <TableCell className="font-medium">
-                          <div className="flex items-center gap-3">
-                            <div className="size-9 rounded-xl bg-gradient-to-br from-[#54a8c7]/20 to-[#3f78e0]/20 border border-[#54a8c7]/30 flex items-center justify-center text-xs font-black text-[#54a8c7] shrink-0">
+                          <Link href={`/users/${u.id}`} className="group flex items-center gap-3 hover:opacity-90 transition-opacity">
+                            <div className="size-9 rounded-xl bg-gradient-to-br from-[#54a8c7]/20 to-[#3f78e0]/20 border border-[#54a8c7]/30 flex items-center justify-center text-xs font-black text-[#54a8c7] shrink-0 group-hover:scale-105 transition-transform">
                               {(u.name || u.email || "U").charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <div className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                              <div className="font-bold text-sm text-foreground flex items-center gap-1.5 group-hover:text-[#54a8c7] transition-colors">
                                 {u.name || u.email?.split("@")[0]}
                                 {u.id === currentUser?.id && (
                                   <span className="text-[10px] text-[#54a8c7] font-semibold bg-[#54a8c7]/10 px-1.5 py-0.2 rounded-md">
@@ -753,7 +753,7 @@ export default function UsersAdminPage() {
                               </div>
                               <div className="text-xs text-muted-foreground">{u.email}</div>
                             </div>
-                          </div>
+                          </Link>
                         </TableCell>
 
                         <TableCell>
@@ -820,6 +820,11 @@ export default function UsersAdminPage() {
                               <DropdownMenuLabel className="text-xs font-bold text-muted-foreground uppercase">
                                 Manage Account
                               </DropdownMenuLabel>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/users/${u.id}`} className="flex items-center gap-2 cursor-pointer">
+                                  <UserIcon className="size-3.5 text-[#54a8c7]" /> View Profile
+                                </Link>
+                              </DropdownMenuItem>
                               <DropdownMenuItem asChild>
                                 <Link href={`/users/${u.id}/edit`} className="flex items-center gap-2 cursor-pointer">
                                   <Edit className="size-3.5 text-foreground" /> Edit Details
@@ -1541,6 +1546,11 @@ export default function UsersAdminPage() {
                 </div>
 
                 <div className="pt-4 flex justify-end gap-2">
+                  <Link href={`/users/${selectedUserForDetails.id}`}>
+                    <Button variant="outline" className="rounded-xl gap-1.5 font-semibold text-xs border-border/80">
+                      <UserIcon className="size-3.5 text-[#54a8c7]" /> View Full Profile
+                    </Button>
+                  </Link>
                   <Link href={`/users/${selectedUserForDetails.id}/edit`}>
                     <Button className="rounded-xl bg-[#54a8c7] hover:bg-[#54a8c7]/90 text-white gap-1.5 font-semibold text-xs">
                       <Edit className="size-3.5" /> Full Edit

@@ -93,12 +93,6 @@ export function Sidebar({
       ],
     },
     {
-      title: 'Energy & Smart Grid',
-      items: [
-        { key: 'nav.v2g', path: '/v2g', icon: Radio },
-      ],
-    },
-    {
       title: 'Fleet & Access',
       items: [
         { key: 'nav.rfidTags', path: '/rfid', icon: CreditCard },
@@ -108,6 +102,12 @@ export function Sidebar({
         { key: 'nav.invoices', path: '/invoices', icon: FileText },
         { key: 'nav.tariffs', path: '/tariffs', icon: WalletCards },
         { key: 'nav.roaming', path: '/roaming', icon: Globe },
+      ],
+    },
+    {
+      title: 'Energy & Smart Grid',
+      items: [
+        { key: 'nav.v2g', path: '/v2g', icon: Radio },
       ],
     },
     {

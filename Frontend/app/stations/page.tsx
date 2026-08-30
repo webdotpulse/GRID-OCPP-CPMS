@@ -22,8 +22,10 @@ interface Station {
   country?: string;
   status: string;
   isGroundPlanEnabled?: boolean;
+  chargers?: any[];
   _count?: {
     chargers: number;
+    parkingSpots?: number;
   };
   owner?: {
     id: number;
@@ -41,6 +43,16 @@ export default function StationsPage() {
   const [limit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+
+  const getChargerCount = (station: Station): number => {
+    if (typeof station._count?.chargers === "number") {
+      return station._count.chargers;
+    }
+    if (Array.isArray(station.chargers)) {
+      return station.chargers.length;
+    }
+    return 0;
+  };
 
   const fetchStations = useCallback(async () => {
     setIsLoading(true);
@@ -109,6 +121,9 @@ export default function StationsPage() {
     } else if (key === 'owner') {
       aVal = a.owner?.email || '';
       bVal = b.owner?.email || '';
+    } else if (key === 'chargers') {
+      aVal = getChargerCount(a);
+      bVal = getChargerCount(b);
     }
 
     if (aVal < bVal) return direction === 'asc' ? -1 : 1;
@@ -171,7 +186,9 @@ export default function StationsPage() {
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('location')}>
                   <div className="flex items-center gap-1.5">Location <ArrowUpDown className="size-3" /></div>
                 </TableHead>
-                <TableHead>Fleet Size</TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('chargers')}>
+                  <div className="flex items-center gap-1.5">Fleet Size <ArrowUpDown className="size-3" /></div>
+                </TableHead>
                 <TableHead>Ground Plan</TableHead>
                 {(user?.role === "admin" || user?.role === "superadmin") && <TableHead>Owner</TableHead>}
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
@@ -201,80 +218,83 @@ export default function StationsPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                sortedStations.map((station) => (
-                  <TableRow key={station.id} className="hover:bg-[#54a8c7]/5 transition-colors">
-                    <TableCell className="font-medium">
-                      <Link
-                        href={`/stations/${station.id}`}
-                        className="group flex items-center gap-2 font-bold text-foreground hover:text-[#54a8c7] transition-colors"
-                      >
-                        <div className="size-7 rounded-lg bg-[#3f78e0]/10 flex items-center justify-center text-[#3f78e0] group-hover:bg-[#3f78e0] group-hover:text-white transition-colors">
-                          <Building2 className="size-3.5" />
-                        </div>
-                        <span>{station.station_name}</span>
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-xs font-medium">
-                      {station.street_name ? `${station.street_name}, ` : ''}{station.city}, {station.state}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="soft-primary" className="text-xs font-semibold gap-1">
-                        <Zap className="size-3" />
-                        {station._count?.chargers || 0} {station._count?.chargers === 1 ? 'Charger' : 'Chargers'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {station.isGroundPlanEnabled ? (
-                        <Link href={`/stations/${station.id}/live`}>
-                          <Badge variant="soft-success" className="gap-1 cursor-pointer hover:bg-emerald-500/20 text-xs">
-                            <Monitor className="size-3" /> Interactive Live Plan
-                          </Badge>
+                sortedStations.map((station) => {
+                  const chargerCount = getChargerCount(station);
+                  return (
+                    <TableRow key={station.id} className="hover:bg-[#54a8c7]/5 transition-colors">
+                      <TableCell className="font-medium">
+                        <Link
+                          href={`/stations/${station.id}`}
+                          className="group flex items-center gap-2 font-bold text-foreground hover:text-[#54a8c7] transition-colors"
+                        >
+                          <div className="size-7 rounded-lg bg-[#3f78e0]/10 flex items-center justify-center text-[#3f78e0] group-hover:bg-[#3f78e0] group-hover:text-white transition-colors">
+                            <Building2 className="size-3.5" />
+                          </div>
+                          <span>{station.station_name}</span>
                         </Link>
-                      ) : (
-                        <Badge variant="soft-secondary" className="text-xs">Disabled</Badge>
-                      )}
-                    </TableCell>
-                    {(user?.role === "admin" || user?.role === "superadmin") && (
-                      <TableCell className="text-xs text-muted-foreground">
-                        {station.owner?.email || 'System'}
                       </TableCell>
-                    )}
-                    <TableCell>
-                      <Badge
-                        variant={station.status === 'active' ? 'soft-success' : 'soft-secondary'}
-                        className="text-[10px] font-bold uppercase tracking-wider py-0.5"
-                      >
-                        {station.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Link href={`/stations/${station.id}`}>
-                          <Button variant="ghost" size="icon-sm" className="rounded-lg text-muted-foreground hover:text-foreground">
-                            <MapPin className="size-3.5" />
-                          </Button>
-                        </Link>
-                        {(user?.role === "admin" || user?.role === "superadmin") && (
-                          <>
-                            <Link href={`/stations/${station.id}/edit`}>
-                              <Button variant="ghost" size="icon-sm" className="rounded-lg text-muted-foreground hover:text-foreground">
-                                <Edit className="size-3.5" />
-                              </Button>
-                            </Link>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              onClick={() => handleDelete(station.id)}
-                              className="rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
-                            >
-                              <Trash2 className="size-3.5" />
-                            </Button>
-                          </>
+                      <TableCell className="text-muted-foreground text-xs font-medium">
+                        {station.street_name ? `${station.street_name}, ` : ''}{station.city}, {station.state}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="soft-primary" className="text-xs font-semibold gap-1">
+                          <Zap className="size-3" />
+                          {chargerCount} {chargerCount === 1 ? 'Charger' : 'Chargers'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {station.isGroundPlanEnabled ? (
+                          <Link href={`/stations/${station.id}/live`}>
+                            <Badge variant="soft-success" className="gap-1 cursor-pointer hover:bg-emerald-500/20 text-xs">
+                              <Monitor className="size-3" /> Interactive Live Plan
+                            </Badge>
+                          </Link>
+                        ) : (
+                          <Badge variant="soft-secondary" className="text-xs">Disabled</Badge>
                         )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                      </TableCell>
+                      {(user?.role === "admin" || user?.role === "superadmin") && (
+                        <TableCell className="text-xs text-muted-foreground">
+                          {station.owner?.email || 'System'}
+                        </TableCell>
+                      )}
+                      <TableCell>
+                        <Badge
+                          variant={station.status === 'active' ? 'soft-success' : 'soft-secondary'}
+                          className="text-[10px] font-bold uppercase tracking-wider py-0.5"
+                        >
+                          {station.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Link href={`/stations/${station.id}`}>
+                            <Button variant="ghost" size="icon-sm" className="rounded-lg text-muted-foreground hover:text-foreground">
+                              <MapPin className="size-3.5" />
+                            </Button>
+                          </Link>
+                          {(user?.role === "admin" || user?.role === "superadmin") && (
+                            <>
+                              <Link href={`/stations/${station.id}/edit`}>
+                                <Button variant="ghost" size="icon-sm" className="rounded-lg text-muted-foreground hover:text-foreground">
+                                  <Edit className="size-3.5" />
+                                </Button>
+                              </Link>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => handleDelete(station.id)}
+                                className="rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

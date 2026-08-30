@@ -183,18 +183,19 @@ export const getUserById = async (req: AuthRequest, res: Response) => {
         rfidUsers: {
           select: {
             rfid_user_id: true,
-            idTag: true,
-            status: true,
+            rfid_tag: true,
             name: true,
+            email: true,
+            active: true,
+            type: true,
             createdAt: true,
           },
         },
         vehicleEnergyProfile: {
           select: {
             id: true,
-            batteryCapacityKwh: true,
-            vehicleModel: true,
-            minDischargeSocPercent: true,
+            batteryCapacity: true,
+            minSocThreshold: true,
           },
         },
         chargingStations: {
@@ -215,7 +216,23 @@ export const getUserById = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    res.json({ success: true, data: sanitizeUser(user) });
+    const formattedUser = {
+      ...user,
+      rfidUsers: user.rfidUsers?.map((rf: any) => ({
+        ...rf,
+        idTag: rf.rfid_tag,
+        status: rf.active ? "Active" : "Blocked",
+      })),
+      vehicleEnergyProfile: user.vehicleEnergyProfile
+        ? {
+            ...user.vehicleEnergyProfile,
+            batteryCapacityKwh: user.vehicleEnergyProfile.batteryCapacity,
+            minDischargeSocPercent: user.vehicleEnergyProfile.minSocThreshold,
+          }
+        : null,
+    };
+
+    res.json({ success: true, data: sanitizeUser(formattedUser) });
   } catch (error: any) {
     logger.error(`Error getting user: ${error.message}`);
     res.status(500).json({

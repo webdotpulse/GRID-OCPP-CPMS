@@ -47,9 +47,14 @@ export default function StationDetailPage() {
           api.get(`/stations/${id}/chargers`)
         ]);
         
+        const stationData = stationRes.data?.data || stationRes.data;
+        const chargersData = Array.isArray(chargersRes.data?.data)
+          ? chargersRes.data.data
+          : (Array.isArray(chargersRes.data) ? chargersRes.data : []);
+
         setStation({
-          ...stationRes.data,
-          chargers: chargersRes.data
+          ...stationData,
+          chargers: chargersData || stationData?.chargers || []
         });
       } catch (error) {
         logger.error("Failed to fetch station details", error);
