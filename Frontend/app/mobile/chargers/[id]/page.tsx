@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { ChevronLeft, MapPin, Zap, Info, Clock, CheckCircle, RefreshCw, Send, Play, Square, Settings2 } from "lucide-react";
+import { ChevronLeft, MapPin, Zap, Info, Clock, CheckCircle, RefreshCw, Send, Play, Square, Settings2, CalendarRange, ChevronRight } from "lucide-react";
 import { MobileSpeedOverride } from "@/components/chargers/MobileSpeedOverride";
 import { ConnectorList } from "@/components/chargers/ConnectorList";
 import { RemoteControlPanel } from "@/components/chargers/RemoteControlPanel";
@@ -152,6 +152,23 @@ export default function MobileChargerDetails() {
         {charger.status !== 'offline' && (user?.role === 'admin' || user?.role === 'superadmin') && (
           <MobileSpeedOverride chargerId={charger.charger_id} currentPower={activeTxns[0]?.currentPower || 0} />
         )}
+
+        {/* Scheduled Charging Quick Card */}
+        <Link
+          href="/mobile/schedule"
+          className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-primary/40 transition-colors block"
+        >
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <CalendarRange className="size-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Scheduled Charging</h3>
+              <p className="text-xs text-gray-500">Configure off-peak night windows & presets</p>
+            </div>
+          </div>
+          <ChevronRight className="size-5 text-gray-400" />
+        </Link>
 
         {/* Connectors */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">

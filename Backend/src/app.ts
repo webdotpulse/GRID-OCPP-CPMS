@@ -45,8 +45,8 @@ import localAuthListRoutes from "./api/localAuthList/localAuthList.routes.js";
 import reservationsRoutes from "./api/reservations/reservations.routes.js";
 import securityRoutes from "./api/security/security.routes.js";
 import rolesRoutes from "./api/roles/roles.routes.js";
-import simulatorRoutes from "./api/simulator/simulator.routes.js";
 import webhooksRoutes from "./api/webhooks/webhooks.routes.js";
+import scheduledChargingRoutes from "./api/scheduled-charging/scheduledCharging.routes.js";
 
 // Import OCPP servers
 import { ocppServer } from "./ocpp/ocppServer.js";
@@ -56,6 +56,7 @@ import { startAutoHealCron } from "./cron/autoHealCron.js";
 import { startReimbursementCron } from "./cron/reimbursementCron.js";
 import { startInvoiceCron } from "./cron/invoiceCron.js";
 import { startReservationCron } from "./cron/reservationCron.js";
+import { startScheduledChargingCron } from "./cron/scheduledChargingCron.js";
 import { stopWorkers } from "./workers/workerManager.js";
 import "./cron/predictiveBalancingCron.js";
 
@@ -145,6 +146,7 @@ export function createApp(): Application {
   app.use("/api/roles", authenticateToken, rolesRoutes);
   app.use("/api/simulator", authenticateToken, simulatorRoutes);
   app.use("/api/webhooks", authenticateToken, webhooksRoutes);
+  app.use("/api/scheduled-charging", authenticateToken, scheduledChargingRoutes);
 
   // Error handling
   app.use(notFoundHandler);
@@ -229,6 +231,7 @@ export async function startWorkerServer() {
   startReimbursementCron();
   startInvoiceCron();
   startReservationCron();
+  startScheduledChargingCron();
 
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}. Shutting down Worker pod gracefully...`);
@@ -276,6 +279,7 @@ export function startServers(): void {
   startReimbursementCron();
   startInvoiceCron();
   startReservationCron();
+  startScheduledChargingCron();
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {

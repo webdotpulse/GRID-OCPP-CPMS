@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Zap, History, Map as MapIcon, Settings, Languages, Sun, Moon } from "lucide-react";
+import { Home, Zap, History, Map as MapIcon, Settings, Languages, Sun, Moon, CalendarRange } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useTranslation } from "react-i18next";
 import { MobileAppShell } from "@/components/layout/MobileAppShell";
@@ -25,6 +25,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   const getPageTitle = () => {
     if (pathname?.startsWith("/mobile/dashboard")) return "Dashboard";
     if (pathname?.startsWith("/mobile/chargers")) return "Chargers";
+    if (pathname?.startsWith("/mobile/schedule")) return "Schedule";
     if (pathname?.startsWith("/mobile/transactions")) return "Transactions";
     if (pathname?.startsWith("/mobile/map")) return "Map";
     if (pathname?.startsWith("/mobile/settings")) return "Settings";
@@ -34,8 +35,8 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   const navItems = [
     { name: "Dashboard", href: "/mobile/dashboard", icon: Home },
     { name: "Chargers", href: "/mobile/chargers", icon: Zap },
-    { name: "Transactions", href: "/mobile/transactions", icon: History },
-    { name: "Map", href: "/mobile/map", icon: MapIcon },
+    { name: "Schedule", href: "/mobile/schedule", icon: CalendarRange },
+    { name: "Activity", href: "/mobile/transactions", icon: History },
     { name: "Settings", href: "/mobile/settings", icon: Settings },
   ];
 

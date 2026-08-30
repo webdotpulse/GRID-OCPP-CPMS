@@ -23,6 +23,7 @@ import { LoadManagementOverview } from "@/components/dashboard/LoadManagementOve
 import { LocalAuthListPanel } from "@/components/chargers/LocalAuthListPanel";
 import { useMemo } from "react";
 import { ChargerTransactionsTable } from "@/components/chargers/ChargerTransactionsTable";
+import { ChargerSchedulesTab } from "@/components/chargers/ChargerSchedulesTab";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
@@ -368,6 +369,7 @@ export default function ChargerDetailPage() {
         <TabsList className="mb-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="connectors">Connectors</TabsTrigger>
+          <TabsTrigger value="schedules">Scheduled Charging</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
           <TabsTrigger value="configuration">Configuration Parameters</TabsTrigger>
           <TabsTrigger value="profiles">Configuration Profiles</TabsTrigger>
@@ -588,6 +590,16 @@ export default function ChargerDetailPage() {
                 <ConnectorList connectors={allConnectors} readOnly={false} />
               </CardContent>
             </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="schedules">
+          <div className="mb-6">
+            <ChargerSchedulesTab
+              chargerId={charger.charger_id}
+              chargerName={charger.name}
+              isOnline={charger.status !== "offline"}
+            />
           </div>
         </TabsContent>
 

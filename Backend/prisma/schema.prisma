@@ -50,6 +50,7 @@ model User {
   sepaMandates                SepaMandate[]
   reservations                Reservation[]
   webhookSubscriptions        WebhookSubscription[]
+  scheduledChargings          ScheduledCharging[]
 }
 
 model Company {
@@ -199,6 +200,7 @@ model Charger {
   certificateRequests   CertificateRequest[]
   localAuthList         LocalAuthList?
   reservations          Reservation[]
+  scheduledChargings    ScheduledCharging[]
 }
 
 model ChargerQuirkProfile {
@@ -1097,6 +1099,48 @@ model WebhookDelivery {
   @@index([subscriptionId])
   @@index([status])
   @@index([createdAt])
+}
+
+// Scheduled Charging Plans & Smart Charging Windows
+model ScheduledCharging {
+  id             Int       @id @default(autoincrement())
+  userId         Int?
+  user           User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chargerId      Int
+  charger        Charger   @relation(fields: [chargerId], references: [charger_id], onDelete: Cascade)
+  connectorId    Int       @default(1)
+  idTag          String?   // RFID card idTag for authorization
+
+  name           String    @default("Scheduled Charge")
+  scheduleType   String    @default("time_window") // "time_window", "departure_time", "cheapest_tariff", "solar_optimal"
+  recurrence     String    @default("once") // "once", "daily", "weekdays", "weekends", "custom"
+  daysOfWeek     Json?     // Array of strings, e.g. ["mon", "tue", "wed", "thu", "fri"]
+
+  // Time parameters
+  startTime      String?   // "23:00" (HH:mm)
+  stopTime       String?   // "07:00" (HH:mm)
+  startDate      DateTime? // for one-time schedule
+  stopDate       DateTime? // for one-time schedule
+  departureTime  String?   // "07:30" (HH:mm) for departure time mode
+
+  // Power & Energy parameters
+  maxCurrentAmps Float     @default(16.0)
+  maxPowerKw     Float     @default(11.0)
+  targetSoc      Float?    // e.g. 80.0 (%)
+  energyLimitKwh Float?    // e.g. 35.0 (kWh)
+
+  // Execution state
+  status         String    @default("Active") // "Active", "Paused", "Executing", "Completed", "Cancelled"
+  lastExecutedAt DateTime?
+  lastStatus     String?   // "Started", "ProfileApplied", "Stopped", "CompletedCycle", "Failed", "Idle"
+  lastError      String?
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([chargerId])
+  @@index([status])
 }
 
 

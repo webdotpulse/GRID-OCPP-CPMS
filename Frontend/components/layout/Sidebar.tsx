@@ -29,6 +29,7 @@ import {
   Radio,
   FileText,
   CalendarClock,
+  CalendarRange,
 } from 'lucide-react';
 
 interface NavItem {
@@ -111,6 +112,7 @@ export function Sidebar({
       title: 'Energy & Smart Grid',
       titleKey: 'nav.sections.energyAndSmartGrid',
       items: [
+        { key: 'nav.scheduledCharging', path: '/scheduled-charging', icon: CalendarRange },
         { key: 'nav.v2g', path: '/v2g', icon: Radio },
       ],
     },

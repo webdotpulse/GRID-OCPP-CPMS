@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Zap, BatteryCharging, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Zap, BatteryCharging, AlertCircle, CheckCircle2, CalendarRange, ChevronRight, Clock } from "lucide-react";
+import Link from "next/link";
 import { useTelemetryStore } from "@/store/useTelemetryStore";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
@@ -70,6 +71,31 @@ export default function MobileDashboard() {
             );
           })}
         </div>
+      </section>
+
+      {/* Scheduled Charging Quick Widget */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Scheduled Charging</h2>
+          <Link href="/mobile/schedule" className="text-xs text-primary font-semibold hover:underline">
+            Manage
+          </Link>
+        </div>
+        <Link
+          href="/mobile/schedule"
+          className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-primary/40 transition-colors block"
+        >
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <CalendarRange className="size-5" />
+            </div>
+            <div>
+              <div className="font-semibold text-sm text-gray-900">Smart Charging Schedules</div>
+              <div className="text-xs text-gray-500 mt-0.5">Automated off-peak night windows active</div>
+            </div>
+          </div>
+          <ChevronRight className="size-5 text-gray-400" />
+        </Link>
       </section>
 
       {/* Live Sessions List */}
