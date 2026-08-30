@@ -2,6 +2,12 @@
 
 This guide provides comprehensive instructions for deploying, configuring, and operating both the Backend API/WebSocket server and the Next.js Admin Dashboard of the **OCPP-CPMS** on a local development machine or a production **Google Cloud Platform (GCP) Ubuntu 24.04 LTS VM**.
 
+> [!TIP]
+> **🚀 Fast Track Deployment:** You can use the visual [**Interactive Setup Wizard** (`interactive-setup.html`)](../interactive-setup.html) in your browser to generate a customized 1-command installer, or run the automated installer script:
+> ```bash
+> sudo bash install.sh --frontend-domain "ui.yourdomain.com" --backend-domain "ocpp.yourdomain.com" -y
+> ```
+
 ---
 
 ## 1. Local Development Setup

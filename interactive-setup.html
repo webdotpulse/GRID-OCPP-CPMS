@@ -1,549 +1,1767 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Setup Guide</title>
+    <title>OCPP-CPMS | Interactive Deployment & Setup Wizard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-body: #0b0f17;
+            --bg-card: #131b26;
+            --bg-card-subtle: #1a2332;
+            --border-color: #233147;
+            --border-hover: #3b82f6;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-blue-hover: #2563eb;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-purple: #8b5cf6;
+            --accent-amber: #f59e0b;
+            --accent-red: #ef4444;
+            --code-bg: #070a0f;
+            --code-text: #e2e8f0;
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --shadow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+            --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        html.light {
+            --bg-body: #f8fafc;
+            --bg-card: #ffffff;
+            --bg-card-subtle: #f1f5f9;
+            --border-color: #e2e8f0;
+            --border-hover: #3b82f6;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --code-bg: #1e293b;
+            --code-text: #f8fafc;
+            --shadow-card: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: var(--font-main);
+            background-color: var(--bg-body);
+            color: var(--text-primary);
             line-height: 1.6;
-            color: #333;
-            max-width: 900px;
+            min-height: 100vh;
+            padding: 24px 16px 80px;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .container {
+            max-width: 1200px;
             margin: 0 auto;
-            padding: 20px;
-            background-color: #f9f9f9;
         }
-        h1, h2, h3 {
-            color: #2c3e50;
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            padding-bottom: 24px;
+            margin-bottom: 28px;
+            border-bottom: 1px solid var(--border-color);
         }
-        .config-panel {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-            border: 1px solid #e0e0e0;
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
         }
-        .config-grid {
+
+        .logo-icon {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 22px;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+        }
+
+        .brand-text h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(90deg, #fff, #93c5fd);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        html.light .brand-text h1 {
+            background: linear-gradient(90deg, #0f172a, #2563eb);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand-text p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .theme-toggle, .btn-secondary, .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-family: var(--font-main);
+            font-weight: 600;
+            font-size: 0.875rem;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .theme-toggle {
+            background-color: var(--bg-card);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+        .theme-toggle:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover));
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+        }
+
+        .btn-secondary {
+            background-color: var(--bg-card);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+        .btn-secondary:hover {
+            border-color: var(--text-muted);
+            background-color: var(--bg-card-subtle);
+        }
+
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 0.75rem;
+        }
+
+        /* Top Bar Badges */
+        .badge-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .badge.highlight {
+            background-color: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.3);
+            color: #60a5fa;
+        }
+
+        .badge.success {
+            background-color: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
+            color: #34d399;
+        }
+
+        /* Form Configuration Section */
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            margin-bottom: 28px;
+            box-shadow: var(--shadow-card);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.15rem;
+            font-weight: 700;
+        }
+
+        .card-title span.icon {
+            font-size: 1.25rem;
+        }
+
+        .form-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 18px;
         }
+
         .form-group {
             display: flex;
             flex-direction: column;
+            gap: 6px;
         }
+
+        .label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
         label {
+            font-size: 0.8125rem;
             font-weight: 600;
-            margin-bottom: 5px;
-            font-size: 0.9em;
+            color: var(--text-secondary);
         }
-        input {
-            padding: 8px 12px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        input:focus {
-            outline: none;
-            border-color: #3498db;
-            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-        }
-        .content-panel {
-            background-color: #fff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            border: 1px solid #e0e0e0;
-        }
-        pre {
-            background-color: #282c34;
-            color: #abb2bf;
-            padding: 15px;
-            border-radius: 6px;
-            overflow-x: auto;
+
+        .input-wrapper {
             position: relative;
+            display: flex;
+            align-items: center;
         }
-        code {
-            font-family: 'Courier New', Courier, monospace;
+
+        input[type="text"], input[type="password"], select {
+            width: 100%;
+            padding: 10px 14px;
+            background-color: var(--bg-card-subtle);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            transition: all 0.2s ease;
         }
-        p code {
-            background-color: #f1f1f1;
-            color: #e83e8c;
-            padding: 2px 4px;
-            border-radius: 4px;
-            font-size: 0.9em;
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+            background-color: var(--bg-card);
         }
-        .copy-btn {
+
+        .btn-input-action {
             position: absolute;
-            top: 5px;
-            right: 5px;
-            background-color: #4a4a4a;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 5px 10px;
-            font-size: 12px;
+            right: 4px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #60a5fa;
+            border-radius: var(--radius-sm);
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
             cursor: pointer;
-            opacity: 0.7;
-            transition: opacity 0.2s;
+            transition: all 0.2s ease;
         }
-        .copy-btn:hover {
-            opacity: 1;
+
+        .btn-input-action:hover {
+            background: var(--accent-blue);
+            color: #fff;
         }
-        .copy-btn.copied {
-            background-color: #2ecc71;
+
+        .form-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
         }
-        .instruction {
+
+        /* Tabs Navigation */
+        .tabs-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
             margin-bottom: 20px;
-            padding: 10px;
-            background-color: #e8f4f8;
-            border-left: 4px solid #3498db;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        .tab-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            font-family: var(--font-main);
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+            border-color: var(--accent-blue);
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover));
+            color: #ffffff;
+            border-color: var(--accent-blue);
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
+        }
+
+        .tab-pane {
+            display: none;
+            animation: fadeIn 0.25s ease forwards;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 1-Click Installer Hero Box */
+        .hero-installer {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(6, 182, 212, 0.04));
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .hero-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .hero-subtitle {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .code-container {
+            position: relative;
+            background-color: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 14px;
+            background-color: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            color: var(--text-muted);
+        }
+
+        pre {
+            padding: 16px;
+            overflow-x: auto;
+            color: var(--code-text);
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            line-height: 1.6;
+        }
+
+        .btn-copy {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background-color: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: var(--radius-sm);
+            color: #fff;
+            font-family: var(--font-main);
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-copy:hover {
+            background-color: rgba(255, 255, 255, 0.18);
+            border-color: rgba(255, 255, 255, 0.25);
+        }
+
+        .btn-copy.copied {
+            background-color: var(--accent-green) !important;
+            border-color: var(--accent-green) !important;
+            color: #fff !important;
+        }
+
+        /* Step-by-Step Card Styles */
+        .step-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: all 0.2s ease;
+        }
+
+        .step-card:hover {
+            border-color: rgba(59, 130, 246, 0.4);
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+
+        .step-title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .step-number {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8125rem;
+            font-weight: 800;
+        }
+
+        .step-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .step-desc {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .alert-box {
+            display: flex;
+            gap: 10px;
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 0.8125rem;
+            margin-bottom: 14px;
+        }
+
+        .alert-warning {
+            background-color: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #fbbf24;
+        }
+
+        .alert-info {
+            background-color: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #93c5fd;
+        }
+
+        /* Architecture Port Matrix */
+        .port-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .port-item {
+            background-color: var(--bg-card-subtle);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+        }
+
+        .port-badge {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            margin-bottom: 4px;
+        }
+
+        .port-name {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .port-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Toast Notifications */
+        #toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            background: #1e293b;
+            color: #fff;
+            padding: 12px 18px;
+            border-radius: var(--radius-md);
+            border: 1px solid #334155;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: slideIn 0.25s ease forwards;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .header-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
 
-    <div class="config-panel">
-        <h2>Configuration Variables</h2>
-        <p class="instruction">Update the variables below. The manual will automatically update to reflect your specific configuration, allowing you to easily copy and paste the commands.</p>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="brand">
+                <div class="logo-icon">⚡</div>
+                <div class="brand-text">
+                    <h1>OCPP-CPMS Deployment Wizard</h1>
+                    <p>Enterprise Charge Point Management System &bull; Fast-Track Setup</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()">
+                    <span id="theme-icon">☀️</span> Light Mode
+                </button>
+                <a href="https://github.com/webdotpulse/OCPP-CPMS" target="_blank" class="btn-secondary" style="text-decoration:none;">
+                    GitHub Repo ↗
+                </a>
+            </div>
+        </header>
 
-        <div class="config-grid">
-            <div class="form-group">
-                <label for="frontendUrl">Frontend Domain</label>
-                <input type="text" id="frontendUrl" value="ui.mobilitypulse.com" data-original="ui.mobilitypulse.com">
+        <!-- Feature Badges -->
+        <div class="badge-row">
+            <div class="badge success">● Dual Protocol: OCPP 1.6-J &amp; 2.1/2.0.1</div>
+            <div class="badge highlight">● Next.js 16+ Dashboard</div>
+            <div class="badge highlight">● Express 5 + TypeScript 6+</div>
+            <div class="badge">● PostgreSQL 15+ &amp; Prisma 7.8</div>
+            <div class="badge">● Redis 7 &amp; BullMQ</div>
+            <div class="badge">● Nginx Reverse Proxy &amp; WSS</div>
+            <div class="badge">● Ubuntu 22.04 / 24.04 &amp; Debian 12</div>
+        </div>
+
+        <!-- Configuration Form Panel -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <span class="icon">⚙️</span>
+                    <span>Deployment Parameters &amp; Credentials</span>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn-secondary btn-sm" onclick="generateAllSecrets()">🎲 Generate Secrets</button>
+                    <button class="btn-secondary btn-sm" onclick="setLocalhostPreset()">💻 Localhost Preset</button>
+                    <button class="btn-secondary btn-sm" onclick="resetFormToDefaults()">↺ Reset</button>
+                </div>
             </div>
-            <div class="form-group">
-                <label for="backendUrl">Backend Domain</label>
-                <input type="text" id="backendUrl" value="ocpp.mobilitypulse.com" data-original="ocpp.mobilitypulse.com">
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="frontendUrl">Frontend Dashboard Domain</label>
+                    <input type="text" id="frontendUrl" value="ui.mobilitypulse.com" data-key="frontendUrl" placeholder="ui.yourdomain.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="backendUrl">Backend API &amp; OCPP Domain</label>
+                    <input type="text" id="backendUrl" value="ocpp.mobilitypulse.com" data-key="backendUrl" placeholder="ocpp.yourdomain.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="vmIp">Server Static External IP</label>
+                    <input type="text" id="vmIp" value="[Your VM Static IP]" data-key="vmIp" placeholder="34.141.x.x">
+                </div>
+
+                <div class="form-group">
+                    <label for="dbName">PostgreSQL Database Name</label>
+                    <input type="text" id="dbName" value="ocpp_cms" data-key="dbName">
+                </div>
+
+                <div class="form-group">
+                    <label for="dbUser">Database Username</label>
+                    <input type="text" id="dbUser" value="cms_user" data-key="dbUser">
+                </div>
+
+                <div class="form-group">
+                    <div class="label-row">
+                        <label for="dbPassword">Database Password</label>
+                    </div>
+                    <div class="input-wrapper">
+                        <input type="text" id="dbPassword" value="cms_secure_pass_2026" data-key="dbPassword">
+                        <button class="btn-input-action" onclick="generateSingleSecret('dbPassword')">🎲 Rand</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="label-row">
+                        <label for="jwtSecret">JWT Secret (64-Hex)</label>
+                    </div>
+                    <div class="input-wrapper">
+                        <input type="text" id="jwtSecret" value="4f9d8a7c2e1b3d5f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a4c6e8b0d2f" data-key="jwtSecret">
+                        <button class="btn-input-action" onclick="generateSingleSecret('jwtSecret', 'hex')">🎲 Rand</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="superadminEmail">Primary Superadmin Email</label>
+                    <input type="text" id="superadminEmail" value="superadmin@mobilitypulse.com" data-key="superadminEmail">
+                </div>
+
+                <div class="form-group">
+                    <div class="label-row">
+                        <label for="superadminPassword">Superadmin Password</label>
+                    </div>
+                    <div class="input-wrapper">
+                        <input type="text" id="superadminPassword" value="SuperSecureAdmin2026!" data-key="superadminPassword">
+                        <button class="btn-input-action" onclick="generateSingleSecret('superadminPassword')">🎲 Rand</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="installPath">Installation Directory</label>
+                    <input type="text" id="installPath" value="/var/www/ocpp-cms" data-key="installPath">
+                </div>
+
+                <div class="form-group">
+                    <label for="timezone">Server Timezone</label>
+                    <select id="timezone" data-key="timezone">
+                        <option value="Europe/Brussels" selected>Europe/Brussels (CET/CEST)</option>
+                        <option value="Europe/Amsterdam">Europe/Amsterdam</option>
+                        <option value="Europe/London">Europe/London (GMT/BST)</option>
+                        <option value="Europe/Berlin">Europe/Berlin</option>
+                        <option value="Europe/Paris">Europe/Paris</option>
+                        <option value="America/New_York">America/New_York (EST/EDT)</option>
+                        <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
+                        <option value="UTC">UTC</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="gitRepo">Git Repository URL</label>
+                    <input type="text" id="gitRepo" value="https://github.com/webdotpulse/OCPP-CPMS.git" data-key="gitRepo">
+                </div>
             </div>
-            <div class="form-group">
-                <label for="vmIp">VM Static IP</label>
-                <input type="text" id="vmIp" value="[Your VM Static IP]" data-original="[Your VM Static IP]">
-            </div>
-            <div class="form-group">
-                <label for="dbUser">Database User</label>
-                <input type="text" id="dbUser" value="cms_user" data-original="cms_user">
-            </div>
-            <div class="form-group">
-                <label for="dbPassword">Database Password</label>
-                <input type="text" id="dbPassword" value="your_secure_password" data-original="your_secure_password">
-            </div>
-            <div class="form-group">
-                <label for="jwtSecret">JWT Secret</label>
-                <input type="text" id="jwtSecret" value="generate_a_very_secure_random_string_here" data-original="generate_a_very_secure_random_string_here">
-            </div>
-            <div class="form-group">
-                <label for="superadminEmail">Superadmin Email</label>
-                <input type="text" id="superadminEmail" value="superadmin@mobilitypulse.com" data-original="superadmin_email">
-            </div>
-            <div class="form-group">
-                <label for="superadminPassword">Superadmin Password</label>
-                <input type="text" id="superadminPassword" value="superadmin_secure_password" data-original="superadmin_password">
+
+            <div class="form-actions">
+                <div style="color:var(--text-muted); font-size:0.8125rem; display:flex; align-items:center; gap:6px;">
+                    <span>💾</span> Inputs are automatically saved to browser storage. All scripts and manual snippets update in real time.
+                </div>
             </div>
         </div>
-    </div>
 
-    <div id="content" class="content-panel">
-        <!-- Rendered markdown will go here -->
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script>
-        const rawMarkdown = `
-# Setup Guide & Deployment Manual (Ubuntu on Google Cloud)
+        <!-- Mode Selector Tabs -->
+        <div class="tabs-nav">
+            <button class="tab-btn active" onclick="switchTab('tab-oneclick')">🚀 1-Click Automated Installer</button>
+            <button class="tab-btn" onclick="switchTab('tab-manual')">📋 Step-by-Step Guided Manual</button>
+            <button class="tab-btn" onclick="switchTab('tab-local')">💻 Local Development Setup</button>
+            <button class="tab-btn" onclick="switchTab('tab-ports')">🔌 Network &amp; Architecture</button>
+            <button class="tab-btn" onclick="switchTab('tab-diagnostics')">🔍 Diagnostics &amp; Health</button>
+            <button class="tab-btn" onclick="switchTab('tab-rollback')">🗑️ Reset &amp; Uninstall</button>
+        </div>
 
-This guide walks you through the steps to set up both the Backend and Frontend of the Open-Source OCPP 1.6 CMS on a local machine, as well as providing **detailed production deployment instructions for a Google Cloud Ubuntu VM**.
+        <!-- TAB 1: 1-CLICK AUTOMATED INSTALLER -->
+        <div id="tab-oneclick" class="tab-pane active">
+            <div class="hero-installer">
+                <div class="hero-title">
+                    <span>⚡</span> 1-Command Automated VM Deployment
+                </div>
+                <div class="hero-subtitle">
+                    Run this single command on your clean Ubuntu 22.04/24.04 or Debian 12 VM. It fully installs Node 24, PM2, Postgres, Redis, Nginx, Certbot SSL, builds both apps, and configures the Superadmin user in &lt; 5 minutes.
+                </div>
 
----
+                <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+                    <button class="btn-primary" onclick="copyText(getOneLinerCommand(), '1-Line Command Copied!')">
+                        📋 Copy 1-Line Command
+                    </button>
+                    <button class="btn-secondary" onclick="downloadCustomInstallScript()">
+                        💾 Download Custom install.sh
+                    </button>
+                    <button class="btn-secondary" onclick="copyText(getFullInstallScript(), 'Full Script Copied!')">
+                        📋 Copy Full Bash Script
+                    </button>
+                </div>
 
-## 1. Local Development Setup
+                <div class="code-container">
+                    <div class="code-header">
+                        <span>ONE-LINER UBUNTU INSTALL COMMAND</span>
+                        <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
+                    </div>
+                    <pre><code id="one-liner-code"></code></pre>
+                </div>
+            </div>
 
-If you want to run the project locally for development or testing, follow these steps.
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>📜</span> Generated Customized Bash Script (<code>install.sh</code>)
+                    </div>
+                    <button class="btn-copy" onclick="copyCodeBlock(this)">Copy Script</button>
+                </div>
+                <div class="code-container">
+                    <pre><code id="full-script-preview"></code></pre>
+                </div>
+            </div>
+        </div>
 
-### Prerequisites (Local)
-- **Node.js** 24 or higher (LTS recommended)
-- **PostgreSQL** database
-- **Redis** server
+        <!-- TAB 2: STEP-BY-STEP GUIDED MANUAL -->
+        <div id="tab-manual" class="tab-pane">
+            <div class="alert-box alert-info">
+                <span>ℹ️</span>
+                <div>All command snippets below automatically reflect your custom domains, database credentials, and superadmin configuration. Click <strong>Copy</strong> on any block to paste directly into your terminal.</div>
+            </div>
 
-### 1.1 Backend Setup
-\`\`\`bash
-cd Backend
-npm install
-cp .env.example .env # Update DATABASE_URL and secrets
-npm run prisma:generate
-npx prisma db push --accept-data-loss
+            <!-- Step 1 -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-title-group">
+                        <div class="step-number">1</div>
+                        <div class="step-title">Server Provisioning &amp; UFW Firewall</div>
+                    </div>
+                    <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
+                </div>
+                <div class="step-desc">Update system repositories and open HTTP (80), HTTPS (443), and SSH (22) in UFW firewall.</div>
+                <div class="code-container">
+                    <pre><code>sudo apt update && sudo apt upgrade -y
+sudo apt install -y git curl wget ufw build-essential openssl
+sudo timedatectl set-timezone "<span class="var-timezone">Europe/Brussels</span>"
 
-# Create the initial Superadmin account (first user installed)
-npm run create-superadmin -- "superadmin_email" "superadmin_password"
-
-npm run dev
-\`\`\`
-
-### 1.2 Frontend Setup
-\`\`\`bash
-cd ../Frontend
-npm install
-npm run dev
-\`\`\`
-
----
-
-## 2. Production Deployment on Google Cloud (Ubuntu VM)
-
-This section provides a step-by-step manual for deploying the application to a Google Cloud Platform (GCP) Ubuntu VM.
-
-**Production Architecture Overview:**
-- **Frontend URL:** \`https://ui.mobilitypulse.com\` (served via Nginx)
-- **Backend/API URL:** \`https://ocpp.mobilitypulse.com\` (served via Nginx, routing to Backend Node.js process)
-- **OCPP WebSocket:** Handled on \`ocpp.mobilitypulse.com\` and proxied to the backend WS port.
-- **Process Manager:** PM2
-- **Database:** PostgreSQL installed locally on the VM (or use Cloud SQL)
-- **Web Server:** Nginx (acts as a reverse proxy for Node.js apps)
-
-### 2.1 Server Provisioning & Initial Setup
-
-1. Create a VM Instance on Google Cloud Platform using an **Ubuntu 24.04 LTS or Debian 12** image.
-2. Assign a **Static External IP Address** to your VM in the GCP Console.
-3. Configure your DNS provider (Combell hosting) to point:
-   - \`ui.mobilitypulse.com\` -> \`A Record\` -> \`[Your VM Static IP]\`
-   - \`ocpp.mobilitypulse.com\` -> \`A Record\` -> \`[Your VM Static IP]\`
-4. Open GCP Firewall rules for the VM to allow traffic on ports **80 (HTTP)** and **443 (HTTPS)**.
-
-SSH into your VM and update packages:
-\`\`\`bash
-sudo apt update && sudo apt upgrade -y
-sudo apt install git -y
-\`\`\`
-
-**Configure UFW Firewall (Recommended):**
-It's a best practice to enable UFW and only allow necessary ports.
-\`\`\`bash
+# Configure Firewall
 sudo ufw allow OpenSSH
-sudo ufw allow 'Nginx Full'
-sudo ufw enable
-\`\`\`
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw --force enable</code></pre>
+                </div>
+            </div>
 
-### 2.2 Install Prerequisites
-
-**Install Node.js (v24+) & PM2:**
-\`\`\`bash
+            <!-- Step 2 -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-title-group">
+                        <div class="step-number">2</div>
+                        <div class="step-title">Install Runtime Dependencies (Node 24, PostgreSQL, Redis, Nginx, Certbot)</div>
+                    </div>
+                    <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
+                </div>
+                <div class="step-desc">Install Node.js 24 LTS, PM2 with log rotation, PostgreSQL 15+, Redis Server, Nginx, and Certbot.</div>
+                <div class="code-container">
+                    <pre><code># Install Node.js 24 LTS via NodeSource
 curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-sudo apt-get install -y nodejs
+sudo apt install -y nodejs postgresql postgresql-contrib redis-server nginx certbot python3-certbot-nginx
+
+# Setup PM2 & Log Rotation
 sudo npm install -g pm2
-\`\`\`
-
-**Install PostgreSQL:**
-*(If using Google Cloud SQL, skip this and use the Cloud SQL connection string)*
-\`\`\`bash
-sudo apt install postgresql postgresql-contrib -y
-sudo systemctl start postgresql.service
-
-# Setup Database and User
-cd /tmp
-sudo -u postgres psql -c "CREATE DATABASE ocpp_cms;"
-sudo -u postgres psql -c "CREATE USER cms_user WITH PASSWORD 'your_secure_password';"
-sudo -u postgres psql -c "ALTER ROLE cms_user SET client_encoding TO 'utf8';"
-sudo -u postgres psql -c "ALTER ROLE cms_user SET default_transaction_isolation TO 'read committed';"
-sudo -u postgres psql -c "ALTER ROLE cms_user SET timezone TO 'Europe/Brussels';"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ocpp_cms TO cms_user;"
-# Explicitly grant schema privileges (Required for PostgreSQL 15+)
-sudo -u postgres psql -d ocpp_cms -c "GRANT ALL ON SCHEMA public TO cms_user;"
-\`\`\`
-
-**Install Redis:**
-*Note: Make sure to use the exact service name \`redis-server\` (not \`redis.service\`) when interacting with systemd.*
-\`\`\`bash
-sudo apt install redis-server -y
-sudo systemctl start redis-server
-sudo systemctl enable redis-server
-\`\`\`
-
-**Install Nginx & Certbot:**
-\`\`\`bash
-sudo apt install nginx -y
-sudo apt install certbot python3-certbot-nginx -y
-\`\`\`
-
-### 2.3 Clone & Setup the Application
-
-
-\`\`\`bash
-sudo mkdir -p /var/www
-cd /var/www/
-sudo git clone https://github.com/webdotpulse/OCPP-CPMS.git ocpp-cms
-sudo chown -R \$USER:\$USER /var/www/ocpp-cms
-cd ocpp-cms
-\`\`\`
-
-#### Backend Setup
-\`\`\`bash
-cd /var/www/ocpp-cms/Backend
-npm install
-
-# Create environment file
-cat <<EOT >> .env
-DATABASE_URL="postgresql://cms_user:your_secure_password@localhost:5432/ocpp_cms?schema=public"
-PORT=3000
-OCPP_PORT=9220
-OCPP_LOG_WS_PORT=3001
-JWT_SECRET="generate_a_very_secure_random_string_here"
-REDIS_URL="redis://localhost:6379"
-TZ="Europe/Brussels"
-EOT
-
-# Generate and migrate DB
-npx prisma generate
-npx prisma migrate deploy
-
-# Build and start with PM2
-npm run build
-pm2 start dist/server.js --name "ocpp-backend"
-\`\`\`
-
-#### Frontend Setup
-\`\`\`bash
-cd /var/www/ocpp-cms/Frontend
-npm install
-
-# Create environment file for Frontend
-cat <<EOT >> .env
-NEXT_PUBLIC_API_URL="https://ocpp.mobilitypulse.com/api"
-TZ="Europe/Brussels"
-EOT
-
-# Build Next.js application
-npm run build
-
-# Start frontend with PM2
-pm2 start npm --name "ocpp-frontend" -- start
-\`\`\`
-
-<div style="background-color: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; border-left: 4px solid #ffeeba; margin-top: 10px; margin-bottom: 20px;">
-    <strong>Warning:</strong> During the Next.js build, you may see a deprecation message stating: <code>The "middleware" file convention is deprecated. Please use "proxy" instead.</code> You <strong>must ignore this warning</strong>. Next.js strictly requires the middleware file to be named <code>middleware.ts</code>. Do not rename it to <code>proxy.ts</code>, as this will disable the middleware execution and break mobile routing.
-</div>
-
-Save the PM2 process list so it restarts on reboot. We also install the PM2 log rotation module to prevent log files from taking up all disk space over time.
-\`\`\`bash
-pm2 save
-pm2 startup
-# Run the command PM2 outputs to setup systemd
 pm2 install pm2-logrotate
 pm2 set pm2-logrotate:max_size 50M
 pm2 set pm2-logrotate:compress true
 pm2 set pm2-logrotate:retain 14
-\`\`\`
 
-### 2.4 Configure Nginx as a Reverse Proxy
+# Enable Services
+sudo systemctl enable postgresql redis-server nginx
+sudo systemctl start postgresql redis-server nginx</code></pre>
+                </div>
+            </div>
 
-Create an Nginx configuration for the **Backend** (\`ocpp.mobilitypulse.com\`):
-\`\`\`bash
-sudo nano /etc/nginx/sites-available/ocpp.mobilitypulse.com
-\`\`\`
-Add the following configuration:
-\`\`\`nginx
+            <!-- Step 3 -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-title-group">
+                        <div class="step-number">3</div>
+                        <div class="step-title">Configure PostgreSQL Database &amp; User</div>
+                    </div>
+                    <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
+                </div>
+                <div class="step-desc">Create PostgreSQL database and user with UTF-8 encoding and schema permissions.</div>
+                <div class="code-container">
+                    <pre><code>sudo -u postgres psql -c "CREATE DATABASE <span class="var-dbName">ocpp_cms</span>;"
+sudo -u postgres psql -c "CREATE USER <span class="var-dbUser">cms_user</span> WITH PASSWORD '<span class="var-dbPassword">cms_secure_pass_2026</span>';"
+sudo -u postgres psql -c "ALTER ROLE <span class="var-dbUser">cms_user</span> SET client_encoding TO 'utf8';"
+sudo -u postgres psql -c "ALTER ROLE <span class="var-dbUser">cms_user</span> SET default_transaction_isolation TO 'read committed';"
+sudo -u postgres psql -c "ALTER ROLE <span class="var-dbUser">cms_user</span> SET timezone TO '<span class="var-timezone">Europe/Brussels</span>';"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE <span class="var-dbName">ocpp_cms</span> TO <span class="var-dbUser">cms_user</span>;"
+sudo -u postgres psql -d <span class="var-dbName">ocpp_cms</span> -c "GRANT ALL ON SCHEMA public TO <span class="var-dbUser">cms_user</span>;"</code></pre>
+                </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-title-group">
+                        <div class="step-number">4</div>
+                        <div class="step-title">Clone Repository &amp; Setup Backend</div>
+                    </div>
+                    <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
+                </div>
+                <div class="step-desc">Clone repository, create Backend environment file, synchronize Prisma schema, and build TypeScript.</div>
+                <div class="code-container">
+                    <pre><code>sudo mkdir -p <span class="var-installPath">/var/www/ocpp-cms</span>
+sudo chown -R $USER:$USER <span class="var-installPath">/var/www/ocpp-cms</span>
+git clone <span class="var-gitRepo">https://github.com/webdotpulse/OCPP-CPMS.git</span> <span class="var-installPath">/var/www/ocpp-cms</span>
+
+cd <span class="var-installPath">/var/www/ocpp-cms</span>/Backend
+
+# Create Backend .env
+cat &lt;&lt;EOT &gt; .env
+DATABASE_URL="postgresql://<span class="var-dbUser">cms_user</span>:<span class="var-dbPassword">cms_secure_pass_2026</span>@localhost:5432/<span class="var-dbName">ocpp_cms</span>?schema=public"
+PORT=3000
+OCPP_PORT=9220
+OCPP_LOG_WS_PORT=3001
+JWT_SECRET="<span class="var-jwtSecret">4f9d8a7c2e1b3d5f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a4c6e8b0d2f</span>"
+REDIS_URL="redis://localhost:6379"
+TZ="<span class="var-timezone">Europe/Brussels</span>"
+LOG_LEVEL=info
+DEFAULT_DYNAMIC_PROVIDER="EnergyZero"
+DEFAULT_DYNAMIC_COUNTRY="BE"
+EOT
+
+npm install
+npx prisma generate
+npx prisma db push --accept-data-loss
+npm run build</code></pre>
+                </div>
+            </div>
+
+            <!-- Step 5 -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-title-group">
+                        <div class="step-number">5</div>
+                        <div class="step-title">Setup Frontend Dashboard &amp; Next.js Production Build</div>
+                    </div>
+                    <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
+                </div>
+                <div class="step-desc">Install Frontend dependencies, configure API URL, and build the Next.js production bundle.</div>
+                <div class="code-container">
+                    <pre><code>cd <span class="var-installPath">/var/www/ocpp-cms</span>/Frontend
+
+# Create Frontend Environment
+cat &lt;&lt;EOT &gt; .env.production
+NEXT_PUBLIC_API_URL="https://<span class="var-backendUrl">ocpp.mobilitypulse.com</span>/api"
+TZ="<span class="var-timezone">Europe/Brussels</span>"
+EOT
+
+npm install
+npm run build</code></pre>
+                </div>
+            </div>
+
+            <!-- Step 6 -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-title-group">
+                        <div class="step-number">6</div>
+                        <div class="step-title">Start Applications with PM2 Process Manager</div>
+                    </div>
+                    <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
+                </div>
+                <div class="step-desc">Create the PM2 ecosystem file, start backend and frontend, and register systemd boot auto-restart.</div>
+                <div class="code-container">
+                    <pre><code>cd <span class="var-installPath">/var/www/ocpp-cms</span>
+
+# Start both services via PM2
+pm2 start ecosystem.config.cjs
+pm2 save
+pm2 startup</code></pre>
+                </div>
+            </div>
+
+            <!-- Step 7 -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-title-group">
+                        <div class="step-number">7</div>
+                        <div class="step-title">Configure Nginx Reverse Proxy (Dual Domain + WebSockets)</div>
+                    </div>
+                    <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
+                </div>
+                <div class="step-desc">Configure Nginx to proxy Frontend on port 3002, REST API on port 3000, OCPP WebSockets on port 9220, and Logs on 3001.</div>
+                <div class="code-container">
+                    <pre><code>sudo tee /etc/nginx/sites-available/ocpp-cpms.conf &gt; /dev/null &lt;&lt;'EOT'
+# 1. Frontend Dashboard
 server {
     listen 80;
-    server_name ocpp.mobilitypulse.com;
-
-    # REST API Routing
-    location /api/ {
-        proxy_pass http://localhost:3000/api/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
-    }
-
-    # OCPP WebSocket Routing (Port 9220)
-    location /OCPP/ {
-        proxy_pass http://localhost:9220/OCPP/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_set_header Host \$host;
-        proxy_read_timeout 86400s;
-        proxy_send_timeout 86400s;
-    }
-
-    # OCPP Logs WebSocket Routing (Port 3001)
-    location /ocpp-logs {
-        proxy_pass http://localhost:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_set_header Host \$host;
-        proxy_read_timeout 86400s;
-        proxy_send_timeout 86400s;
-    }
-}
-\`\`\`
-
-Create an Nginx configuration for the **Frontend Dashboard** (\`ui.mobilitypulse.com\`):
-\`\`\`bash
-sudo nano /etc/nginx/sites-available/ui.mobilitypulse.com
-\`\`\`
-Add the following configuration:
-\`\`\`nginx
-server {
-    listen 80;
-    server_name ui.mobilitypulse.com;
+    server_name <span class="var-frontendUrl">ui.mobilitypulse.com</span>;
 
     location / {
-        proxy_pass http://localhost:3002;
+        proxy_pass http://127.0.0.1:3002;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
-\`\`\`
-*Note: The frontend is explicitly configured to run on port 3002 in its package.json scripts to avoid conflicts with the backend.*
 
-Enable both sites:
-\`\`\`bash
-sudo ln -s /etc/nginx/sites-available/ocpp.mobilitypulse.com /etc/nginx/sites-enabled/
-sudo ln -s /etc/nginx/sites-available/ui.mobilitypulse.com /etc/nginx/sites-enabled/
+# 2. Backend REST API & OCPP WebSockets
+server {
+    listen 80;
+    server_name <span class="var-backendUrl">ocpp.mobilitypulse.com</span>;
+    client_max_body_size 50M;
 
-# Test Nginx configuration
+    # REST API
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Uploaded media assets
+    location /uploads/ {
+        proxy_pass http://127.0.0.1:3000/uploads/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    # Real-time Socket.IO Stream
+    location /api/realtime/ {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # Live Log Stream WebSocket (Port 3001)
+    location /api/ocpp/logs {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+
+    # OCPP 1.6-J and 2.0.1/2.1 WebSocket Server (Port 9220)
+    location /OCPP/ {
+        proxy_pass http://127.0.0.1:9220/OCPP/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+}
+EOT
+
+sudo ln -sf /etc/nginx/sites-available/ocpp-cpms.conf /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl restart nginx</code></pre>
+                </div>
+            </div>
+
+            <!-- Step 8 -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-title-group">
+                        <div class="step-number">8</div>
+                        <div class="step-title">SSL Certificates &amp; Provision Superadmin Account</div>
+                    </div>
+                    <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
+                </div>
+                <div class="step-desc">Fetch Let's Encrypt SSL certificates and create your primary Superadmin user.</div>
+                <div class="code-container">
+                    <pre><code># Obtain SSL Certificates
+sudo certbot --nginx -d <span class="var-frontendUrl">ui.mobilitypulse.com</span> -d <span class="var-backendUrl">ocpp.mobilitypulse.com</span>
+
+# Provision Superadmin Account
+cd <span class="var-installPath">/var/www/ocpp-cms</span>/Backend
+npm run create-superadmin -- "<span class="var-superadminEmail">superadmin@mobilitypulse.com</span>" "<span class="var-superadminPassword">SuperSecureAdmin2026!</span>"</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: LOCAL DEVELOPMENT SETUP -->
+        <div id="tab-local" class="tab-pane">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>💻</span> Quick Local Development Setup
+                    </div>
+                    <button class="btn-copy" onclick="copyCodeBlock(this)">Copy All Commands</button>
+                </div>
+                <div class="step-desc">Run the entire CPMS stack locally on your workstation for development, simulation, and testing.</div>
+                <div class="code-container">
+                    <pre><code># 1. Start PostgreSQL & Redis locally (or via Docker)
+docker run -d --name ocpp-postgres -p 5432:5432 -e POSTGRES_DB=ocpp_cms -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres postgres:16-alpine
+docker run -d --name ocpp-redis -p 6379:6379 redis:7-alpine
+
+# 2. Setup Backend
+cd Backend
+cp .env.example .env
+npm install
+npx prisma generate
+npx prisma db push --accept-data-loss
+
+# Create local superadmin
+npm run create-superadmin -- "admin@example.com" "password123"
+
+# Start Backend development server (Port 3000 & 9220)
+npm run dev
+
+# 3. Setup Frontend (in a new terminal)
+cd ../Frontend
+npm install
+npm run dev
+# Open http://localhost:3002 in your browser!</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: NETWORK & ARCHITECTURE -->
+        <div id="tab-ports" class="tab-pane">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>🔌</span> Network Ports &amp; Topology Matrix
+                    </div>
+                </div>
+
+                <div class="port-grid">
+                    <div class="port-item">
+                        <div class="port-badge">PORT 3002 (HTTP)</div>
+                        <div class="port-name">Next.js Frontend</div>
+                        <div class="port-desc">Admin Dashboard UI (served via Nginx on <code>https://<span class="var-frontendUrl">ui.mobilitypulse.com</span></code>)</div>
+                    </div>
+
+                    <div class="port-item">
+                        <div class="port-badge">PORT 3000 (HTTP/WS)</div>
+                        <div class="port-name">Express REST API &amp; Socket.IO</div>
+                        <div class="port-desc">API endpoints (<code>/api/*</code>) &amp; Real-time Socket.IO stream (<code>/api/realtime/</code>)</div>
+                    </div>
+
+                    <div class="port-item">
+                        <div class="port-badge">PORT 9220 (WS/WSS)</div>
+                        <div class="port-name">OCPP WebSocket Server</div>
+                        <div class="port-desc">OCPP 1.6-J &amp; 2.1 JSON WebSocket listener (<code>/OCPP/[1.6|2.1]/{id}</code>)</div>
+                    </div>
+
+                    <div class="port-item">
+                        <div class="port-badge">PORT 3001 (WS)</div>
+                        <div class="port-name">OCPP Live Logs WS</div>
+                        <div class="port-desc">Raw JSON-RPC packet stream for Live Packet Inspector (<code>/api/ocpp/logs</code>)</div>
+                    </div>
+
+                    <div class="port-item">
+                        <div class="port-badge">PORT 5432 (TCP)</div>
+                        <div class="port-name">PostgreSQL 15+</div>
+                        <div class="port-desc">Relational database storing stations, chargers, transactions, tariffs, and invoices</div>
+                    </div>
+
+                    <div class="port-item">
+                        <div class="port-badge">PORT 6379 (TCP)</div>
+                        <div class="port-name">Redis 7+</div>
+                        <div class="port-desc">In-memory telemetry caching, rate limiter, and BullMQ worker job queues</div>
+                    </div>
+                </div>
+
+                <div class="alert-box alert-info">
+                    <span>⚡</span>
+                    <div>
+                        <strong>Charger Connection Endpoints:</strong><br>
+                        &bull; <strong>OCPP 1.6-J:</strong> <code>wss://<span class="var-backendUrl">ocpp.mobilitypulse.com</span>/OCPP/1.6/{chargerId}</code><br>
+                        &bull; <strong>OCPP 2.1 / 2.0.1:</strong> <code>wss://<span class="var-backendUrl">ocpp.mobilitypulse.com</span>/OCPP/2.1/{chargerId}</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: DIAGNOSTICS & HEALTH -->
+        <div id="tab-diagnostics" class="tab-pane">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>🔍</span> Verification &amp; Diagnostics Suite
+                    </div>
+                    <button class="btn-copy" onclick="copyCodeBlock(this)">Copy Diagnostics</button>
+                </div>
+                <div class="step-desc">Run these diagnostic commands on your VM to verify all services are running properly.</div>
+                <div class="code-container">
+                    <pre><code># 1. Check PM2 Application Status
+pm2 status
+
+# 2. Check Backend REST API Health
+curl -s http://localhost:3000/health | jq . || curl http://localhost:3000/health
+
+# 3. Check Redis Connection
+redis-cli ping
+
+# 4. Check PostgreSQL Service
+sudo systemctl status postgresql --no-pager
+
+# 5. Check Nginx Status & Logs
 sudo nginx -t
+sudo tail -n 20 /var/log/nginx/error.log
 
-# Restart Nginx
-sudo systemctl restart nginx
-\`\`\`
+# 6. Stream Live PM2 Logs
+pm2 logs --lines 50</code></pre>
+                </div>
+            </div>
+        </div>
 
-### 2.5 Secure with SSL (Certbot)
-
-Run Certbot to automatically fetch and configure Let's Encrypt SSL certificates for both domains.
-
-\`\`\`bash
-sudo certbot --nginx -d ocpp.mobilitypulse.com
-sudo certbot --nginx -d ui.mobilitypulse.com
-\`\`\`
-Follow the prompts. Certbot will automatically modify your Nginx configurations to enforce HTTPS and handle WebSocket upgrade headers securely over WSS.
-
----
-
-## 3. Post-Installation Initial Setup
-
-Since this is a fresh installation, the first user installed must be a **Superadmin** with global administrative authority over the entire CPMS network.
-
-### Create Initial Superadmin User
-To securely provision the primary Superadmin account, ensure the database schema is synchronized and run the initialization script on the VM:
-\`\`\`bash
-cd /var/www/ocpp-cms/Backend
-npm run create-superadmin -- "superadmin_email" "superadmin_password"
-\`\`\`
-*(This command synchronizes the Prisma schema via \`npx prisma db push\` and creates or elevates the target user to \`role: "superadmin"\` with email verification automatically enabled).*
-
-Once created, log in at \`https://ui.mobilitypulse.com\` to access the **Users, Clients & Roles Management Hub** (\`/users\`), where you can provision corporate clients, operators, and EV drivers.
-
-### Connecting a Charger in Production
-Once deployed and SSL is configured, point your OCPP 1.6 or OCPP 2.1/2.0.1 charger to your secure WebSocket endpoint:
-\`\`\`
-wss://ocpp.mobilitypulse.com/OCPP/1.6/{chargerId}
-\`\`\`
-or
-\`\`\`
-wss://ocpp.mobilitypulse.com/OCPP/2.1/{chargerId}
-\`\`\`
-*Note the use of \`wss://\` instead of \`ws://\` now that SSL is active.*
-
-## Cleanup / Restart Installation
-
-If you encounter issues during installation or want to restart from scratch, you can use the following commands to wipe the current installation:
-
-\`\`\`bash
-# Remove application directory
-sudo rm -rf /var/www/ocpp-cms
-
-# Drop database and user
-sudo -u postgres psql -c "DROP DATABASE IF EXISTS ocpp_cms;"
-sudo -u postgres psql -c "DROP USER IF EXISTS cms_user;"
-
-# Stop and delete PM2 processes
-pm2 delete ocpp-backend || true
-pm2 delete ocpp-frontend || true
+        <!-- TAB 6: RESET & UNINSTALL -->
+        <div id="tab-rollback" class="tab-pane">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span style="color:var(--accent-red)">⚠️</span> Clean Reset &amp; Uninstallation
+                    </div>
+                    <button class="btn-copy" onclick="copyCodeBlock(this)">Copy Cleanup</button>
+                </div>
+                <div class="alert-box alert-warning">
+                    <span>⚠️</span>
+                    <div><strong>Caution:</strong> Running these commands will completely wipe the database, delete application files, stop PM2 services, and remove Nginx configurations.</div>
+                </div>
+                <div class="code-container">
+                    <pre><code># 1. Stop & Remove PM2 Processes
+pm2 delete ocpp-backend 2&gt;/dev/null || true
+pm2 delete ocpp-frontend 2&gt;/dev/null || true
 pm2 save --force
 
-# Remove Nginx configurations
-sudo rm -f /etc/nginx/sites-available/ocpp.mobilitypulse.com
-sudo rm -f /etc/nginx/sites-enabled/ocpp.mobilitypulse.com
-sudo rm -f /etc/nginx/sites-available/ui.mobilitypulse.com
-sudo rm -f /etc/nginx/sites-enabled/ui.mobilitypulse.com
-sudo systemctl restart nginx
-\`\`\`
+# 2. Remove Application Directory
+sudo rm -rf <span class="var-installPath">/var/www/ocpp-cms</span>
 
-## Troubleshooting Production
+# 3. Drop PostgreSQL Database and User
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS <span class="var-dbName">ocpp_cms</span>;"
+sudo -u postgres psql -c "DROP USER IF EXISTS <span class="var-dbUser">cms_user</span>;"
 
-- **Nginx Error Logs:** \`sudo tail -f /var/log/nginx/error.log\`
-- **Backend/Frontend PM2 Logs:** \`pm2 logs\`
-- **Database Connection:** Ensure the \`DATABASE_URL\` in \`.env\` uses the exact password and user you created in Postgres.
-- **WebSockets disconnecting:** Check that Nginx is configured to properly pass the \`Upgrade\` and \`Connection\` headers as shown in the Nginx config snippet.`;
-    </script>
+# 4. Remove Nginx Configurations
+sudo rm -f /etc/nginx/sites-available/ocpp-cpms.conf
+sudo rm -f /etc/nginx/sites-enabled/ocpp-cpms.conf
+sudo systemctl restart nginx</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container"></div>
+
     <script>
-        const inputs = document.querySelectorAll('input');
-        const contentDiv = document.getElementById('content');
+        // Default Configuration
+        const DEFAULTS = {
+            frontendUrl: "ui.mobilitypulse.com",
+            backendUrl: "ocpp.mobilitypulse.com",
+            vmIp: "[Your VM Static IP]",
+            dbName: "ocpp_cms",
+            dbUser: "cms_user",
+            dbPassword: "cms_secure_pass_2026",
+            jwtSecret: "4f9d8a7c2e1b3d5f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a4c6e8b0d2f",
+            superadminEmail: "superadmin@mobilitypulse.com",
+            superadminPassword: "SuperSecureAdmin2026!",
+            installPath: "/var/www/ocpp-cms",
+            timezone: "Europe/Brussels",
+            gitRepo: "https://github.com/webdotpulse/OCPP-CPMS.git"
+        };
 
-        function updateContent() {
-            let processedMarkdown = rawMarkdown;
+        // State Manager
+        const state = { ...DEFAULTS };
 
-            inputs.forEach(input => {
-                const originalValue = input.getAttribute('data-original');
-                const currentValue = input.value;
+        // Load saved state from localStorage
+        function loadSavedState() {
+            try {
+                const saved = localStorage.getItem("ocpp_wizard_state");
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    Object.assign(state, parsed);
+                }
+            } catch (e) {
+                console.error("Failed to load saved state", e);
+            }
 
-                if (currentValue && originalValue) {
-                    // Escape original value for regex safely
-                    const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    const regex = new RegExp(escapeRegExp(originalValue), 'g');
-                    processedMarkdown = processedMarkdown.replace(regex, currentValue);
+            // Populate form inputs
+            document.querySelectorAll("input[data-key], select[data-key]").forEach(input => {
+                const key = input.getAttribute("data-key");
+                if (state[key] !== undefined) {
+                    input.value = state[key];
                 }
             });
 
-            // Render markdown to HTML
-            contentDiv.innerHTML = marked.parse(processedMarkdown);
-
-            // Add copy buttons to all pre blocks
-            addCopyButtons();
+            updateUI();
         }
 
-        function addCopyButtons() {
-            const preBlocks = contentDiv.querySelectorAll('pre');
+        // Save state to localStorage
+        function saveState() {
+            try {
+                localStorage.setItem("ocpp_wizard_state", JSON.stringify(state));
+            } catch (e) {
+                console.error("Failed to save state", e);
+            }
+        }
 
-            preBlocks.forEach((pre, index) => {
-                const button = document.createElement('button');
-                button.className = 'copy-btn';
-                button.innerText = 'Copy';
+        // Random generator helpers
+        function generateRandomPass(length = 16) {
+            const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+            let res = "";
+            const bytes = new Uint8Array(length);
+            window.crypto.getRandomValues(bytes);
+            for (let i = 0; i < length; i++) {
+                res += chars[bytes[i] % chars.length];
+            }
+            return res;
+        }
 
-                button.addEventListener('click', () => {
-                    const code = pre.querySelector('code');
-                    const textToCopy = code ? code.innerText : pre.innerText;
+        function generateRandomHex(length = 64) {
+            const bytes = new Uint8Array(length / 2);
+            window.crypto.getRandomValues(bytes);
+            return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+        }
 
-                    navigator.clipboard.writeText(textToCopy).then(() => {
-                        button.innerText = 'Copied!';
-                        button.classList.add('copied');
-                        setTimeout(() => {
-                            button.innerText = 'Copy';
-                            button.classList.remove('copied');
-                        }, 2000);
-                    }).catch(err => {
-                        console.error('Failed to copy text: ', err);
-                    });
+        function generateSingleSecret(inputId, type = "pass") {
+            const val = type === "hex" ? generateRandomHex(64) : generateRandomPass(16);
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.value = val;
+                state[input.getAttribute("data-key")] = val;
+                saveState();
+                updateUI();
+                showToast(`Generated new ${input.getAttribute("data-key")}! 🎲`);
+            }
+        }
+
+        function generateAllSecrets() {
+            state.dbPassword = generateRandomPass(16);
+            state.jwtSecret = generateRandomHex(64);
+            state.superadminPassword = generateRandomPass(16);
+
+            document.getElementById("dbPassword").value = state.dbPassword;
+            document.getElementById("jwtSecret").value = state.jwtSecret;
+            document.getElementById("superadminPassword").value = state.superadminPassword;
+
+            saveState();
+            updateUI();
+            showToast("Generated all secure passwords & JWT secret! 🎲");
+        }
+
+        function setLocalhostPreset() {
+            state.frontendUrl = "localhost:3002";
+            state.backendUrl = "localhost:3000";
+            state.vmIp = "127.0.0.1";
+            state.dbName = "ocpp_cms";
+            state.dbUser = "postgres";
+            state.dbPassword = "postgres_password";
+            state.superadminEmail = "admin@example.com";
+            state.superadminPassword = "password123";
+
+            document.querySelectorAll("input[data-key], select[data-key]").forEach(input => {
+                const key = input.getAttribute("data-key");
+                if (state[key] !== undefined) {
+                    input.value = state[key];
+                }
+            });
+
+            saveState();
+            updateUI();
+            showToast("Applied Localhost Preset 💻");
+        }
+
+        function resetFormToDefaults() {
+            Object.assign(state, DEFAULTS);
+            document.querySelectorAll("input[data-key], select[data-key]").forEach(input => {
+                const key = input.getAttribute("data-key");
+                if (state[key] !== undefined) {
+                    input.value = state[key];
+                }
+            });
+            saveState();
+            updateUI();
+            showToast("Reset to default parameters ↺");
+        }
+
+        // Generate One-Liner Command
+        function getOneLinerCommand() {
+            return `curl -sSL https://raw.githubusercontent.com/webdotpulse/OCPP-CPMS/main/install.sh | sudo bash -s -- \\
+  --frontend-domain "${state.frontendUrl}" \\
+  --backend-domain "${state.backendUrl}" \\
+  --db-name "${state.dbName}" \\
+  --db-user "${state.dbUser}" \\
+  --db-pass "${state.dbPassword}" \\
+  --jwt-secret "${state.jwtSecret}" \\
+  --admin-email "${state.superadminEmail}" \\
+  --admin-pass "${state.superadminPassword}" \\
+  --install-dir "${state.installPath}" \\
+  --timezone "${state.timezone}" \\
+  -y`;
+        }
+
+        // Generate Full Customized install.sh
+        function getFullInstallScript() {
+            return `#!/usr/bin/env bash
+# ==============================================================================
+# OCPP-CPMS Auto-Generated Installation Script
+# Configuration Target: ${state.frontendUrl} / ${state.backendUrl}
+# Generated on: ${new Date().toUTCString()}
+# ==============================================================================
+
+set -eo pipefail
+
+FRONTEND_DOMAIN="${state.frontendUrl}"
+BACKEND_DOMAIN="${state.backendUrl}"
+DB_NAME="${state.dbName}"
+DB_USER="${state.dbUser}"
+DB_PASS="${state.dbPassword}"
+JWT_SECRET="${state.jwtSecret}"
+ADMIN_EMAIL="${state.superadminEmail}"
+ADMIN_PASS="${state.superadminPassword}"
+INSTALL_DIR="${state.installPath}"
+GIT_REPO="${state.gitRepo}"
+TIMEZONE="${state.timezone}"
+
+echo "=========================================================="
+echo "⚡ Starting OCPP-CPMS Production Installation..."
+echo "=========================================================="
+
+# 1. System packages
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y
+apt-get install -y git curl wget ufw build-essential openssl sed lsb-release ca-certificates gnupg
+timedatectl set-timezone "$TIMEZONE" || true
+
+# 2. Firewall
+ufw allow OpenSSH || true
+ufw allow 80/tcp || true
+ufw allow 443/tcp || true
+ufw --force enable || true
+
+# 3. Node.js 24 LTS & PM2
+if ! command -v node &>/dev/null || [[ $(node -v | cut -d'.' -f1 | tr -d 'v') -lt 22 ]]; then
+  mkdir -p /etc/apt/keyrings
+  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg --yes
+  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
+  apt-get update -y
+  apt-get install -y nodejs
+fi
+
+npm install -g pm2
+pm2 install pm2-logrotate || true
+pm2 set pm2-logrotate:max_size 50M || true
+pm2 set pm2-logrotate:compress true || true
+pm2 set pm2-logrotate:retain 14 || true
+
+# 4. PostgreSQL & Redis
+apt-get install -y postgresql postgresql-contrib redis-server nginx certbot python3-certbot-nginx
+systemctl start postgresql redis-server
+systemctl enable postgresql redis-server
+
+sudo -u postgres psql -c "DO \\\$\\\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '\${DB_USER}') THEN CREATE ROLE \${DB_USER} LOGIN PASSWORD '\${DB_PASS}'; END IF; END \\\$\\\$;"
+sudo -u postgres psql -c "ALTER ROLE \${DB_USER} WITH PASSWORD '\${DB_PASS}';"
+sudo -u postgres psql -c "SELECT 'CREATE DATABASE \${DB_NAME}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '\${DB_NAME}')\\gexec"
+sudo -u postgres psql -c "ALTER ROLE \${DB_USER} SET client_encoding TO 'utf8';"
+sudo -u postgres psql -c "ALTER ROLE \${DB_USER} SET default_transaction_isolation TO 'read committed';"
+sudo -u postgres psql -c "ALTER ROLE \${DB_USER} SET timezone TO '\${TIMEZONE}';"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE \${DB_NAME} TO \${DB_USER};"
+sudo -u postgres psql -d "\${DB_NAME}" -c "GRANT ALL ON SCHEMA public TO \${DB_USER};"
+
+# 5. Clone repository
+mkdir -p "$(dirname "$INSTALL_DIR")"
+if [[ -d "$INSTALL_DIR/.git" ]]; then
+  cd "$INSTALL_DIR" && git fetch --all && git reset --hard origin/main
+else
+  git clone "$GIT_REPO" "$INSTALL_DIR"
+fi
+ACTUAL_USER="\${SUDO_USER:-root}"
+chown -R "$ACTUAL_USER:$ACTUAL_USER" "$INSTALL_DIR"
+
+# 6. Backend Setup
+cd "$INSTALL_DIR/Backend"
+cat <<EOT > .env
+DATABASE_URL="postgresql://\${DB_USER}:\${DB_PASS}@localhost:5432/\${DB_NAME}?schema=public"
+PORT=3000
+OCPP_PORT=9220
+OCPP_LOG_WS_PORT=3001
+JWT_SECRET="\${JWT_SECRET}"
+REDIS_URL="redis://localhost:6379"
+TZ="\${TIMEZONE}"
+LOG_LEVEL=info
+DEFAULT_DYNAMIC_PROVIDER="EnergyZero"
+DEFAULT_DYNAMIC_COUNTRY="BE"
+EOT
+
+npm install
+npx prisma generate
+npx prisma db push --accept-data-loss
+npm run build || true
+npm run create-superadmin -- "\${ADMIN_EMAIL}" "\${ADMIN_PASS}"
+
+# 7. Frontend Setup
+cd "$INSTALL_DIR/Frontend"
+cat <<EOT > .env.production
+NEXT_PUBLIC_API_URL="https://\${BACKEND_DOMAIN}/api"
+TZ="\${TIMEZONE}"
+EOT
+npm install
+npm run build
+
+# 8. PM2 Ecosystem
+cd "$INSTALL_DIR"
+cat <<EOT > ecosystem.config.cjs
+module.exports = {
+  apps: [
+    {
+      name: "ocpp-backend",
+      cwd: "$INSTALL_DIR/Backend",
+      script: "npm",
+      args: "start",
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "1G",
+      env: { NODE_ENV: "production" },
+    },
+    {
+      name: "ocpp-frontend",
+      cwd: "$INSTALL_DIR/Frontend",
+      script: "node_modules/.bin/next",
+      args: "start -p 3002",
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "1G",
+      env: { NODE_ENV: "production" },
+    },
+  ],
+};
+EOT
+
+pm2 delete ocpp-backend 2>/dev/null || true
+pm2 delete ocpp-frontend 2>/dev/null || true
+pm2 start ecosystem.config.cjs
+pm2 save --force
+pm2 startup systemd -u "$ACTUAL_USER" --hp "/home/$ACTUAL_USER" 2>/dev/null || pm2 startup systemd || true
+
+# 9. Nginx Reverse Proxy
+cat <<EOT > /etc/nginx/sites-available/ocpp-cpms.conf
+server {
+    listen 80;
+    server_name \${FRONTEND_DOMAIN};
+    location / {
+        proxy_pass http://127.0.0.1:3002;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \\$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \\$host;
+        proxy_cache_bypass \\$http_upgrade;
+        proxy_set_header X-Real-IP \\$remote_addr;
+        proxy_set_header X-Forwarded-For \\$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \\$scheme;
+    }
+}
+server {
+    listen 80;
+    server_name \${BACKEND_DOMAIN};
+    client_max_body_size 50M;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \\$host;
+        proxy_set_header X-Real-IP \\$remote_addr;
+        proxy_set_header X-Forwarded-For \\$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \\$scheme;
+    }
+    location /uploads/ {
+        proxy_pass http://127.0.0.1:3000/uploads/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \\$host;
+    }
+    location /api/realtime/ {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \\$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \\$host;
+        proxy_set_header X-Real-IP \\$remote_addr;
+        proxy_set_header X-Forwarded-For \\$proxy_add_x_forwarded_for;
+    }
+    location /api/ocpp/logs {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \\$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \\$host;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+    location /OCPP/ {
+        proxy_pass http://127.0.0.1:9220/OCPP/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \\$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \\$host;
+        proxy_set_header X-Real-IP \\$remote_addr;
+        proxy_set_header X-Forwarded-For \\$proxy_add_x_forwarded_for;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+}
+EOT
+
+ln -sf /etc/nginx/sites-available/ocpp-cpms.conf /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
+nginx -t && systemctl restart nginx
+
+# 10. SSL Certificates
+certbot --nginx --non-interactive --agree-tos --register-unsafely-without-email \\
+  -d "\${FRONTEND_DOMAIN}" -d "\${BACKEND_DOMAIN}" || echo "Certbot skipped or manual run required."
+
+echo ""
+echo "=========================================================="
+echo "⚡ OCPP-CPMS Installation Completed Successfully! ⚡"
+echo "=========================================================="
+echo "🖥️ Frontend UI:   https://\${FRONTEND_DOMAIN}"
+echo "🔌 Backend API:   https://\${BACKEND_DOMAIN}/api"
+echo "🔐 Superadmin:    \${ADMIN_EMAIL}"
+echo "=========================================================="
+`;
+        }
+
+        function downloadCustomInstallScript() {
+            const scriptContent = getFullInstallScript();
+            const blob = new Blob([scriptContent], { type: "text/x-shellscript" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "install.sh";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast("Downloaded customized install.sh! 💾");
+        }
+
+        // Update all UI elements with state variables
+        function updateUI() {
+            // Update 1-liner preview
+            const oneLinerEl = document.getElementById("one-liner-code");
+            if (oneLinerEl) {
+                oneLinerEl.innerText = getOneLinerCommand();
+            }
+
+            // Update full script preview
+            const scriptPreviewEl = document.getElementById("full-script-preview");
+            if (scriptPreviewEl) {
+                scriptPreviewEl.innerText = getFullInstallScript();
+            }
+
+            // Update all inline template variables
+            for (const [key, val] of Object.entries(state)) {
+                document.querySelectorAll(`.var-${key}`).forEach(el => {
+                    el.innerText = val || `[${key}]`;
                 });
+            }
+        }
 
-                pre.appendChild(button);
+        // Copy Helper
+        function copyText(text, successMsg = "Copied to clipboard! 📋") {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast(successMsg);
+            }).catch(err => {
+                console.error("Copy failed", err);
+                showToast("Failed to copy. Please copy manually.");
             });
         }
 
-        // Add event listeners to inputs
-        inputs.forEach(input => {
-            input.addEventListener('input', updateContent);
+        function copyCodeBlock(btn) {
+            const container = btn.closest(".code-container, .step-card, .card, .hero-installer");
+            if (!container) return;
+            const code = container.querySelector("pre code, pre");
+            if (!code) return;
+
+            navigator.clipboard.writeText(code.innerText.trim()).then(() => {
+                btn.classList.add("copied");
+                const origText = btn.innerText;
+                btn.innerText = "Copied! ✨";
+                showToast("Command copied to clipboard! 📋");
+                setTimeout(() => {
+                    btn.classList.remove("copied");
+                    btn.innerText = origText;
+                }, 2000);
+            });
+        }
+
+        // Toast feedback
+        function showToast(message) {
+            const container = document.getElementById("toast-container");
+            const toast = document.createElement("div");
+            toast.className = "toast";
+            toast.innerText = message;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.transition = "opacity 0.3s ease, transform 0.3s ease";
+                toast.style.opacity = "0";
+                toast.style.transform = "translateX(50px)";
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+
+        // Tab Switcher
+        function switchTab(tabId) {
+            document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+            document.querySelectorAll(".tab-pane").forEach(pane => pane.classList.remove("active"));
+
+            const targetPane = document.getElementById(tabId);
+            if (targetPane) {
+                targetPane.classList.add("active");
+            }
+
+            event.currentTarget.classList.add("active");
+        }
+
+        // Theme Toggle
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById("theme-icon");
+            const btn = document.getElementById("theme-toggle-btn");
+
+            if (html.classList.contains("dark")) {
+                html.classList.remove("dark");
+                html.classList.add("light");
+                icon.innerText = "🌙";
+                btn.innerHTML = `<span id="theme-icon">🌙</span> Dark Mode`;
+                localStorage.setItem("ocpp_wizard_theme", "light");
+            } else {
+                html.classList.remove("light");
+                html.classList.add("dark");
+                icon.innerText = "☀️";
+                btn.innerHTML = `<span id="theme-icon">☀️</span> Light Mode`;
+                localStorage.setItem("ocpp_wizard_theme", "dark");
+            }
+        }
+
+        // Initialize Theme from localStorage
+        function initTheme() {
+            const savedTheme = localStorage.getItem("ocpp_wizard_theme");
+            if (savedTheme === "light") {
+                document.documentElement.classList.remove("dark");
+                document.documentElement.classList.add("light");
+                const btn = document.getElementById("theme-toggle-btn");
+                if (btn) btn.innerHTML = `<span id="theme-icon">🌙</span> Dark Mode`;
+            }
+        }
+
+        // Listen for input changes
+        document.querySelectorAll("input[data-key], select[data-key]").forEach(input => {
+            input.addEventListener("input", (e) => {
+                const key = e.target.getAttribute("data-key");
+                state[key] = e.target.value;
+                saveState();
+                updateUI();
+            });
         });
 
-        // Initial render
-        updateContent();
+        // Initialize
+        initTheme();
+        loadSavedState();
     </script>
 </body>
 </html>

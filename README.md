@@ -376,6 +376,18 @@ OCPP-CPMS/
 
 ## Quick Start
 
+### 🚀 Automated 1-Click Production Deployment
+Open [`interactive-setup.html`](interactive-setup.html) in any web browser to customize your domain names, passwords, and generate your 1-click deployment command or custom `install.sh` script.
+
+Alternatively, execute the unattended production installer directly on your Ubuntu 22.04/24.04 VM:
+```bash
+sudo bash install.sh --frontend-domain "ui.yourdomain.com" --backend-domain "ocpp.yourdomain.com" -y
+```
+
+---
+
+### 💻 Local Development Quickstart
+
 ### 1. Prerequisites
 - **Node.js:** 22+ or 24+ LTS
 - **PostgreSQL:** 15+
