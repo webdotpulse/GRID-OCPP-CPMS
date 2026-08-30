@@ -284,4 +284,4 @@ npm run build
 
 ---
 
-*Authored for AI Agents & Pair Programmers — webdotpulse/OCPP-CPMS.*
+*Authored for AI Agents & Pair Programmers — webdotpulse/GRID-OCPP-CPMS.*

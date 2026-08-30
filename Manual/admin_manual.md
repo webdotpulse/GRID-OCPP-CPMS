@@ -126,7 +126,7 @@ sudo apt install nginx certbot python3-certbot-nginx -y
 ```bash
 sudo mkdir -p /var/www
 cd /var/www/
-sudo git clone https://github.com/webdotpulse/OCPP-CPMS.git ocpp-cms
+sudo git clone https://github.com/webdotpulse/GRID-OCPP-CPMS.git ocpp-cms
 sudo chown -R $USER:$USER /var/www/ocpp-cms
 cd ocpp-cms
 ```
