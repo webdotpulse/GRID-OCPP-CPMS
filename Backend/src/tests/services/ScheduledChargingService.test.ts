@@ -1,6 +1,6 @@
 import { jest } from "@jest/globals";
 
-const mockPrisma = {
+const mockPrisma: any = {
   charger: {
     findUnique: jest.fn(),
   },
@@ -21,7 +21,7 @@ const mockPrisma = {
   },
 };
 
-const mockRemoteControl = {
+const mockRemoteControl: any = {
   remoteStartTransaction: jest.fn(),
   remoteStopTransaction: jest.fn(),
   setChargingProfile: jest.fn(),

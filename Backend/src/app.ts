@@ -47,6 +47,7 @@ import securityRoutes from "./api/security/security.routes.js";
 import rolesRoutes from "./api/roles/roles.routes.js";
 import webhooksRoutes from "./api/webhooks/webhooks.routes.js";
 import scheduledChargingRoutes from "./api/scheduled-charging/scheduledCharging.routes.js";
+import simulatorRoutes from "./api/simulator/simulator.routes.js";
 
 // Import OCPP servers
 import { ocppServer } from "./ocpp/ocppServer.js";

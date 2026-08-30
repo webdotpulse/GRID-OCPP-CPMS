@@ -77,7 +77,7 @@ describe("WebhookService (Outbound Event Streaming)", () => {
 
       // Mock global fetch
       const originalFetch = global.fetch;
-      global.fetch = jest.fn().mockImplementation(() =>
+      (global as any).fetch = jest.fn().mockImplementation(() =>
         Promise.resolve({
           ok: true,
           status: 200,

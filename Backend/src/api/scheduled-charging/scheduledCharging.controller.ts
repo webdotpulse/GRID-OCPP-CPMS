@@ -37,7 +37,7 @@ export const getScheduledChargings = async (req: AuthRequest, res: Response) => 
  */
 export const getScheduledChargingById = async (req: AuthRequest, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
       return res.status(400).json({ success: false, error: "Invalid schedule ID" });
     }
@@ -136,7 +136,7 @@ export const createScheduledCharging = async (req: AuthRequest, res: Response) =
  */
 export const updateScheduledCharging = async (req: AuthRequest, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
       return res.status(400).json({ success: false, error: "Invalid schedule ID" });
     }
@@ -169,7 +169,7 @@ export const updateScheduledCharging = async (req: AuthRequest, res: Response) =
  */
 export const deleteScheduledCharging = async (req: AuthRequest, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
       return res.status(400).json({ success: false, error: "Invalid schedule ID" });
     }
@@ -201,7 +201,7 @@ export const deleteScheduledCharging = async (req: AuthRequest, res: Response) =
  */
 export const toggleScheduledCharging = async (req: AuthRequest, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
       return res.status(400).json({ success: false, error: "Invalid schedule ID" });
     }
@@ -224,7 +224,7 @@ export const toggleScheduledCharging = async (req: AuthRequest, res: Response) =
  */
 export const executeScheduledChargingNow = async (req: AuthRequest, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
       return res.status(400).json({ success: false, error: "Invalid schedule ID" });
     }
