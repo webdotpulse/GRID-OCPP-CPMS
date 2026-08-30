@@ -44,6 +44,12 @@ api.interceptors.response.use(
           (unwrappedData as any).stats = stats;
         }
       }
+      if (response.data.total !== undefined) {
+        (response as any).total = response.data.total;
+        if (unwrappedData && typeof unwrappedData === 'object') {
+          (unwrappedData as any).total = response.data.total;
+        }
+      }
       response.data = unwrappedData;
     }
     return response;

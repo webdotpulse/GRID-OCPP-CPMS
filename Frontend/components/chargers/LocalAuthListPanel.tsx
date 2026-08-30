@@ -44,9 +44,10 @@ export function LocalAuthListPanel({ chargerId, isOnline }: { chargerId: number;
   const fetchLocalAuthList = async () => {
     try {
       setLoading(true);
-      const res = await api.get(`/api/chargers/${chargerId}/local-auth-list`);
-      if (res.data.success) {
-        setData(res.data.data);
+      const res = await api.get(`/chargers/${chargerId}/local-auth-list`);
+      const payload = res.data?.data || res.data;
+      if (payload) {
+        setData(payload);
       }
     } catch (error: any) {
       toast.error(error.response?.data?.error || error.message || 'Failed to load local auth list');
@@ -64,11 +65,10 @@ export function LocalAuthListPanel({ chargerId, isOnline }: { chargerId: number;
   const handleSync = async (updateType: 'Full' | 'Differential') => {
     try {
       setSyncing(true);
-      const res = await api.post(`/api/chargers/${chargerId}/local-auth-list/sync`, { updateType });
-      if (res.data.success) {
-        toast.success(`Pushed ${res.data.data.count} tokens (Version ${res.data.data.listVersion}) via OCPP SendLocalList.`);
-        fetchLocalAuthList();
-      }
+      const res = await api.post(`/chargers/${chargerId}/local-auth-list/sync`, { updateType });
+      const payload = res.data?.data || res.data;
+      toast.success(`Pushed ${payload?.count || ''} tokens (Version ${payload?.listVersion || ''}) via OCPP SendLocalList.`);
+      fetchLocalAuthList();
     } catch (error: any) {
       toast.error(error.response?.data?.error || error.message || 'Sync Failed');
     } finally {
@@ -79,11 +79,10 @@ export function LocalAuthListPanel({ chargerId, isOnline }: { chargerId: number;
   const handleQueryVersion = async () => {
     try {
       setSyncing(true);
-      const res = await api.post(`/api/chargers/${chargerId}/local-auth-list/version`);
-      if (res.data.success) {
-        toast.success(`Charger reported local list version: ${res.data.data.listVersion}`);
-        fetchLocalAuthList();
-      }
+      const res = await api.post(`/chargers/${chargerId}/local-auth-list/version`);
+      const payload = res.data?.data || res.data;
+      toast.success(`Charger reported local list version: ${payload?.listVersion || ''}`);
+      fetchLocalAuthList();
     } catch (error: any) {
       toast.error(error.response?.data?.error || error.message || 'Query Failed');
     } finally {
@@ -117,15 +116,15 @@ export function LocalAuthListPanel({ chargerId, isOnline }: { chargerId: number;
   };
 
   return (
-    <Card className="bg-[#1e2228] border-zinc-800/80 shadow-sm">
-      <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-800/60 pb-4">
+    <Card className="bg-card border-border/70 shadow-xs">
+      <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-4">
         <div>
-          <CardTitle className="text-base font-bold text-white flex items-center gap-2">
+          <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-[#54a8c7]" />
             Local Authorization List (Offline Resilience)
           </CardTitle>
-          <CardDescription className="text-xs text-zinc-400 mt-1">
-            Enables charge point offline badge authorization via OCPP <code className="text-zinc-300">SendLocalList</code> &amp; <code className="text-zinc-300">GetLocalListVersion</code>.
+          <CardDescription className="text-xs text-muted-foreground mt-1">
+            Enables charge point offline badge authorization via OCPP <code className="text-foreground/90">SendLocalList</code> &amp; <code className="text-foreground/90">GetLocalListVersion</code>.
           </CardDescription>
         </div>
         <div className="flex items-center gap-2">
@@ -134,7 +133,7 @@ export function LocalAuthListPanel({ chargerId, isOnline }: { chargerId: number;
             size="sm"
             onClick={handleQueryVersion}
             disabled={!isOnline || syncing}
-            className="border-zinc-800 text-xs bg-zinc-900 text-zinc-300 hover:text-white"
+            className="border-border/70 text-xs text-foreground hover:bg-muted"
           >
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${syncing ? 'animate-spin' : ''}`} />
             Query Version
@@ -154,20 +153,20 @@ export function LocalAuthListPanel({ chargerId, isOnline }: { chargerId: number;
       <CardContent className="pt-5 space-y-4">
         {/* KPI Strip */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="bg-zinc-900/80 p-3 rounded-lg border border-zinc-800">
-            <span className="text-[11px] text-zinc-400 font-medium">List Version</span>
-            <div className="text-xl font-bold text-white font-mono mt-0.5">
+          <div className="bg-muted/40 p-3 rounded-lg border border-border/60">
+            <span className="text-[11px] text-muted-foreground font-medium">List Version</span>
+            <div className="text-xl font-bold text-foreground font-mono mt-0.5">
               v{data?.listVersion ?? 0}
             </div>
           </div>
-          <div className="bg-zinc-900/80 p-3 rounded-lg border border-zinc-800">
-            <span className="text-[11px] text-zinc-400 font-medium">Sync Status</span>
+          <div className="bg-muted/40 p-3 rounded-lg border border-border/60">
+            <span className="text-[11px] text-muted-foreground font-medium">Sync Status</span>
             <div className="mt-1">
               {getStatusBadge(data?.status || 'Unknown')}
             </div>
           </div>
-          <div className="bg-zinc-900/80 p-3 rounded-lg border border-zinc-800">
-            <span className="text-[11px] text-zinc-400 font-medium">Cached Whitelist Tokens</span>
+          <div className="bg-muted/40 p-3 rounded-lg border border-border/60">
+            <span className="text-[11px] text-muted-foreground font-medium">Cached Whitelist Tokens</span>
             <div className="text-xl font-bold text-[#54a8c7] font-mono mt-0.5">
               {data?.entries?.length || 0}
             </div>
@@ -175,9 +174,9 @@ export function LocalAuthListPanel({ chargerId, isOnline }: { chargerId: number;
         </div>
 
         {/* Entries Table */}
-        <div className="rounded-lg border border-zinc-800 overflow-hidden">
-          <table className="w-full text-left text-xs text-zinc-300">
-            <thead className="bg-zinc-900/70 border-b border-zinc-800 text-zinc-400 uppercase font-semibold text-[10px] tracking-wider">
+        <div className="rounded-lg border border-border/70 overflow-hidden">
+          <table className="w-full text-left text-xs text-foreground/80">
+            <thead className="bg-muted/40 border-b border-border text-muted-foreground uppercase font-semibold text-[10px] tracking-wider">
               <tr>
                 <th className="px-4 py-2.5">ID Tag / Token</th>
                 <th className="px-4 py-2.5">Status</th>
@@ -185,36 +184,36 @@ export function LocalAuthListPanel({ chargerId, isOnline }: { chargerId: number;
                 <th className="px-4 py-2.5">Expiry Date</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-800/50">
+            <tbody className="divide-y divide-border/40">
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-zinc-500">
+                  <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
                     <RefreshCw className="w-4 h-4 mx-auto animate-spin mb-1 text-[#54a8c7]" />
                     Loading local list...
                   </td>
                 </tr>
               ) : !data?.entries || data.entries.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-zinc-500">
+                  <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
                     <Key className="w-6 h-6 mx-auto mb-1.5 opacity-40" />
                     No local authorization entries synchronized yet. Click "Sync Full List".
                   </td>
                 </tr>
               ) : (
                 data.entries.map((entry) => (
-                  <tr key={entry.id} className="hover:bg-zinc-850/40">
-                    <td className="px-4 py-2.5 font-mono text-white font-medium">
+                  <tr key={entry.id} className="hover:bg-muted/40">
+                    <td className="px-4 py-2.5 font-mono text-foreground font-medium">
                       {entry.idTag}
                     </td>
                     <td className="px-4 py-2.5">
-                      <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px]">
+                      <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px]">
                         {entry.status}
                       </Badge>
                     </td>
-                    <td className="px-4 py-2.5 font-mono text-zinc-400">
+                    <td className="px-4 py-2.5 font-mono text-muted-foreground">
                       {entry.parentIdTag || '—'}
                     </td>
-                    <td className="px-4 py-2.5 text-zinc-400">
+                    <td className="px-4 py-2.5 text-muted-foreground">
                       {entry.expiryDate ? new Date(entry.expiryDate).toLocaleDateString() : 'Permanent'}
                     </td>
                   </tr>

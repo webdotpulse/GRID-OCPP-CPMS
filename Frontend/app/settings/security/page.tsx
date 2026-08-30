@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
+import { AppShell } from '@/components/layout/AppShell';
 import { toast } from 'sonner';
 import {
   ShieldCheck,
@@ -17,6 +19,8 @@ import {
   FileCode,
   Layers,
   Cpu,
+  Loader2,
+  ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import Link from 'next/link';
 
 interface CaInfo {
   certificatePem: string;
@@ -68,8 +73,8 @@ interface InstalledCertificate {
 interface CertificateRequest {
   id: number;
   chargerId: number;
+  csrPem: string;
   certificateType: string;
-  csr: string;
   status: string;
   createdAt: string;
   signedCertificate?: string | null;
@@ -77,6 +82,7 @@ interface CertificateRequest {
 }
 
 export default function SecurityPkiPage() {
+  const { user, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [caData, setCaData] = useState<{ rootCa: CaInfo; subCa: CaInfo } | null>(null);
   const [installedCertificates, setInstalledCertificates] = useState<InstalledCertificate[]>([]);
@@ -94,21 +100,24 @@ export default function SecurityPkiPage() {
     try {
       setLoading(true);
       const [caRes, certsRes, chargersRes] = await Promise.all([
-        api.get('/api/security/ca'),
-        api.get('/api/security/certificates'),
-        api.get('/api/chargers'),
+        api.get('/security/ca'),
+        api.get('/security/certificates'),
+        api.get('/chargers'),
       ]);
 
-      if (caRes.data.success) {
-        setCaData(caRes.data.data);
+      const ca = caRes.data?.data || caRes.data;
+      if (ca) {
+        setCaData(ca);
       }
-      if (certsRes.data.success) {
-        setInstalledCertificates(certsRes.data.data.installedCertificates || []);
-        setPendingRequests(certsRes.data.data.pendingRequests || []);
+      const certs = certsRes.data?.data || certsRes.data;
+      if (certs) {
+        setInstalledCertificates(certs.installedCertificates || []);
+        setPendingRequests(certs.pendingRequests || []);
       }
-      if (chargersRes.data.success) {
-        setChargers(chargersRes.data.data || []);
-      }
+      const chargersList = Array.isArray(chargersRes.data)
+        ? chargersRes.data
+        : (chargersRes.data?.chargers || chargersRes.data?.data || []);
+      setChargers(chargersList);
     } catch (error: any) {
       toast.error(error.response?.data?.error || error.message || 'Failed to load security & PKI data');
     } finally {
@@ -117,8 +126,10 @@ export default function SecurityPkiPage() {
   };
 
   useEffect(() => {
-    fetchSecurityData();
-  }, []);
+    if (!authLoading && (user?.role === 'admin' || user?.role === 'superadmin')) {
+      fetchSecurityData();
+    }
+  }, [authLoading, user]);
 
   const handleDownloadPem = (pem: string, filename: string) => {
     const blob = new Blob([pem], { type: 'application/x-pem-file' });
@@ -134,11 +145,9 @@ export default function SecurityPkiPage() {
 
   const handleSignCsr = async (requestId: number) => {
     try {
-      const res = await api.post('/api/security/certificates/sign', { requestId });
-      if (res.data.success) {
-        toast.success('X.509 certificate issued with V2G Sub-CA signature and recorded in installed certificates.');
-        fetchSecurityData();
-      }
+      const res = await api.post('/security/certificates/sign', { requestId });
+      toast.success('X.509 certificate issued with V2G Sub-CA signature and recorded in installed certificates.');
+      fetchSecurityData();
     } catch (error: any) {
       toast.error(error.response?.data?.error || error.message || 'Signing Failed');
     }
@@ -153,19 +162,17 @@ export default function SecurityPkiPage() {
 
     try {
       setSubmitting(true);
-      const res = await api.post('/api/security/certificates/install', {
+      const res = await api.post('/security/certificates/install', {
         chargerId: Number(selectedChargerId),
         certificateType,
         certificatePem,
       });
 
-      if (res.data.success) {
-        toast.success(`Certificate successfully pushed to charger #${selectedChargerId} via InstallCertificate RPC`);
-        setIsInstallModalOpen(false);
-        setSelectedChargerId('');
-        setCertificatePem('');
-        fetchSecurityData();
-      }
+      toast.success(`Certificate successfully pushed to charger #${selectedChargerId} via InstallCertificate RPC`);
+      setIsInstallModalOpen(false);
+      setSelectedChargerId('');
+      setCertificatePem('');
+      fetchSecurityData();
     } catch (error: any) {
       toast.error(error.response?.data?.error || error.message || 'Installation Failed');
     } finally {
@@ -175,50 +182,84 @@ export default function SecurityPkiPage() {
 
   const handleDeleteCertificate = async (id: number) => {
     try {
-      const res = await api.post('/api/security/certificates/delete', { id });
-      if (res.data.success) {
-        toast.success('DeleteCertificate RPC dispatched and certificate removed from database.');
-        fetchSecurityData();
-      }
+      const res = await api.post('/security/certificates/delete', { id });
+      toast.success('DeleteCertificate RPC dispatched and certificate removed from database.');
+      fetchSecurityData();
     } catch (error: any) {
       toast.error(error.response?.data?.error || error.message || 'Deletion Failed');
     }
   };
 
+  if (authLoading) {
+    return (
+      <AppShell>
+        <div className="flex flex-col items-center justify-center h-64 gap-2 text-muted-foreground">
+          <Loader2 className="size-8 animate-spin text-[#3f78e0]" />
+          <span className="text-xs">Loading PKI security profiles...</span>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (user?.role !== 'admin' && user?.role !== 'superadmin') {
+    return (
+      <AppShell>
+        <div className="flex h-full items-center justify-center p-8">
+          <div className="text-center space-y-2">
+            <h2 className="text-xl font-semibold">Unauthorized Access</h2>
+            <p className="text-sm text-muted-foreground">You do not have permission to view PKI security profiles.</p>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto animate-in fade-in duration-300">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <ShieldCheck className="w-7 h-7 text-[#45c4a0]" />
-            Security Profiles & PKI Automation
-          </h1>
-          <p className="text-sm text-zinc-400 mt-1">
-            Manage OCPP 1.6 Security Profiles (SP1/SP2/SP3), ISO 15118 Plug & Charge Root CAs, and automated certificate lifecycle
-          </p>
+    <AppShell>
+      <div className="space-y-6 max-w-[1600px] mx-auto pb-12 animate-in fade-in duration-300">
+        {/* Breadcrumb & Navigation */}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Link href="/settings" className="hover:text-foreground transition-colors">
+            Settings
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5" />
+          <span className="text-foreground font-medium">Security & PKI</span>
         </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchSecurityData}
-            disabled={loading}
-            className="border-zinc-800 bg-[#1e2228] text-zinc-300 hover:text-white hover:bg-zinc-800"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => setIsInstallModalOpen(true)}
-            className="bg-[#3f78e0] hover:bg-[#3364be] text-white shadow-lg shadow-blue-500/20"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Install Certificate
-          </Button>
+
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-2.5">
+              <div className="size-9 rounded-xl bg-[#45c4a0]/15 text-[#45c4a0] flex items-center justify-center">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              Security Profiles & PKI Automation
+            </h1>
+            <p className="text-sm text-zinc-400 mt-1">
+              Manage OCPP 1.6 Security Profiles (SP1/SP2/SP3), ISO 15118 Plug & Charge Root CAs, and automated certificate lifecycle
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchSecurityData}
+              disabled={loading}
+              className="border-zinc-800 bg-[#1e2228] text-zinc-300 hover:text-white hover:bg-zinc-800"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setIsInstallModalOpen(true)}
+              className="bg-[#3f78e0] hover:bg-[#3364be] text-white shadow-lg shadow-blue-500/20"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Install Certificate
+            </Button>
+          </div>
         </div>
-      </div>
 
       {/* Security Profile Badges & Status Banner */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -578,6 +619,7 @@ export default function SecurityPkiPage() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </AppShell>
   );
 }

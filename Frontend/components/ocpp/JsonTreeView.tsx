@@ -23,12 +23,8 @@ export function JsonTreeView({ data, path = "", violations = [], initialExpanded
     setTimeout(() => setCopiedKey(null), 1500);
   };
 
-  const getViolationForPath = (currentPath: string) => {
-    return violations.find((v) => v.field === currentPath || v.field.endsWith(currentPath));
-  };
-
   if (data === null || data === undefined) {
-    return <span className="font-mono text-xs text-slate-500 italic">null</span>;
+    return <span className="font-mono text-xs text-muted-foreground/60 italic">null</span>;
   }
 
   if (typeof data !== "object") {
@@ -36,7 +32,7 @@ export function JsonTreeView({ data, path = "", violations = [], initialExpanded
       return (
         <span
           onClick={(e) => handleCopy(data, path, e)}
-          className="font-mono text-xs text-emerald-400 hover:underline cursor-pointer"
+          className="font-mono text-xs text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
           title="Click to copy string"
         >
           &quot;{data}&quot;
@@ -47,7 +43,7 @@ export function JsonTreeView({ data, path = "", violations = [], initialExpanded
       return (
         <span
           onClick={(e) => handleCopy(data.toString(), path, e)}
-          className="font-mono text-xs text-amber-400 hover:underline cursor-pointer font-semibold"
+          className="font-mono text-xs text-amber-600 dark:text-amber-400 hover:underline cursor-pointer font-semibold"
           title="Click to copy number"
         >
           {data}
@@ -58,7 +54,7 @@ export function JsonTreeView({ data, path = "", violations = [], initialExpanded
       return (
         <span
           onClick={(e) => handleCopy(data.toString(), path, e)}
-          className="font-mono text-xs text-purple-400 hover:underline cursor-pointer font-semibold"
+          className="font-mono text-xs text-purple-600 dark:text-purple-400 hover:underline cursor-pointer font-semibold"
           title="Click to copy boolean"
         >
           {data ? "true" : "false"}
@@ -85,34 +81,34 @@ function JsonObjectTree({ data, path, violations, initialExpanded }: Props) {
   };
 
   if (keys.length === 0) {
-    return <span className="font-mono text-xs text-slate-500">{isArray ? "[]" : "{}"}</span>;
+    return <span className="font-mono text-xs text-muted-foreground/60">{isArray ? "[]" : "{}"}</span>;
   }
 
   return (
     <div className="font-mono text-xs leading-relaxed select-text">
       <div
         onClick={() => setIsExpanded(!isExpanded)}
-        className="inline-flex items-center gap-1.5 cursor-pointer py-0.5 px-1 rounded hover:bg-white/5 group transition-colors"
+        className="inline-flex items-center gap-1.5 cursor-pointer py-0.5 px-1 rounded hover:bg-muted group transition-colors"
       >
-        <span className="text-slate-500 group-hover:text-white">
+        <span className="text-muted-foreground group-hover:text-foreground">
           {isExpanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
         </span>
 
-        <span className="text-slate-400 font-semibold">
+        <span className="text-muted-foreground font-semibold">
           {isArray ? `Array(${data.length})` : `Object {${keys.length}}`}
         </span>
 
         <button
           onClick={handleCopyJson}
-          className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-opacity"
+          className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-opacity"
           title="Copy node JSON"
         >
-          {copied ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
+          {copied ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
         </button>
       </div>
 
       {isExpanded && (
-        <div className="pl-4 border-l border-white/10 my-0.5 space-y-1">
+        <div className="pl-4 border-l border-border/70 my-0.5 space-y-1">
           {keys.map((key) => {
             const currentPath = path ? `${path}.${key}` : key;
             const violation = violations?.find((v) => v.field === currentPath || v.field === key);
@@ -134,8 +130,8 @@ function JsonObjectTree({ data, path, violations, initialExpanded }: Props) {
                     <span
                       className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-sans font-bold ${
                         violation.severity === "error"
-                          ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                          : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                          ? "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30"
+                          : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
                       }`}
                     >
                       <AlertCircle className="size-3" />

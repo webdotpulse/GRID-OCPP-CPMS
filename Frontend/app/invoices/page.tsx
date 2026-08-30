@@ -348,9 +348,9 @@ export default function InvoicesPage() {
               <div className="size-9 rounded-xl bg-gradient-to-br from-[#54a8c7] to-[#3f78e0] flex items-center justify-center shadow-md shadow-[#54a8c7]/20">
                 <Receipt className="size-5 text-white" />
               </div>
-              <h1 className="text-2xl font-bold tracking-tight text-white">Invoicing & Billing</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">Invoicing & Billing</h1>
             </div>
-            <p className="text-sm text-slate-400 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Automated monthly billing engine with EU VAT compliance, vector PDF invoices, and ISO 20022 SEPA Direct Debit collections.
             </p>
           </div>
@@ -361,7 +361,7 @@ export default function InvoicesPage() {
               size="sm"
               onClick={fetchInvoices}
               disabled={loading}
-              className="bg-white/5 border-white/10 hover:bg-white/10 text-slate-200"
+              className="border-border/70 hover:bg-muted text-foreground"
             >
               <RefreshCw className={`size-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
               Refresh
@@ -374,7 +374,7 @@ export default function InvoicesPage() {
                 fetchMandates();
                 setIsMandatesOpen(true);
               }}
-              className="bg-white/5 border-white/10 hover:bg-white/10 text-slate-200"
+              className="border-border/70 hover:bg-muted text-foreground"
             >
               <CreditCard className="size-4 mr-1.5 text-[#54a8c7]" />
               SEPA Mandates
@@ -386,9 +386,9 @@ export default function InvoicesPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => setIsSepaExportOpen(true)}
-                  className="bg-white/5 border-white/10 hover:bg-white/10 text-slate-200"
+                  className="border-border/70 hover:bg-muted text-foreground"
                 >
-                  <FileCode2 className="size-4 mr-1.5 text-emerald-400" />
+                  <FileCode2 className="size-4 mr-1.5 text-emerald-500 dark:text-emerald-400" />
                   SEPA Direct Debit (pain.008)
                 </Button>
 
@@ -407,63 +407,63 @@ export default function InvoicesPage() {
 
         {/* KPI Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-[#1e2228]/80 border-white/10 shadow-lg backdrop-blur-sm">
+          <Card className="bg-card border-border/70 shadow-xs">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Total Invoiced
               </CardTitle>
               <Euro className="size-4 text-[#54a8c7]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-white">
+              <div className="text-2xl font-bold text-foreground">
                 €{(stats?.totalAmount || 0).toFixed(2)}
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">Gross billing volume (incl. VAT)</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Gross billing volume (incl. VAT)</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-[#1e2228]/80 border-white/10 shadow-lg backdrop-blur-sm">
+          <Card className="bg-card border-border/70 shadow-xs">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Net Energy Revenue
               </CardTitle>
-              <Zap className="size-4 text-emerald-400" />
+              <Zap className="size-4 text-emerald-500 dark:text-emerald-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-emerald-400">
+              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                 €{(stats?.totalSubtotal || 0).toFixed(2)}
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">Net charging revenue (excl. VAT)</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Net charging revenue (excl. VAT)</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-[#1e2228]/80 border-white/10 shadow-lg backdrop-blur-sm">
+          <Card className="bg-card border-border/70 shadow-xs">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 VAT Collected
               </CardTitle>
-              <Receipt className="size-4 text-amber-400" />
+              <Receipt className="size-4 text-amber-500 dark:text-amber-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-amber-400">
+              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
                 €{(stats?.totalVat || 0).toFixed(2)}
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">Multi-tax EU fiscal liability</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Multi-tax EU fiscal liability</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-[#1e2228]/80 border-white/10 shadow-lg backdrop-blur-sm">
+          <Card className="bg-card border-border/70 shadow-xs">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Invoices Processed
               </CardTitle>
-              <FileText className="size-4 text-blue-400" />
+              <FileText className="size-4 text-blue-500 dark:text-blue-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-white">
+              <div className="text-2xl font-bold text-foreground">
                 {pagination?.total || 0}
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[11px] text-muted-foreground mt-1">
                 {(invoices || []).filter((i) => i.status === "paid").length} paid in current view
               </p>
             </CardContent>
@@ -471,24 +471,24 @@ export default function InvoicesPage() {
         </div>
 
         {/* Filter Toolbar */}
-        <Card className="bg-[#1e2228]/60 border-white/10 p-4">
+        <Card className="bg-card border-border/70 shadow-xs p-4">
           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
             <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
                 placeholder="Search by invoice #, customer name, email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-slate-500 h-9"
+                className="pl-9 bg-muted/40 border-border/60 text-foreground placeholder:text-muted-foreground h-9"
               />
             </form>
 
             <div className="flex flex-wrap items-center gap-2">
               <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val); setPagination(p => ({ ...p, page: 1 })); }}>
-                <SelectTrigger className="w-32 bg-white/5 border-white/10 text-white h-9">
+                <SelectTrigger className="w-32 bg-muted/40 border-border/60 text-foreground h-9">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                <SelectContent className="bg-popover border-border text-popover-foreground">
                   <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="issued">Issued</SelectItem>
                   <SelectItem value="paid">Paid</SelectItem>
@@ -498,10 +498,10 @@ export default function InvoicesPage() {
               </Select>
 
               <Select value={yearFilter} onValueChange={(val) => { setYearFilter(val); setPagination(p => ({ ...p, page: 1 })); }}>
-                <SelectTrigger className="w-28 bg-white/5 border-white/10 text-white h-9">
+                <SelectTrigger className="w-28 bg-muted/40 border-border/60 text-foreground h-9">
                   <SelectValue placeholder="Year" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                <SelectContent className="bg-popover border-border text-popover-foreground">
                   <SelectItem value="2026">2026</SelectItem>
                   <SelectItem value="2025">2025</SelectItem>
                   <SelectItem value="2024">2024</SelectItem>
@@ -512,11 +512,11 @@ export default function InvoicesPage() {
         </Card>
 
         {/* Invoices Data Table */}
-        <Card className="bg-[#1e2228]/80 border-white/10 overflow-hidden shadow-xl">
-          <div className="p-4 border-b border-white/10 flex items-center justify-between">
+        <Card className="bg-card border-border/70 overflow-hidden shadow-xs">
+          <div className="p-4 border-b border-border/70 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold text-white">Invoices Registry</h2>
-              <Badge variant="outline" className="border-white/10 text-slate-400">
+              <h2 className="text-base font-semibold text-foreground">Invoices Registry</h2>
+              <Badge variant="outline" className="border-border/70 text-muted-foreground">
                 {pagination.total} records
               </Badge>
             </div>
@@ -524,38 +524,38 @@ export default function InvoicesPage() {
 
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader className="bg-white/5">
-                <TableRow className="border-white/10 hover:bg-transparent">
-                  <TableHead className="text-slate-300 font-semibold">Invoice Number</TableHead>
-                  <TableHead className="text-slate-300 font-semibold">Recipient / Company</TableHead>
-                  <TableHead className="text-slate-300 font-semibold">Issue Date</TableHead>
-                  <TableHead className="text-slate-300 font-semibold">Due Date</TableHead>
-                  <TableHead className="text-slate-300 font-semibold text-right">Subtotal</TableHead>
-                  <TableHead className="text-slate-300 font-semibold text-right">VAT</TableHead>
-                  <TableHead className="text-slate-300 font-semibold text-right">Total Amount</TableHead>
-                  <TableHead className="text-slate-300 font-semibold text-center">Status</TableHead>
-                  <TableHead className="text-slate-300 font-semibold text-right">Actions</TableHead>
+              <TableHeader className="bg-muted/40">
+                <TableRow className="border-border/70 hover:bg-transparent">
+                  <TableHead className="text-muted-foreground font-semibold">Invoice Number</TableHead>
+                  <TableHead className="text-muted-foreground font-semibold">Recipient / Company</TableHead>
+                  <TableHead className="text-muted-foreground font-semibold">Issue Date</TableHead>
+                  <TableHead className="text-muted-foreground font-semibold">Due Date</TableHead>
+                  <TableHead className="text-muted-foreground font-semibold text-right">Subtotal</TableHead>
+                  <TableHead className="text-muted-foreground font-semibold text-right">VAT</TableHead>
+                  <TableHead className="text-muted-foreground font-semibold text-right">Total Amount</TableHead>
+                  <TableHead className="text-muted-foreground font-semibold text-center">Status</TableHead>
+                  <TableHead className="text-muted-foreground font-semibold text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
 
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-12 text-slate-400">
+                    <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
                       <RefreshCw className="size-6 animate-spin mx-auto mb-2 text-[#54a8c7]" />
                       Loading invoice records...
                     </TableCell>
                   </TableRow>
                 ) : invoices.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-12 text-slate-400">
-                      <FileText className="size-8 mx-auto mb-2 text-slate-500 opacity-50" />
+                    <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                      <FileText className="size-8 mx-auto mb-2 opacity-50" />
                       No invoices found matching current filters.
                     </TableCell>
                   </TableRow>
                 ) : (
                   invoices.map((inv) => (
-                    <TableRow key={inv.id} className="border-white/5 hover:bg-white/[0.03] transition-colors">
+                    <TableRow key={inv.id} className="border-border/40 hover:bg-muted/40 transition-colors">
                       <TableCell className="font-mono text-sm font-semibold text-[#54a8c7]">
                         <button
                           onClick={() => handleViewDetails(inv)}
@@ -568,34 +568,34 @@ export default function InvoicesPage() {
 
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="font-medium text-white flex items-center gap-1">
+                          <span className="font-medium text-foreground flex items-center gap-1">
                             {inv.recipientName || "Valued Customer"}
                             {inv.company && (
-                              <Building2 className="size-3 text-slate-400 inline" />
+                              <Building2 className="size-3 text-muted-foreground inline" />
                             )}
                           </span>
-                          <span className="text-xs text-slate-400">{inv.recipientEmail || "—"}</span>
+                          <span className="text-xs text-muted-foreground">{inv.recipientEmail || "—"}</span>
                         </div>
                       </TableCell>
 
-                      <TableCell className="text-xs text-slate-300">
+                      <TableCell className="text-xs text-foreground/80">
                         {new Date(inv.createdAt).toISOString().split("T")[0]}
                       </TableCell>
 
-                      <TableCell className="text-xs text-slate-300">
+                      <TableCell className="text-xs text-foreground/80">
                         {new Date(inv.dueDate).toISOString().split("T")[0]}
                       </TableCell>
 
-                      <TableCell className="text-right text-sm text-slate-300">
+                      <TableCell className="text-right text-sm text-foreground/90">
                         €{inv.subtotal.toFixed(2)}
                       </TableCell>
 
-                      <TableCell className="text-right text-sm text-slate-300">
-                        <span className="text-xs text-slate-400 mr-1">({inv.vatRate}%)</span>
+                      <TableCell className="text-right text-sm text-foreground/90">
+                        <span className="text-xs text-muted-foreground mr-1">({inv.vatRate}%)</span>
                         €{inv.vatAmount.toFixed(2)}
                       </TableCell>
 
-                      <TableCell className="text-right text-sm font-bold text-white">
+                      <TableCell className="text-right text-sm font-bold text-foreground">
                         €{inv.totalAmount.toFixed(2)}
                       </TableCell>
 
@@ -610,7 +610,7 @@ export default function InvoicesPage() {
                             size="icon"
                             title="View Details"
                             onClick={() => handleViewDetails(inv)}
-                            className="size-8 text-slate-400 hover:text-white hover:bg-white/10"
+                            className="size-8 text-muted-foreground hover:text-foreground hover:bg-muted"
                           >
                             <Eye className="size-4" />
                           </Button>
@@ -638,7 +638,7 @@ export default function InvoicesPage() {
                                 title="Email PDF Invoice"
                                 disabled={emailingId === inv.id}
                                 onClick={() => handleEmail(inv)}
-                                className="size-8 text-slate-400 hover:text-white hover:bg-white/10"
+                                className="size-8 text-muted-foreground hover:text-foreground hover:bg-muted"
                               >
                                 {emailingId === inv.id ? (
                                   <RefreshCw className="size-4 animate-spin" />
@@ -654,7 +654,7 @@ export default function InvoicesPage() {
                                   title="Mark as Paid"
                                   disabled={updatingId === inv.id}
                                   onClick={() => handleMarkAsPaid(inv)}
-                                  className="size-8 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                                  className="size-8 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 hover:bg-emerald-500/10"
                                 >
                                   {updatingId === inv.id ? (
                                     <RefreshCw className="size-4 animate-spin" />
@@ -676,8 +676,8 @@ export default function InvoicesPage() {
 
           {/* Pagination Footer */}
           {pagination.totalPages > 1 && (
-            <div className="p-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-xs text-slate-400">
+            <div className="p-4 border-t border-border/70 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">
                 Page {pagination.page} of {pagination.totalPages} ({pagination.total} items)
               </span>
               <div className="flex items-center gap-2">
@@ -686,7 +686,7 @@ export default function InvoicesPage() {
                   size="sm"
                   disabled={pagination.page <= 1}
                   onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}
-                  className="bg-white/5 border-white/10 text-xs text-white"
+                  className="border-border/70 text-xs text-foreground hover:bg-muted"
                 >
                   Previous
                 </Button>
@@ -695,7 +695,7 @@ export default function InvoicesPage() {
                   size="sm"
                   disabled={pagination.page >= pagination.totalPages}
                   onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}
-                  className="bg-white/5 border-white/10 text-xs text-white"
+                  className="border-border/70 text-xs text-foreground hover:bg-muted"
                 >
                   Next
                 </Button>
@@ -706,7 +706,7 @@ export default function InvoicesPage() {
 
         {/* Invoice Detail Dialog */}
         <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-          <DialogContent className="max-w-3xl bg-[#1e2228] border-white/10 text-white max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl bg-card border-border text-foreground max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -714,7 +714,7 @@ export default function InvoicesPage() {
                     <FileText className="size-5 text-[#54a8c7]" />
                     Invoice {selectedInvoice?.invoiceNumber}
                   </DialogTitle>
-                  <DialogDescription className="text-slate-400 text-xs mt-0.5">
+                  <DialogDescription className="text-muted-foreground text-xs mt-0.5">
                     Issued on {selectedInvoice && new Date(selectedInvoice.createdAt).toLocaleDateString()} • Due {selectedInvoice && new Date(selectedInvoice.dueDate).toLocaleDateString()}
                   </DialogDescription>
                 </div>
@@ -723,7 +723,7 @@ export default function InvoicesPage() {
             </DialogHeader>
 
             {detailLoading ? (
-              <div className="py-12 text-center text-slate-400">
+              <div className="py-12 text-center text-muted-foreground">
                 <RefreshCw className="size-6 animate-spin mx-auto mb-2 text-[#54a8c7]" />
                 Loading detailed breakdown...
               </div>
@@ -731,20 +731,20 @@ export default function InvoicesPage() {
               <div className="space-y-6 py-2">
                 {/* Meta Boxes */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-3.5 rounded-lg bg-white/5 border border-white/10 space-y-1 text-xs">
-                    <p className="font-semibold text-slate-300 uppercase tracking-wider text-[10px]">Customer / Bill-To</p>
-                    <p className="text-sm font-bold text-white">{selectedInvoice.recipientName || "Customer"}</p>
-                    <p className="text-slate-400">{selectedInvoice.recipientEmail || "No email"}</p>
-                    {selectedInvoice.billingAddress && <p className="text-slate-400">{selectedInvoice.billingAddress}</p>}
-                    {selectedInvoice.taxNumber && <p className="text-slate-400">VAT/Tax: {selectedInvoice.taxNumber}</p>}
+                  <div className="p-3.5 rounded-lg bg-muted/30 border border-border/60 space-y-1 text-xs">
+                    <p className="font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Customer / Bill-To</p>
+                    <p className="text-sm font-bold text-foreground">{selectedInvoice.recipientName || "Customer"}</p>
+                    <p className="text-muted-foreground">{selectedInvoice.recipientEmail || "No email"}</p>
+                    {selectedInvoice.billingAddress && <p className="text-muted-foreground">{selectedInvoice.billingAddress}</p>}
+                    {selectedInvoice.taxNumber && <p className="text-muted-foreground">VAT/Tax: {selectedInvoice.taxNumber}</p>}
                   </div>
 
-                  <div className="p-3.5 rounded-lg bg-white/5 border border-white/10 space-y-1 text-xs">
-                    <p className="font-semibold text-slate-300 uppercase tracking-wider text-[10px]">Payment & Settlement</p>
-                    <p className="text-slate-300">Currency: <strong className="text-white">{selectedInvoice.currency}</strong></p>
-                    <p className="text-slate-300">VAT Rate: <strong className="text-white">{selectedInvoice.vatRate}%</strong></p>
+                  <div className="p-3.5 rounded-lg bg-muted/30 border border-border/60 space-y-1 text-xs">
+                    <p className="font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Payment & Settlement</p>
+                    <p className="text-foreground/90">Currency: <strong className="text-foreground">{selectedInvoice.currency}</strong></p>
+                    <p className="text-foreground/90">VAT Rate: <strong className="text-foreground">{selectedInvoice.vatRate}%</strong></p>
                     {selectedInvoice.paidAt && (
-                      <p className="text-emerald-400">
+                      <p className="text-emerald-600 dark:text-emerald-400 font-semibold">
                         Paid on: {new Date(selectedInvoice.paidAt).toLocaleDateString()}
                       </p>
                     )}
@@ -753,34 +753,34 @@ export default function InvoicesPage() {
 
                 {/* Itemized Table */}
                 <div className="space-y-2">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Itemized Charging Sessions & Fees
                   </h3>
-                  <div className="rounded-lg border border-white/10 overflow-hidden">
+                  <div className="rounded-lg border border-border/70 overflow-hidden">
                     <Table>
-                      <TableHeader className="bg-white/5">
-                        <TableRow className="border-white/10">
-                          <TableHead className="text-xs text-slate-300">Description</TableHead>
-                          <TableHead className="text-xs text-slate-300 text-right">Quantity (kWh)</TableHead>
-                          <TableHead className="text-xs text-slate-300 text-right">Rate (€)</TableHead>
-                          <TableHead className="text-xs text-slate-300 text-right">VAT %</TableHead>
-                          <TableHead className="text-xs text-slate-300 text-right">Total (€)</TableHead>
+                      <TableHeader className="bg-muted/40">
+                        <TableRow className="border-border/70">
+                          <TableHead className="text-xs text-muted-foreground">Description</TableHead>
+                          <TableHead className="text-xs text-muted-foreground text-right">Quantity (kWh)</TableHead>
+                          <TableHead className="text-xs text-muted-foreground text-right">Rate (€)</TableHead>
+                          <TableHead className="text-xs text-muted-foreground text-right">VAT %</TableHead>
+                          <TableHead className="text-xs text-muted-foreground text-right">Total (€)</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {selectedInvoice.items && selectedInvoice.items.length > 0 ? (
                           selectedInvoice.items.map((item) => (
-                            <TableRow key={item.id} className="border-white/5 text-xs">
-                              <TableCell className="font-medium text-slate-200">{item.description}</TableCell>
-                              <TableCell className="text-right text-slate-300">{item.quantity.toFixed(2)}</TableCell>
-                              <TableCell className="text-right text-slate-300">€{item.unitPrice.toFixed(4)}</TableCell>
-                              <TableCell className="text-right text-slate-300">{item.vatRate.toFixed(0)}%</TableCell>
-                              <TableCell className="text-right font-semibold text-white">€{item.amount.toFixed(2)}</TableCell>
+                            <TableRow key={item.id} className="border-border/40 text-xs">
+                              <TableCell className="font-medium text-foreground">{item.description}</TableCell>
+                              <TableCell className="text-right text-muted-foreground">{item.quantity.toFixed(2)}</TableCell>
+                              <TableCell className="text-right text-muted-foreground">€{item.unitPrice.toFixed(4)}</TableCell>
+                              <TableCell className="text-right text-muted-foreground">{item.vatRate.toFixed(0)}%</TableCell>
+                              <TableCell className="text-right font-semibold text-foreground">€{item.amount.toFixed(2)}</TableCell>
                             </TableRow>
                           ))
                         ) : (
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center py-4 text-slate-400">
+                            <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
                               No itemized lines available.
                             </TableCell>
                           </TableRow>
@@ -792,17 +792,17 @@ export default function InvoicesPage() {
 
                 {/* Totals Summary */}
                 <div className="flex justify-end">
-                  <div className="w-64 space-y-1.5 p-3 rounded-lg bg-white/5 border border-white/10 text-xs">
-                    <div className="flex justify-between text-slate-400">
+                  <div className="w-64 space-y-1.5 p-3 rounded-lg bg-muted/30 border border-border/60 text-xs">
+                    <div className="flex justify-between text-muted-foreground">
                       <span>Subtotal (excl. VAT):</span>
-                      <span className="text-white">€{selectedInvoice.subtotal.toFixed(2)}</span>
+                      <span className="text-foreground font-semibold">€{selectedInvoice.subtotal.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-400">
+                    <div className="flex justify-between text-muted-foreground">
                       <span>VAT ({selectedInvoice.vatRate}%):</span>
-                      <span className="text-white">€{selectedInvoice.vatAmount.toFixed(2)}</span>
+                      <span className="text-foreground font-semibold">€{selectedInvoice.vatAmount.toFixed(2)}</span>
                     </div>
-                    <div className="border-t border-white/10 pt-1.5 flex justify-between font-bold text-sm">
-                      <span className="text-white">Total Amount:</span>
+                    <div className="border-t border-border/60 pt-1.5 flex justify-between font-bold text-sm">
+                      <span className="text-foreground">Total Amount:</span>
                       <span className="text-[#54a8c7]">€{selectedInvoice.totalAmount.toFixed(2)} {selectedInvoice.currency}</span>
                     </div>
                   </div>
@@ -810,7 +810,7 @@ export default function InvoicesPage() {
 
                 {/* Notes Notice */}
                 {selectedInvoice.notes && (
-                  <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300 flex items-start gap-2">
+                  <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-600 dark:text-blue-300 flex items-start gap-2">
                     <AlertCircle className="size-4 shrink-0 mt-0.5" />
                     <span>{selectedInvoice.notes}</span>
                   </div>
@@ -818,12 +818,12 @@ export default function InvoicesPage() {
               </div>
             ) : null}
 
-            <DialogFooter className="flex items-center justify-between sm:justify-between border-t border-white/10 pt-4">
+            <DialogFooter className="flex items-center justify-between sm:justify-between border-t border-border/70 pt-4">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setIsDetailOpen(false)}
-                className="bg-white/5 border-white/10 text-white hover:bg-white/10"
+                className="border-border/70 text-foreground hover:bg-muted"
               >
                 Close
               </Button>
@@ -837,7 +837,7 @@ export default function InvoicesPage() {
                         size="sm"
                         disabled={emailingId === selectedInvoice.id}
                         onClick={() => handleEmail(selectedInvoice)}
-                        className="bg-white/5 border-white/10 text-white hover:bg-white/10"
+                        className="border-border/70 text-foreground hover:bg-muted"
                       >
                         <Mail className="size-4 mr-1.5" />
                         Email PDF
@@ -849,7 +849,7 @@ export default function InvoicesPage() {
                           size="sm"
                           disabled={updatingId === selectedInvoice.id}
                           onClick={() => handleMarkAsPaid(selectedInvoice)}
-                          className="bg-emerald-500/15 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25"
+                          className="bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25"
                         >
                           <Check className="size-4 mr-1.5" />
                           Mark Paid
@@ -875,13 +875,13 @@ export default function InvoicesPage() {
 
         {/* Generate Invoices Dialog */}
         <Dialog open={isGenerateOpen} onOpenChange={setIsGenerateOpen}>
-          <DialogContent className="max-w-md bg-[#1e2228] border-white/10 text-white">
+          <DialogContent className="max-w-md bg-card border-border text-foreground">
             <DialogHeader>
               <DialogTitle className="text-lg font-bold flex items-center gap-2">
                 <PlusCircle className="size-5 text-[#54a8c7]" />
                 Generate Monthly Invoices
               </DialogTitle>
-              <DialogDescription className="text-slate-400 text-xs">
+              <DialogDescription className="text-muted-foreground text-xs">
                 Process unbilled completed transactions for a specific month and create fiscal invoice documents.
               </DialogDescription>
             </DialogHeader>
@@ -889,12 +889,12 @@ export default function InvoicesPage() {
             <div className="space-y-4 py-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Billing Month</label>
+                  <label className="text-xs font-semibold text-foreground/80">Billing Month</label>
                   <Select value={generateMonth} onValueChange={setGenerateMonth}>
-                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                    <SelectTrigger className="bg-muted/40 border-border/60 text-foreground">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                    <SelectContent className="bg-popover border-border text-popover-foreground">
                       {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                         <SelectItem key={m} value={m.toString()}>
                           {new Date(2026, m - 1).toLocaleString("default", { month: "long" })}
@@ -905,12 +905,12 @@ export default function InvoicesPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Billing Year</label>
+                  <label className="text-xs font-semibold text-foreground/80">Billing Year</label>
                   <Select value={generateYear} onValueChange={setGenerateYear}>
-                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                    <SelectTrigger className="bg-muted/40 border-border/60 text-foreground">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                    <SelectContent className="bg-popover border-border text-popover-foreground">
                       <SelectItem value="2026">2026</SelectItem>
                       <SelectItem value="2025">2025</SelectItem>
                       <SelectItem value="2024">2024</SelectItem>
@@ -919,12 +919,12 @@ export default function InvoicesPage() {
                 </div>
               </div>
 
-              <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
+              <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-600 dark:text-blue-300">
                 <p className="font-semibold mb-1 flex items-center gap-1">
                   <AlertCircle className="size-3.5" />
                   Automated Billing Information
                 </p>
-                <p className="text-slate-400">
+                <p className="text-muted-foreground">
                   Transactions with status <em>completed</em> that have not yet been assigned to an invoice will be bundled per Company or User. Fiscal invoice numbers and VAT breakdowns will be generated automatically.
                 </p>
               </div>
@@ -935,7 +935,7 @@ export default function InvoicesPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsGenerateOpen(false)}
-                className="bg-white/5 border-white/10 text-white hover:bg-white/10"
+                className="border-border/70 text-foreground hover:bg-muted"
               >
                 Cancel
               </Button>
@@ -963,13 +963,13 @@ export default function InvoicesPage() {
 
         {/* SEPA Direct Debit Export Dialog */}
         <Dialog open={isSepaExportOpen} onOpenChange={setIsSepaExportOpen}>
-          <DialogContent className="max-w-md bg-[#1e2228] border-white/10 text-white">
+          <DialogContent className="max-w-md bg-card border-border text-foreground">
             <DialogHeader>
               <DialogTitle className="text-lg font-bold flex items-center gap-2">
-                <FileCode2 className="size-5 text-emerald-400" />
+                <FileCode2 className="size-5 text-emerald-500 dark:text-emerald-400" />
                 Export SEPA Direct Debit XML
               </DialogTitle>
-              <DialogDescription className="text-slate-400 text-xs">
+              <DialogDescription className="text-muted-foreground text-xs">
                 Generate an ISO 20022 pain.008.001.02 XML direct debit file for bank collection.
               </DialogDescription>
             </DialogHeader>
@@ -977,12 +977,12 @@ export default function InvoicesPage() {
             <div className="space-y-4 py-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Target Month</label>
+                  <label className="text-xs font-semibold text-foreground/80">Target Month</label>
                   <Select value={sepaMonth} onValueChange={setSepaMonth}>
-                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                    <SelectTrigger className="bg-muted/40 border-border/60 text-foreground">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                    <SelectContent className="bg-popover border-border text-popover-foreground">
                       {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                         <SelectItem key={m} value={m.toString()}>
                           {new Date(2026, m - 1).toLocaleString("default", { month: "long" })}
@@ -993,12 +993,12 @@ export default function InvoicesPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Target Year</label>
+                  <label className="text-xs font-semibold text-foreground/80">Target Year</label>
                   <Select value={sepaYear} onValueChange={setSepaYear}>
-                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                    <SelectTrigger className="bg-muted/40 border-border/60 text-foreground">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                    <SelectContent className="bg-popover border-border text-popover-foreground">
                       <SelectItem value="2026">2026</SelectItem>
                       <SelectItem value="2025">2025</SelectItem>
                       <SelectItem value="2024">2024</SelectItem>
@@ -1009,12 +1009,12 @@ export default function InvoicesPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Mandate Scheme</label>
+                  <label className="text-xs font-semibold text-foreground/80">Mandate Scheme</label>
                   <Select value={sepaScheme} onValueChange={(val: any) => setSepaScheme(val)}>
-                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                    <SelectTrigger className="bg-muted/40 border-border/60 text-foreground">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                    <SelectContent className="bg-popover border-border text-popover-foreground">
                       <SelectItem value="CORE">CORE (Standard / B2C)</SelectItem>
                       <SelectItem value="B2B">B2B (Business-to-Business)</SelectItem>
                     </SelectContent>
@@ -1022,12 +1022,12 @@ export default function InvoicesPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Sequence Type</label>
+                  <label className="text-xs font-semibold text-foreground/80">Sequence Type</label>
                   <Select value={sepaSeqType} onValueChange={(val: any) => setSepaSeqType(val)}>
-                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                    <SelectTrigger className="bg-muted/40 border-border/60 text-foreground">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                    <SelectContent className="bg-popover border-border text-popover-foreground">
                       <SelectItem value="RCUR">RCUR (Recurring)</SelectItem>
                       <SelectItem value="FRST">FRST (First Collection)</SelectItem>
                     </SelectContent>
@@ -1036,21 +1036,21 @@ export default function InvoicesPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Requested Collection Date</label>
+                <label className="text-xs font-semibold text-foreground/80">Requested Collection Date</label>
                 <Input
                   type="date"
                   value={sepaDate}
                   onChange={(e) => setSepaDate(e.target.value)}
-                  className="bg-white/5 border-white/10 text-white h-9"
+                  className="bg-muted/40 border-border/60 text-foreground h-9"
                 />
               </div>
 
-              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300">
+              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-300">
                 <p className="font-semibold mb-1 flex items-center gap-1">
                   <ShieldCheck className="size-3.5" />
                   Banking Protocol Validation
                 </p>
-                <p className="text-slate-400">
+                <p className="text-muted-foreground">
                   Outputs valid XML conforming to ISO 20022 pain.008.001.02 with XML entity escaping and CDATA protection. Unpaid invoices linked to active SEPA mandates will be included.
                 </p>
               </div>
@@ -1061,7 +1061,7 @@ export default function InvoicesPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsSepaExportOpen(false)}
-                className="bg-white/5 border-white/10 text-white hover:bg-white/10"
+                className="border-border/70 text-foreground hover:bg-muted"
               >
                 Cancel
               </Button>
@@ -1089,7 +1089,7 @@ export default function InvoicesPage() {
 
         {/* SEPA Mandates Registry Modal */}
         <Dialog open={isMandatesOpen} onOpenChange={setIsMandatesOpen}>
-          <DialogContent className="max-w-3xl bg-[#1e2228] border-white/10 text-white max-h-[85vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl bg-card border-border text-foreground max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -1097,7 +1097,7 @@ export default function InvoicesPage() {
                     <CreditCard className="size-5 text-[#54a8c7]" />
                     SEPA Direct Debit Mandates
                   </DialogTitle>
-                  <DialogDescription className="text-slate-400 text-xs mt-0.5">
+                  <DialogDescription className="text-muted-foreground text-xs mt-0.5">
                     Manage European direct debit mandates for automatic invoice collections.
                   </DialogDescription>
                 </div>
@@ -1115,42 +1115,42 @@ export default function InvoicesPage() {
 
             <div className="py-2">
               {loadingMandates ? (
-                <div className="py-8 text-center text-slate-400">
+                <div className="py-8 text-center text-muted-foreground">
                   <RefreshCw className="size-6 animate-spin mx-auto mb-2 text-[#54a8c7]" />
                   Loading SEPA mandates...
                 </div>
               ) : mandates.length === 0 ? (
-                <div className="py-8 text-center text-slate-400">
-                  <CreditCard className="size-8 mx-auto mb-2 text-slate-500 opacity-50" />
+                <div className="py-8 text-center text-muted-foreground">
+                  <CreditCard className="size-8 mx-auto mb-2 opacity-50" />
                   No SEPA mandates registered yet.
                 </div>
               ) : (
-                <div className="rounded-lg border border-white/10 overflow-hidden">
+                <div className="rounded-lg border border-border/70 overflow-hidden">
                   <Table>
-                    <TableHeader className="bg-white/5">
-                      <TableRow className="border-white/10">
-                        <TableHead className="text-xs text-slate-300">Mandate Ref</TableHead>
-                        <TableHead className="text-xs text-slate-300">Debtor Name</TableHead>
-                        <TableHead className="text-xs text-slate-300">IBAN</TableHead>
-                        <TableHead className="text-xs text-slate-300">Scheme</TableHead>
-                        <TableHead className="text-xs text-slate-300">Signed Date</TableHead>
-                        <TableHead className="text-xs text-slate-300 text-right">Actions</TableHead>
+                    <TableHeader className="bg-muted/40">
+                      <TableRow className="border-border/70">
+                        <TableHead className="text-xs text-muted-foreground">Mandate Ref</TableHead>
+                        <TableHead className="text-xs text-muted-foreground">Debtor Name</TableHead>
+                        <TableHead className="text-xs text-muted-foreground">IBAN</TableHead>
+                        <TableHead className="text-xs text-muted-foreground">Scheme</TableHead>
+                        <TableHead className="text-xs text-muted-foreground">Signed Date</TableHead>
+                        <TableHead className="text-xs text-muted-foreground text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {mandates.map((m) => (
-                        <TableRow key={m.id} className="border-white/5 text-xs">
+                        <TableRow key={m.id} className="border-border/40 text-xs">
                           <TableCell className="font-mono font-semibold text-[#54a8c7]">
                             {m.mandateRef}
                           </TableCell>
-                          <TableCell className="font-medium text-white">{m.debtorName}</TableCell>
-                          <TableCell className="font-mono text-slate-300">{m.iban}</TableCell>
+                          <TableCell className="font-medium text-foreground">{m.debtorName}</TableCell>
+                          <TableCell className="font-mono text-muted-foreground">{m.iban}</TableCell>
                           <TableCell>
-                            <Badge className={m.mandateType === "B2B" ? "bg-purple-500/15 text-purple-400" : "bg-blue-500/15 text-blue-400"}>
+                            <Badge className={m.mandateType === "B2B" ? "bg-purple-500/15 text-purple-600 dark:text-purple-400" : "bg-blue-500/15 text-blue-600 dark:text-blue-400"}>
                               {m.mandateType}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-slate-400">
+                          <TableCell className="text-muted-foreground">
                             {new Date(m.signatureDate).toLocaleDateString()}
                           </TableCell>
                           <TableCell className="text-right">
@@ -1158,7 +1158,7 @@ export default function InvoicesPage() {
                               variant="ghost"
                               size="icon"
                               onClick={() => handleDeleteMandate(m.id)}
-                              className="size-7 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                              className="size-7 text-red-500 hover:text-red-600 hover:bg-red-500/10"
                             >
                               <Trash2 className="size-3.5" />
                             </Button>
@@ -1176,7 +1176,7 @@ export default function InvoicesPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsMandatesOpen(false)}
-                className="bg-white/5 border-white/10 text-white hover:bg-white/10"
+                className="border-border/70 text-foreground hover:bg-muted"
               >
                 Close
               </Button>
@@ -1186,58 +1186,58 @@ export default function InvoicesPage() {
 
         {/* New Mandate Dialog */}
         <Dialog open={isNewMandateOpen} onOpenChange={setIsNewMandateOpen}>
-          <DialogContent className="max-w-md bg-[#1e2228] border-white/10 text-white">
+          <DialogContent className="max-w-md bg-card border-border text-foreground">
             <DialogHeader>
               <DialogTitle className="text-lg font-bold flex items-center gap-2">
                 <PlusCircle className="size-5 text-[#54a8c7]" />
                 Register SEPA Mandate
               </DialogTitle>
-              <DialogDescription className="text-slate-400 text-xs">
+              <DialogDescription className="text-muted-foreground text-xs">
                 Authorizes direct debit collections from the customer bank account.
               </DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleCreateMandate} className="space-y-4 py-2 text-sm">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Debtor / Account Holder Name *</label>
+                <label className="text-xs font-semibold text-foreground/80">Debtor / Account Holder Name *</label>
                 <Input
                   required
                   placeholder="e.g. Acme Fleet B.V."
                   value={mandateDebtorName}
                   onChange={(e) => setMandateDebtorName(e.target.value)}
-                  className="bg-white/5 border-white/10 text-white h-9"
+                  className="bg-muted/40 border-border/60 text-foreground h-9"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">IBAN *</label>
+                <label className="text-xs font-semibold text-foreground/80">IBAN *</label>
                 <Input
                   required
                   placeholder="e.g. NL91ABNA0417164300"
                   value={mandateIban}
                   onChange={(e) => setMandateIban(e.target.value.toUpperCase())}
-                  className="font-mono bg-white/5 border-white/10 text-white h-9"
+                  className="font-mono bg-muted/40 border-border/60 text-foreground h-9"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">BIC / SWIFT (Optional)</label>
+                  <label className="text-xs font-semibold text-foreground/80">BIC / SWIFT (Optional)</label>
                   <Input
                     placeholder="e.g. ABNANL2A"
                     value={mandateBic}
                     onChange={(e) => setMandateBic(e.target.value.toUpperCase())}
-                    className="font-mono bg-white/5 border-white/10 text-white h-9"
+                    className="font-mono bg-muted/40 border-border/60 text-foreground h-9"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Mandate Scheme</label>
+                  <label className="text-xs font-semibold text-foreground/80">Mandate Scheme</label>
                   <Select value={mandateScheme} onValueChange={(val: any) => setMandateScheme(val)}>
-                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                    <SelectTrigger className="bg-muted/40 border-border/60 text-foreground">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                    <SelectContent className="bg-popover border-border text-popover-foreground">
                       <SelectItem value="CORE">CORE (Standard)</SelectItem>
                       <SelectItem value="B2B">B2B (Enterprise)</SelectItem>
                     </SelectContent>
@@ -1251,7 +1251,7 @@ export default function InvoicesPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => setIsNewMandateOpen(false)}
-                  className="bg-white/5 border-white/10 text-white hover:bg-white/10"
+                  className="border-border/70 text-foreground hover:bg-muted"
                 >
                   Cancel
                 </Button>

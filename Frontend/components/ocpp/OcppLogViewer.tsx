@@ -251,50 +251,50 @@ export function OcppLogViewer() {
       </CardHeader>
       
       <CardContent>
-        <div className="rounded-md border h-[500px] overflow-auto relative bg-zinc-950">
+        <div className="rounded-md border border-border/70 h-[500px] overflow-auto relative bg-card">
           <Table>
-            <TableHeader className="sticky top-0 bg-zinc-900 z-10">
-              <TableRow className="border-zinc-800 hover:bg-zinc-900">
-                <TableHead className="text-zinc-400">Timestamp</TableHead>
-                <TableHead className="text-zinc-400">Charger ID</TableHead>
-                <TableHead className="text-zinc-400">Type</TableHead>
-                <TableHead className="text-zinc-400">Action</TableHead>
-                <TableHead className="text-zinc-400 w-1/2">Payload Snippet</TableHead>
+            <TableHeader className="sticky top-0 bg-muted/90 backdrop-blur-sm z-10">
+              <TableRow className="border-border hover:bg-muted/90">
+                <TableHead className="text-muted-foreground">Timestamp</TableHead>
+                <TableHead className="text-muted-foreground">Charger ID</TableHead>
+                <TableHead className="text-muted-foreground">Type</TableHead>
+                <TableHead className="text-muted-foreground">Action</TableHead>
+                <TableHead className="text-muted-foreground w-1/2">Payload Snippet</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading && logs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-zinc-500">Loading system logs...</TableCell>
+                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">Loading system logs...</TableCell>
                 </TableRow>
               ) : filteredLogs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-zinc-500">
+                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                     No logs found matching criteria.
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredLogs.map((log: any, i: number) => (
-                  <TableRow key={log.id || i} className="border-zinc-800/50 hover:bg-zinc-800/50 font-mono text-xs">
-                    <TableCell className="text-zinc-400 whitespace-nowrap">
+                  <TableRow key={log.id || i} className="border-border/50 hover:bg-muted/40 font-mono text-xs">
+                    <TableCell className="text-muted-foreground whitespace-nowrap">
                       {format(new Date(log.timestamp), 'HH:mm:ss.SSS')}
                     </TableCell>
-                    <TableCell className="text-blue-400">
+                    <TableCell className="text-[#54a8c7] font-semibold">
                       {log.chargePointId}
                     </TableCell>
                     <TableCell>
                       <span className={
-                        log.messageType === 'CALL' ? 'text-purple-400' :
-                        log.messageType === 'CALLRESULT' ? 'text-green-400' :
-                        'text-red-400'
+                        log.messageType === 'CALL' ? 'text-purple-600 dark:text-purple-400 font-semibold' :
+                        log.messageType === 'CALLRESULT' ? 'text-emerald-600 dark:text-emerald-400 font-semibold' :
+                        'text-red-600 dark:text-red-400 font-semibold'
                       }>
                         {log.messageType}
                       </span>
                     </TableCell>
-                    <TableCell className="text-yellow-200">
+                    <TableCell className="text-amber-600 dark:text-amber-300 font-medium">
                       {log.action || '-'}
                     </TableCell>
-                    <TableCell className="text-zinc-500 truncate max-w-md">
+                    <TableCell className="text-muted-foreground truncate max-w-md">
                       {JSON.stringify(log.payload)}
                     </TableCell>
                   </TableRow>

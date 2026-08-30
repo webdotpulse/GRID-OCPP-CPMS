@@ -16,6 +16,7 @@ export interface GetLogsFilter {
   target?: string;
   targetId?: string;
   action?: string;
+  search?: string;
   dateFrom?: Date;
   dateTo?: Date;
   limit?: number;
@@ -75,6 +76,16 @@ export class AuditLogService {
       }
       if (filter.action) {
         where.action = filter.action;
+      }
+      if (filter.search) {
+        where.OR = [
+          { action: { contains: filter.search, mode: "insensitive" } },
+          { target: { contains: filter.search, mode: "insensitive" } },
+          { targetId: { contains: filter.search, mode: "insensitive" } },
+          { ip: { contains: filter.search, mode: "insensitive" } },
+          { user: { email: { contains: filter.search, mode: "insensitive" } } },
+          { user: { name: { contains: filter.search, mode: "insensitive" } } },
+        ];
       }
       if (filter.dateFrom || filter.dateTo) {
         where.createdAt = {};

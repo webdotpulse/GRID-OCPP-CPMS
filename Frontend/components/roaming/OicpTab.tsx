@@ -34,7 +34,8 @@ export function OicpTab() {
     try {
       setLoading(true);
       const response = await api.get("/oicp/endpoints");
-      setEndpoints(response.data?.data || []);
+      const list = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+      setEndpoints(list);
     } catch (error: any) {
       toast.error("Failed to fetch OICP endpoints: " + (error?.message || ""));
     } finally {

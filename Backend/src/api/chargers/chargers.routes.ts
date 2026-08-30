@@ -16,6 +16,12 @@ import {
   uncombineChargers,
   getCombineCandidates
 } from "./chargers.controller.js";
+import {
+  getLocalAuthList,
+  syncLocalAuthList,
+  queryLocalListVersion,
+} from "../localAuthList/localAuthList.controller.js";
+import { requireAdmin } from "../../middleware/auth.js";
 
 const router = Router();
 
@@ -24,6 +30,12 @@ router.post("/combine", combineChargers);
 router.post("/uncombine", uncombineChargers);
 router.get("/unrecognized", getUnrecognizedConnections);
 router.delete("/unrecognized", deleteUnrecognizedConnections);
+
+// Local Authorization List routes
+router.get("/:id/local-auth-list", getLocalAuthList);
+router.post("/:id/local-auth-list/sync", requireAdmin, syncLocalAuthList);
+router.post("/:id/local-auth-list/version", requireAdmin, queryLocalListVersion);
+
 router.get("/:id", getChargerById);
 router.get("/:id/status", getChargerStatus);
 router.get("/:id/logs", getChargerLogs);

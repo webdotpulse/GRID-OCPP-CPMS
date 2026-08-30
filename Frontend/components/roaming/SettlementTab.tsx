@@ -31,7 +31,8 @@ export function SettlementTab() {
     try {
       setLoading(true);
       const response = await api.get("/roaming/stats");
-      setStats(response.data?.data);
+      const statsData = response.data?.data !== undefined ? response.data.data : response.data;
+      setStats(statsData);
     } catch (error: any) {
       toast.error("Failed to load roaming stats: " + (error?.message || ""));
     } finally {

@@ -8,12 +8,13 @@ import { logger } from "../../utils/logger.js";
  */
 export const getAuditLogs = async (req: AuthRequest, res: Response) => {
   try {
-    const { userId, target, action, dateFrom, dateTo, limit, offset } = req.query;
+    const { userId, target, action, search, dateFrom, dateTo, limit, offset } = req.query;
 
     const filter: any = {};
     if (userId) filter.userId = parseInt(userId as string, 10);
     if (target) filter.target = String(target);
     if (action) filter.action = String(action);
+    if (search) filter.search = String(search);
     if (dateFrom) filter.dateFrom = new Date(dateFrom as string);
     if (dateTo) filter.dateTo = new Date(dateTo as string);
     if (limit) filter.limit = parseInt(limit as string, 10);
@@ -39,12 +40,13 @@ export const getAuditLogs = async (req: AuthRequest, res: Response) => {
  */
 export const exportAuditLogs = async (req: AuthRequest, res: Response) => {
   try {
-    const { userId, target, action, dateFrom, dateTo } = req.query;
+    const { userId, target, action, search, dateFrom, dateTo } = req.query;
 
     const filter: any = { limit: 5000 };
     if (userId) filter.userId = parseInt(userId as string, 10);
     if (target) filter.target = String(target);
     if (action) filter.action = String(action);
+    if (search) filter.search = String(search);
     if (dateFrom) filter.dateFrom = new Date(dateFrom as string);
     if (dateTo) filter.dateTo = new Date(dateTo as string);
 

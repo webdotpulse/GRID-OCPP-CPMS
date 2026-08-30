@@ -304,16 +304,16 @@ export function OcppPacketInspector() {
   return (
     <div className="space-y-4">
       {/* Top Toolbar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#1e2228]/90 border border-white/10 p-3.5 rounded-2xl shadow-xl backdrop-blur-md">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card border border-border/70 p-3.5 rounded-2xl shadow-xs">
         <div className="flex flex-wrap items-center gap-2 flex-1">
           {/* Search Input */}
           <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
             <Input
               placeholder="Search Action, MsgId, Charger or payload..."
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              className="pl-8 bg-white/5 border-white/10 text-white placeholder:text-slate-500 h-8 text-xs rounded-lg"
+              className="pl-8 bg-muted/40 border-border/60 text-foreground placeholder:text-muted-foreground h-8 text-xs rounded-lg"
             />
           </div>
 
@@ -322,10 +322,10 @@ export function OcppPacketInspector() {
             value={filters.action}
             onValueChange={(val) => setFilters({ ...filters, action: val })}
           >
-            <SelectTrigger className="w-36 h-8 text-xs bg-white/5 border-white/10 text-white rounded-lg">
+            <SelectTrigger className="w-36 h-8 text-xs bg-muted/40 border-border/60 text-foreground rounded-lg">
               <SelectValue placeholder="Action" />
             </SelectTrigger>
-            <SelectContent className="bg-[#1e2228] border-white/10 text-white text-xs">
+            <SelectContent className="bg-popover border-border text-popover-foreground text-xs">
               <SelectItem value="all">All Actions</SelectItem>
               <SelectItem value="BootNotification">BootNotification</SelectItem>
               <SelectItem value="Authorize">Authorize</SelectItem>
@@ -344,10 +344,10 @@ export function OcppPacketInspector() {
             value={filters.messageType}
             onValueChange={(val) => setFilters({ ...filters, messageType: val })}
           >
-            <SelectTrigger className="w-32 h-8 text-xs bg-white/5 border-white/10 text-white rounded-lg">
+            <SelectTrigger className="w-32 h-8 text-xs bg-muted/40 border-border/60 text-foreground rounded-lg">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
-            <SelectContent className="bg-[#1e2228] border-white/10 text-white text-xs">
+            <SelectContent className="bg-popover border-border text-popover-foreground text-xs">
               <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="CALL">CALL (Req)</SelectItem>
               <SelectItem value="CALLRESULT">CALLRESULT (Res)</SelectItem>
@@ -362,8 +362,8 @@ export function OcppPacketInspector() {
             onClick={() => setFilters({ ...filters, onlyErrors: !filters.onlyErrors })}
             className={`h-8 px-2.5 text-xs rounded-lg font-semibold border ${
               filters.onlyErrors
-                ? "bg-red-500/20 border-red-500/40 text-red-300"
-                : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
+                ? "bg-red-500/15 border-red-500/40 text-red-600 dark:text-red-300"
+                : "bg-muted/40 border-border/60 text-muted-foreground hover:text-foreground"
             }`}
           >
             <AlertCircle className="size-3 mr-1" />
@@ -377,8 +377,8 @@ export function OcppPacketInspector() {
             onClick={() => setFilters({ ...filters, onlySlow: !filters.onlySlow })}
             className={`h-8 px-2.5 text-xs rounded-lg font-semibold border ${
               filters.onlySlow
-                ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
-                : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
+                ? "bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-300"
+                : "bg-muted/40 border-border/60 text-muted-foreground hover:text-foreground"
             }`}
           >
             <Clock className="size-3 mr-1" />
@@ -393,7 +393,7 @@ export function OcppPacketInspector() {
             size="sm"
             onClick={() => setIsPaused(!isPaused)}
             className={`h-8 text-xs rounded-lg ${
-              isPaused ? "bg-amber-500/20 text-amber-300 border-amber-500/30" : "bg-white/5 border-white/10 text-white"
+              isPaused ? "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30" : "bg-muted/40 border-border/60 text-foreground hover:bg-muted"
             }`}
           >
             {isPaused ? <Play className="size-3.5 mr-1" /> : <Pause className="size-3.5 mr-1" />}
@@ -404,7 +404,7 @@ export function OcppPacketInspector() {
             variant="outline"
             size="sm"
             onClick={clearFrames}
-            className="h-8 text-xs bg-white/5 border-white/10 text-slate-300 hover:text-red-400 rounded-lg"
+            className="h-8 text-xs bg-muted/40 border-border/60 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg"
           >
             <Trash2 className="size-3.5 mr-1" /> Clear
           </Button>
@@ -422,9 +422,9 @@ export function OcppPacketInspector() {
       {/* Main Wireshark Two-Pane Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[720px]">
         {/* Left Pane: Packet Stream List (7 Columns) */}
-        <div className="lg:col-span-7 flex flex-col bg-[#14171c] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+        <div className="lg:col-span-7 flex flex-col bg-card border border-border/70 rounded-2xl overflow-hidden shadow-xs">
           {/* Packet Table Header */}
-          <div className="grid grid-cols-12 gap-2 px-3 py-2.5 bg-white/5 border-b border-white/10 text-[11px] font-bold text-slate-400 uppercase tracking-wider select-none">
+          <div className="grid grid-cols-12 gap-2 px-3 py-2.5 bg-muted/50 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider select-none">
             <div className="col-span-2">Time / Latency</div>
             <div className="col-span-3">Charger</div>
             <div className="col-span-2 text-center">Type</div>
@@ -433,14 +433,14 @@ export function OcppPacketInspector() {
           </div>
 
           {/* Packet Scrollable Stream */}
-          <div className="flex-1 overflow-y-auto divide-y divide-white/5">
+          <div className="flex-1 overflow-y-auto divide-y divide-border/40">
             {isLoading && frames.length === 0 ? (
-              <div className="p-12 text-center text-slate-400">
+              <div className="p-12 text-center text-muted-foreground">
                 <RefreshCw className="size-6 animate-spin mx-auto mb-2 text-[#54a8c7]" />
                 Listening for WebSocket OCPP packets...
               </div>
             ) : filteredFrames.length === 0 ? (
-              <div className="p-12 text-center text-slate-500 text-xs">
+              <div className="p-12 text-center text-muted-foreground text-xs">
                 No OCPP packets match current filter criteria.
               </div>
             ) : (
@@ -456,19 +456,19 @@ export function OcppPacketInspector() {
                     onClick={() => setSelectedFrameId(frame.id)}
                     className={`grid grid-cols-12 gap-2 px-3 py-2 text-xs font-mono items-center cursor-pointer transition-colors ${
                       isSelected
-                        ? "bg-[#54a8c7]/20 border-l-4 border-l-[#54a8c7] text-white"
-                        : "hover:bg-white/[0.03] text-slate-300"
+                        ? "bg-[#54a8c7]/15 border-l-4 border-l-[#54a8c7] text-foreground"
+                        : "hover:bg-muted/40 text-foreground/80"
                     } ${isError ? "bg-red-500/5 hover:bg-red-500/10" : ""}`}
                   >
                     {/* Timestamp & Latency */}
                     <div className="col-span-2 flex flex-col">
-                      <span className="text-[11px] text-slate-400">
+                      <span className="text-[11px] text-muted-foreground">
                         {format(frame.timestamp, "HH:mm:ss.SSS")}
                       </span>
                       {frame.latencyMs !== null && frame.latencyMs !== undefined && (
                         <span
                           className={`text-[9px] font-bold ${
-                            isSlow ? "text-amber-400" : "text-emerald-400"
+                            isSlow ? "text-amber-500 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
                           }`}
                         >
                           +{frame.latencyMs}ms
@@ -477,18 +477,18 @@ export function OcppPacketInspector() {
                     </div>
 
                     {/* Charger Identity */}
-                    <div className="col-span-3 truncate text-[11px] font-semibold text-slate-200">
+                    <div className="col-span-3 truncate text-[11px] font-semibold text-foreground">
                       {frame.chargerName}
                     </div>
 
                     {/* Direction & Message Type */}
                     <div className="col-span-2 flex items-center justify-center gap-1">
                       {frame.direction === "in" ? (
-                        <span className="text-cyan-400 text-[10px]" title="Charger ➔ Central System">
+                        <span className="text-cyan-600 dark:text-cyan-400 text-[10px]" title="Charger ➔ Central System">
                           <ArrowDownLeft className="size-3.5 inline" />
                         </span>
                       ) : (
-                        <span className="text-purple-400 text-[10px]" title="Central System ➔ Charger">
+                        <span className="text-purple-600 dark:text-purple-400 text-[10px]" title="Central System ➔ Charger">
                           <ArrowUpRight className="size-3.5 inline" />
                         </span>
                       )}
@@ -496,10 +496,10 @@ export function OcppPacketInspector() {
                       <Badge
                         className={`text-[9px] px-1 py-0 font-bold ${
                           frame.messageType === "CALL"
-                            ? "bg-purple-500/20 text-purple-300 border-purple-500/30"
+                            ? "bg-purple-500/15 text-purple-600 dark:text-purple-300 border-purple-500/30"
                             : frame.messageType === "CALLRESULT"
-                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-                            : "bg-red-500/20 text-red-300 border-red-500/30"
+                            ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30"
+                            : "bg-red-500/15 text-red-600 dark:text-red-300 border-red-500/30"
                         }`}
                       >
                         {frame.messageType}
@@ -507,22 +507,22 @@ export function OcppPacketInspector() {
                     </div>
 
                     {/* Action */}
-                    <div className="col-span-3 truncate font-bold text-white text-[11px]">
+                    <div className="col-span-3 truncate font-bold text-foreground text-[11px]">
                       {frame.action}
                     </div>
 
                     {/* Status Badge */}
                     <div className="col-span-2 text-right">
                       {isError ? (
-                        <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-[9px] py-0">
+                        <Badge className="bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30 text-[9px] py-0">
                           Error
                         </Badge>
                       ) : isSlow ? (
-                        <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[9px] py-0">
+                        <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[9px] py-0">
                           Slow
                         </Badge>
                       ) : (
-                        <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[9px] py-0">
+                        <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[9px] py-0">
                           OK
                         </Badge>
                       )}
@@ -535,9 +535,9 @@ export function OcppPacketInspector() {
           </div>
 
           {/* Stream Footer Bar */}
-          <div className="p-2.5 bg-white/5 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
+          <div className="p-2.5 bg-muted/30 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground">
             <div className="flex items-center gap-2">
-              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>
                 {filteredFrames.length} packets displayed ({frames.length} in buffer)
               </span>
@@ -547,17 +547,17 @@ export function OcppPacketInspector() {
         </div>
 
         {/* Right Pane: Deep Packet Inspector (5 Columns) */}
-        <div className="lg:col-span-5 flex flex-col bg-[#14171c] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+        <div className="lg:col-span-5 flex flex-col bg-card border border-border/70 rounded-2xl overflow-hidden shadow-xs">
           {selectedFrame ? (
             <div className="flex flex-col h-full">
               {/* Selected Frame Header Info */}
-              <div className="p-3.5 bg-white/5 border-b border-white/10 space-y-2">
+              <div className="p-3.5 bg-muted/30 border-b border-border space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Badge className="bg-[#54a8c7]/20 text-[#54a8c7] border-[#54a8c7]/30 text-xs">
                       {selectedFrame.action}
                     </Badge>
-                    <span className="text-xs font-mono font-bold text-white">
+                    <span className="text-xs font-mono font-bold text-foreground">
                       MsgId: {selectedFrame.messageId}
                     </span>
                   </div>
@@ -567,7 +567,7 @@ export function OcppPacketInspector() {
                       variant="ghost"
                       size="sm"
                       onClick={handleCopyJsonRpc}
-                      className="h-7 text-xs text-slate-300 hover:text-white"
+                      className="h-7 text-xs text-muted-foreground hover:text-foreground"
                       title="Copy JSON-RPC Frame"
                     >
                       <Copy className="size-3 mr-1" /> Frame
@@ -576,7 +576,7 @@ export function OcppPacketInspector() {
                       variant="ghost"
                       size="sm"
                       onClick={handleCopyCurl}
-                      className="h-7 text-xs text-slate-300 hover:text-white"
+                      className="h-7 text-xs text-muted-foreground hover:text-foreground"
                       title="Copy cURL snippet"
                     >
                       <Code2 className="size-3 mr-1" /> cURL
@@ -585,19 +585,19 @@ export function OcppPacketInspector() {
                 </div>
 
                 {/* Packet Meta Details */}
-                <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-slate-400 pt-1">
+                <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-muted-foreground pt-1">
                   <div>
-                    Source: <span className="text-white">{selectedFrame.chargerName}</span>
+                    Source: <span className="text-foreground font-semibold">{selectedFrame.chargerName}</span>
                   </div>
                   <div>
                     Direction:{" "}
-                    <span className="text-white">
+                    <span className="text-foreground font-semibold">
                       {selectedFrame.direction === "in" ? "Charger ➔ CSMS" : "CSMS ➔ Charger"}
                     </span>
                   </div>
                   <div>
                     Timestamp:{" "}
-                    <span className="text-white">
+                    <span className="text-foreground font-semibold">
                       {format(selectedFrame.timestamp, "yyyy-MM-dd HH:mm:ss.SSS")}
                     </span>
                   </div>
@@ -606,8 +606,8 @@ export function OcppPacketInspector() {
                     <span
                       className={
                         selectedFrame.latencyMs && selectedFrame.latencyMs > 3000
-                          ? "text-amber-400 font-bold"
-                          : "text-emerald-400 font-bold"
+                          ? "text-amber-500 dark:text-amber-400 font-bold"
+                          : "text-emerald-600 dark:text-emerald-400 font-bold"
                       }
                     >
                       {selectedFrame.latencyMs ? `${selectedFrame.latencyMs} ms` : "N/A"}
@@ -618,8 +618,8 @@ export function OcppPacketInspector() {
 
               {/* Inspector Tabs */}
               <Tabs defaultValue="tree" value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-                <div className="px-3 pt-2 bg-white/5 border-b border-white/10">
-                  <TabsList className="bg-black/30 border border-white/10 h-8">
+                <div className="px-3 pt-2 bg-muted/20 border-b border-border">
+                  <TabsList className="bg-muted/60 border border-border h-8">
                     <TabsTrigger value="tree" className="text-xs h-6 px-3">
                       <FileCode className="size-3.5 mr-1" /> Decoded Tree
                     </TabsTrigger>
@@ -635,7 +635,7 @@ export function OcppPacketInspector() {
 
                 {/* Tab 1: Collapsible Decoded Tree */}
                 <TabsContent value="tree" className="flex-1 p-4 overflow-y-auto m-0">
-                  <div className="p-3 bg-black/40 rounded-xl border border-white/10">
+                  <div className="p-3 bg-muted/30 dark:bg-black/40 rounded-xl border border-border">
                     <JsonTreeView
                       data={selectedFrame.payload}
                       violations={selectedFrame.validation.violations}
@@ -647,16 +647,16 @@ export function OcppPacketInspector() {
                 {/* Tab 2: Schema Validation Report */}
                 <TabsContent value="schema" className="flex-1 p-4 overflow-y-auto m-0 space-y-3">
                   {selectedFrame.validation.violations.length === 0 ? (
-                    <div className="p-6 text-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs">
-                      <ShieldCheck className="size-8 mx-auto mb-2 text-emerald-400" />
+                    <div className="p-6 text-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-xs">
+                      <ShieldCheck className="size-8 mx-auto mb-2 text-emerald-500 dark:text-emerald-400" />
                       <p className="font-bold">100% Schema Compliant</p>
-                      <p className="text-slate-400 mt-1">
+                      <p className="text-muted-foreground mt-1">
                         All mandatory fields, enums, and data types conform to OCPP 1.6 / 2.0.1 specification.
                       </p>
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <p className="text-xs font-bold text-slate-300">
+                      <p className="text-xs font-bold text-foreground">
                         {selectedFrame.validation.violations.length} Compliance Findings Detected:
                       </p>
                       {selectedFrame.validation.violations.map((v, i) => (
@@ -664,14 +664,14 @@ export function OcppPacketInspector() {
                           key={i}
                           className={`p-3 rounded-lg border text-xs flex items-start gap-2 ${
                             v.severity === "error"
-                              ? "bg-red-500/10 border-red-500/30 text-red-300"
-                              : "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                              ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-300"
+                              : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-300"
                           }`}
                         >
                           <AlertCircle className="size-4 shrink-0 mt-0.5" />
                           <div>
-                            <span className="font-bold font-mono block text-white">{v.field}</span>
-                            <span className="text-slate-300">{v.message}</span>
+                            <span className="font-bold font-mono block text-foreground">{v.field}</span>
+                            <span className="text-muted-foreground">{v.message}</span>
                           </div>
                         </div>
                       ))}
@@ -681,7 +681,7 @@ export function OcppPacketInspector() {
 
                 {/* Tab 3: Raw Frame */}
                 <TabsContent value="raw" className="flex-1 p-4 overflow-y-auto m-0">
-                  <pre className="p-3 bg-black/60 rounded-xl border border-white/10 text-xs font-mono text-cyan-300 overflow-x-auto select-text">
+                  <pre className="p-3 bg-slate-950 dark:bg-black/60 rounded-xl border border-border text-xs font-mono text-cyan-300 overflow-x-auto select-text">
                     {selectedFrame.rawMessage
                       ? JSON.stringify(selectedFrame.rawMessage, null, 2)
                       : JSON.stringify(
@@ -703,9 +703,9 @@ export function OcppPacketInspector() {
               </Tabs>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-slate-500 text-xs">
+            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-muted-foreground text-xs">
               <Terminal className="size-10 mb-2 opacity-40 text-[#54a8c7]" />
-              <p className="font-bold text-slate-400">No Packet Selected</p>
+              <p className="font-bold text-foreground">No Packet Selected</p>
               <p>Click on any OCPP frame in the stream to inspect decoded payload & schema.</p>
             </div>
           )}

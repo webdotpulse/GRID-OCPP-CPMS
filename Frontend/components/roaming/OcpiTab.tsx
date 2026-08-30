@@ -34,7 +34,8 @@ export function OcpiTab() {
     try {
       setLoading(true);
       const response = await api.get("/ocpi/endpoints");
-      setEndpoints(response.data?.data || []);
+      const list = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+      setEndpoints(list);
     } catch (error: any) {
       toast.error("Failed to fetch OCPI endpoints: " + (error?.message || ""));
     } finally {

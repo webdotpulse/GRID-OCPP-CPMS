@@ -5,7 +5,7 @@ const mockPrismaAuditLogCreate = jest.fn() as any;
 const mockPrismaAuditLogFindMany = jest.fn() as any;
 const mockPrismaAuditLogCount = jest.fn() as any;
 
-jest.mock("../../config/database.js", () => ({
+jest.unstable_mockModule("../../config/database.js", () => ({
   prisma: {
     auditLog: {
       create: mockPrismaAuditLogCreate,
@@ -15,7 +15,7 @@ jest.mock("../../config/database.js", () => ({
   },
 }));
 
-jest.mock("../../config/redis.js", () => ({
+jest.unstable_mockModule("../../config/redis.js", () => ({
   redisPublisher: {
     publish: jest.fn().mockResolvedValue(1 as never),
   },

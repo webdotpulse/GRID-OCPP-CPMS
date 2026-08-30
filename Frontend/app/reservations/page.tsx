@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
+import { AppShell } from '@/components/layout/AppShell';
 import { toast } from 'sonner';
 import {
   CalendarClock,
@@ -15,6 +17,7 @@ import {
   Zap,
   ShieldCheck,
   Filter,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,6 +62,7 @@ interface ChargerOption {
 }
 
 export default function ReservationsPage() {
+  const { user, isLoading: authLoading } = useAuth();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -80,10 +84,9 @@ export default function ReservationsPage() {
       if (search) params.search = search;
       if (statusFilter !== 'all') params.status = statusFilter;
 
-      const res = await api.get('/api/reservations', { params });
-      if (res.data.success) {
-        setReservations(res.data.data || []);
-      }
+      const res = await api.get('/reservations', { params });
+      const dataList = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setReservations(dataList);
     } catch (error: any) {
       toast.error(error.response?.data?.error || error.message || 'Failed to load reservations');
     } finally {
@@ -93,19 +96,20 @@ export default function ReservationsPage() {
 
   const fetchChargers = async () => {
     try {
-      const res = await api.get('/api/chargers');
-      if (res.data.success) {
-        setChargers(res.data.data || []);
-      }
+      const res = await api.get('/chargers');
+      const dataList = Array.isArray(res.data) ? res.data : (res.data?.chargers || res.data?.data || []);
+      setChargers(dataList);
     } catch (error) {
       console.error('Error fetching chargers:', error);
     }
   };
 
   useEffect(() => {
-    fetchReservations();
-    fetchChargers();
-  }, [statusFilter]);
+    if (!authLoading && (user?.role === 'admin' || user?.role === 'superadmin')) {
+      fetchReservations();
+      fetchChargers();
+    }
+  }, [statusFilter, authLoading, user]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,20 +127,19 @@ export default function ReservationsPage() {
       setSubmitting(true);
       const expiryDate = new Date(Date.now() + parseInt(durationMinutes, 10) * 60 * 1000);
 
-      const res = await api.post('/api/reservations', {
+      const res = await api.post('/reservations', {
         chargerId: parseInt(selectedChargerId, 10),
         connectorId: parseInt(connectorId, 10),
         idTag,
         expiryDate: expiryDate.toISOString(),
       });
 
-      if (res.data.success) {
-        toast.success(`Reservation #${res.data.data.reservationId} successfully dispatched to charger`);
-        setIsNewModalOpen(false);
-        setSelectedChargerId('');
-        setIdTag('');
-        fetchReservations();
-      }
+      const payload = res.data?.data || res.data;
+      toast.success(`Reservation #${payload?.reservationId || ''} successfully dispatched to charger`);
+      setIsNewModalOpen(false);
+      setSelectedChargerId('');
+      setIdTag('');
+      fetchReservations();
     } catch (error: any) {
       toast.error(error.response?.data?.error || error.message || 'Reservation Failed');
     } finally {
@@ -146,15 +149,37 @@ export default function ReservationsPage() {
 
   const handleCancelReservation = async (reservationId: number) => {
     try {
-      const res = await api.post(`/api/reservations/${reservationId}/cancel`);
-      if (res.data.success) {
-        toast.success(`Reservation #${reservationId} was successfully cancelled`);
-        fetchReservations();
-      }
+      const res = await api.post(`/reservations/${reservationId}/cancel`);
+      toast.success(`Reservation #${reservationId} was successfully cancelled`);
+      fetchReservations();
     } catch (error: any) {
       toast.error(error.response?.data?.error || error.message || 'Cancellation Failed');
     }
   };
+
+  if (authLoading) {
+    return (
+      <AppShell>
+        <div className="flex flex-col items-center justify-center h-64 gap-2 text-muted-foreground">
+          <Loader2 className="size-8 animate-spin text-[#3f78e0]" />
+          <span className="text-xs">Loading reservations...</span>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (user?.role !== 'admin' && user?.role !== 'superadmin') {
+    return (
+      <AppShell>
+        <div className="flex h-full items-center justify-center p-8">
+          <div className="text-center space-y-2">
+            <h2 className="text-xl font-semibold">Unauthorized Access</h2>
+            <p className="text-sm text-muted-foreground">You do not have permission to view reservations.</p>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   const activeCount = reservations.filter((r) => r.status === 'Active').length;
   const consumedCount = reservations.filter((r) => r.status === 'Consumed').length;
@@ -197,7 +222,8 @@ export default function ReservationsPage() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto animate-in fade-in duration-300">
+    <AppShell>
+      <div className="p-6 space-y-6 max-w-[1600px] mx-auto animate-in fade-in duration-300">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -492,6 +518,7 @@ export default function ReservationsPage() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </AppShell>
   );
 }

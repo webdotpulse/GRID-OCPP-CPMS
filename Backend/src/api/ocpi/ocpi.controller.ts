@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
+import axios from "axios";
 import { prisma } from "../../config/database.js";
 import { logger } from "../../utils/logger.js";
+import { isSafeExternalUrl } from "../oicp/oicp.controller.js";
 
 // Standard OCPI 2.2.1 Response Envelope Helper
 function buildOcpiResponse(data: any, statusCode: number = 1000, message: string = "Success") {
@@ -168,5 +170,160 @@ export const getOcpiCdrs = async (req: Request, res: Response) => {
   } catch (error) {
     logger.error("Error fetching OCPI CDRs:", error);
     return res.status(500).json(buildOcpiResponse(null, 3000, "Unable to fetch CDRs"));
+  }
+};
+
+/**
+ * Retrieve all OCPI endpoints
+ */
+export const getOcpiEndpoints = async (req: Request, res: Response) => {
+  try {
+    const endpoints = await prisma.ocpiEndpoint.findMany();
+    return res.json({ success: true, data: endpoints });
+  } catch (error: any) {
+    logger.error(`Failed to fetch OCPI endpoints: ${error.message}`);
+    return res.status(500).json({ success: false, message: "Failed to fetch OCPI endpoints." });
+  }
+};
+
+/**
+ * Create a new OCPI endpoint
+ */
+export const createOcpiEndpoint = async (req: Request, res: Response) => {
+  try {
+    const { name, url, token, version, status } = req.body;
+
+    if (!name || !url || !token) {
+      return res.status(400).json({
+        success: false,
+        message: "name, url, and token are required fields.",
+      });
+    }
+
+    const urlCheck = isSafeExternalUrl(url);
+    if (!urlCheck.valid) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid endpoint URL: ${urlCheck.reason}`,
+      });
+    }
+
+    const endpoint = await prisma.ocpiEndpoint.create({
+      data: {
+        name,
+        url: url.trim(),
+        token,
+        version: version || "2.2.1",
+        status: status || "active",
+      },
+    });
+
+    logger.info(`Created OCPI endpoint ${endpoint.name} (${endpoint.id})`);
+    return res.status(201).json({ success: true, data: endpoint });
+  } catch (error: any) {
+    logger.error(`Failed to create OCPI endpoint: ${error.message}`);
+    return res.status(500).json({ success: false, message: "Failed to create OCPI endpoint." });
+  }
+};
+
+/**
+ * Update an OCPI endpoint
+ */
+export const updateOcpiEndpoint = async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ success: false, message: "Invalid endpoint ID." });
+    }
+
+    if (req.body.url) {
+      const urlCheck = isSafeExternalUrl(req.body.url);
+      if (!urlCheck.valid) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid endpoint URL: ${urlCheck.reason}`,
+        });
+      }
+      req.body.url = req.body.url.trim();
+    }
+
+    const endpoint = await prisma.ocpiEndpoint.update({
+      where: { id },
+      data: req.body,
+    });
+
+    return res.json({ success: true, data: endpoint });
+  } catch (error: any) {
+    logger.error(`Failed to update OCPI endpoint: ${error.message}`);
+    return res.status(500).json({ success: false, message: "Failed to update OCPI endpoint." });
+  }
+};
+
+/**
+ * Delete an OCPI endpoint
+ */
+export const deleteOcpiEndpoint = async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ success: false, message: "Invalid endpoint ID." });
+    }
+
+    await prisma.ocpiEndpoint.delete({
+      where: { id },
+    });
+
+    return res.json({ success: true, message: "OCPI endpoint deleted." });
+  } catch (error: any) {
+    logger.error(`Failed to delete OCPI endpoint: ${error.message}`);
+    return res.status(500).json({ success: false, message: "Failed to delete OCPI endpoint." });
+  }
+};
+
+/**
+ * Test an OCPI endpoint connection safely
+ */
+export const testOcpiEndpoint = async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ success: false, message: "Invalid endpoint ID." });
+    }
+
+    const endpoint = await prisma.ocpiEndpoint.findUnique({
+      where: { id },
+    });
+
+    if (!endpoint) {
+      return res.status(404).json({ success: false, message: "OCPI endpoint not found." });
+    }
+
+    const urlCheck = isSafeExternalUrl(endpoint.url);
+    if (!urlCheck.valid) {
+      logger.warn(`SSRF Blocked on OCPI testEndpoint for endpoint ${id} (${endpoint.url}): ${urlCheck.reason}`);
+      return res.status(400).json({
+        success: false,
+        message: `Connection aborted: ${urlCheck.reason}`,
+      });
+    }
+
+    const response = await axios.get(endpoint.url, {
+      headers: {
+        Authorization: `Token ${endpoint.token}`,
+      },
+      timeout: 5000,
+      maxContentLength: 1024 * 1024, // 1MB
+      maxBodyLength: 1024 * 1024,
+      maxRedirects: 3,
+    });
+
+    return res.json({ success: true, message: "Connection successful.", data: response.data });
+  } catch (error: any) {
+    logger.error(`OCPI Test Endpoint Connection failed: ${error.message}`);
+    return res.status(500).json({
+      success: false,
+      message: "Connection failed.",
+      error: error.message || "Unknown error occurred",
+    });
   }
 };
