@@ -1,298 +1,278 @@
-# Setup Guide & Deployment Manual (Ubuntu on Google Cloud)
+# OCPP Charge Point Management System (CPMS)
+# Comprehensive System Administration & Enterprise Management Manual
 
-This guide provides comprehensive instructions for deploying, configuring, and operating both the Backend API/WebSocket server and the Next.js Admin Dashboard of the **OCPP-CPMS** on a local development machine or a production **Google Cloud Platform (GCP) Ubuntu 24.04 LTS VM**.
-
-> [!TIP]
-> **🚀 Fast Track Deployment:** You can use the visual [**Interactive Setup Wizard** (`interactive-setup.html`)](../interactive-setup.html) in your browser to generate a customized 1-command installer, or run the automated installer script:
-> ```bash
-> sudo bash install.sh --frontend-domain "ui.yourdomain.com" --backend-domain "ocpp.yourdomain.com" -y
-> ```
+Welcome to the **OCPP-CPMS System Administration & Enterprise Management Manual**. This document is designed for System Administrators, Security Officers, Roaming Coordinators, and Enterprise Technical Operators managing multi-tenant corporate accounts, granular Role-Based Access Control (RBAC), PKI certificates, automated hardware-at-risk rules, dynamic EPEX spot pricing, payment gateways, and live OCPP packet inspection.
 
 ---
 
-## 1. Local Development Setup
+## Table of Contents
 
-### Prerequisites
-- **Node.js** 24.15.0+ (LTS) / Node 22+
-- **PostgreSQL** 15+
-- **Redis** 7+
-
-### 1.1 Backend Setup
-```bash
-cd Backend
-npm install
-cp .env.example .env
-# Edit .env to set your DATABASE_URL, REDIS_URL, and JWT_SECRET
-npm run prisma:generate
-npx prisma db push --accept-data-loss
-
-# Create the initial Superadmin account
-npm run create-superadmin -- "superadmin@example.com" "secure_password123"
-
-# Start the development server
-npm run dev
-```
-
-### 1.2 Frontend Setup
-```bash
-cd ../Frontend
-npm install
-cat <<EOT >> .env.local
-NEXT_PUBLIC_API_URL="http://localhost:3000/api"
-EOT
-npm run dev
-```
+1. [Multi-Tenant Architecture & Corporate Hierarchy](#1-multi-tenant-architecture--corporate-hierarchy)
+2. [User Accounts, Corporate Clients & RBAC Matrix](#2-user-accounts-corporate-clients--rbac-matrix)
+3. [Security Profiles & PKI / TLS Certificates](#3-security-profiles--pki--tls-certificates)
+4. [Enterprise Audit Trail & Compliance Logging](#4-enterprise-audit-trail--compliance-logging)
+5. [Dynamic EPEX Spot Tariff Configuration & Feeds](#5-dynamic-epex-spot-tariff-configuration--feeds)
+6. [SMTP Server & HTML Mail Template Engine](#6-smtp-server--html-mail-template-engine)
+7. [Screen Advertising Manager & Target Playlists](#7-screen-advertising-manager--target-playlists)
+8. [Hardware-at-Risk Engine & Auto-Heal Rules](#8-hardware-at-risk-engine--auto-heal-rules)
+9. [Payment Gateways Configuration (Stripe & Mollie)](#9-payment-gateways-configuration-stripe--mollie)
+10. [Roaming Hubs: OCPI 2.2.1 & Hubject OICP Credentials](#10-roaming-hubs-ocpi-221--hubject-oicp-credentials)
+11. [Live OCPP Packet Inspector & WebSocket Triggers](#11-live-ocpp-packet-inspector--websocket-triggers)
+12. [Hardware Quirk Profiles & Config Profile Templates](#12-hardware-quirk-profiles--config-profile-templates)
+13. [Scheduled Background Cron Jobs & Auto-Maintenance](#13-scheduled-background-cron-jobs--auto-maintenance)
 
 ---
 
-## 2. Production Deployment on Google Cloud (Ubuntu VM)
+## 1. Multi-Tenant Architecture & Corporate Hierarchy
 
-### Production Architecture Overview
-* **Frontend Dashboard URL:** `https://ui.mobilitypulse.com` (Served via Next.js on port 3002, proxied by Nginx)
-* **Backend API & WebSockets:** `https://ocpp.mobilitypulse.com` (Served via Node.js on port 3000, proxied by Nginx)
-* **OCPP WebSocket Engine:** Handled securely over WSS (`wss://ocpp.mobilitypulse.com/OCPP/[1.6|2.1]/{id}`) and proxied to port 9220.
-* **Process Manager:** PM2 with automatic systemd startup and log rotation.
-* **Database:** PostgreSQL 15+ (local or Google Cloud SQL).
-* **Caching & Message Broker:** Redis 7+ (`redis-server`) with BullMQ worker queues.
-* **Reverse Proxy & SSL:** Nginx with Let's Encrypt automated TLS (Certbot).
+The CPMS provides strict multi-tenant isolation, enabling enterprise operators to host multiple independent corporate clients (fleets, commercial properties, municipalities) on a single platform instance.
+
+```mermaid
+flowchart TD
+    ROOT["👑 Superadmin Platform Domain"]
+    ROOT --> CO1["🏢 Corporate Client: Alpha Logistics B.V.\n(KvK: 84920192 | VAT: NL84920192B01)"]
+    ROOT --> CO2["🏢 Corporate Client: Beta Fleet Services N.V.\n(BCE: 0712345678 | VAT: BE0712345678)"]
+
+    CO1 --> USR1["👤 Client Admin (Fleet Manager)"]
+    CO1 --> USR2["👤 Employee Drivers (RFID Tags / EVs)"]
+    CO1 --> CHG1["⚡ Assigned Stations & Chargers (Bays 1-12)"]
+    CO1 --> INV1["💶 Monthly Consolidated Tax Invoices & SEPA"]
+
+    CO2 --> USR3["👤 Client Admin (Operations)"]
+    CO2 --> CHG2["⚡ Assigned Stations & Chargers (Depot 3)"]
+```
+
+### Multi-Tenancy Rules
+* **Data Scoping:** All transactions, RFID cards, vehicle profiles, and invoices are partitioned by `companyId` / `owner_id`.
+* **Cross-Tenant Isolation:** Client administrators can only inspect, control, and export telemetry for chargers assigned to their corporate profile.
+* **Superadmin Global Override:** Superadmin roles have global multi-tenant visibility for system-wide auditing, billing runs, and roaming routing.
 
 ---
 
-### 2.1 Server Provisioning & Initial Setup
+## 2. User Accounts, Corporate Clients & RBAC Matrix
 
-1. Create a VM Instance on GCP using an **Ubuntu 24.04 LTS** image (e.g., `e2-standard-2` or `e2-medium`).
-2. Reserve and assign a **Static External IP Address** to your VM in the GCP Console.
-3. Configure your DNS provider to create `A Records`:
-   - `ui.mobilitypulse.com` → `[Your Static IP]`
-   - `ocpp.mobilitypulse.com` → `[Your Static IP]`
-4. Ensure GCP Firewall rules allow incoming traffic on ports **80 (HTTP)** and **443 (HTTPS)**.
+### 2.1 Corporate B2B Clients Directory (`/users`)
+Corporate clients represent billing entities and enterprise fleet accounts. Each record stores:
+* **Company & Legal Identity:** Company Name, KvK / Chamber of Commerce number, Tax / VAT identification.
+* **Billing & Contact Information:** Invoice email, billing address, phone, and designated contact person.
+* **SEPA Direct Debit Mandate:** Mandate ID (UMR), IBAN, BIC, and mandate signature date.
+* **Assigned Assets:** Link specific charging stations, chargers, and employee drivers to the corporate account.
 
-SSH into your VM and update system packages:
-```bash
-sudo apt update && sudo apt upgrade -y
-sudo apt install git curl ufw -y
-```
+![Corporate Clients Directory](../Screenshots/51a_Corporate_Clients_Directory.png)
 
-**Configure UFW Firewall:**
-```bash
-sudo ufw allow OpenSSH
-sudo ufw allow 'Nginx Full'
-sudo ufw enable
-```
+### 2.2 User Accounts & Authentication Security
+User records represent individual authenticating human accounts:
+* **Authentication:** Email address, salted bcrypt password hash, and email verification status.
+* **Two-Factor Authentication (2FA TOTP):** Time-based One-Time Password support (Google Authenticator, Authy, 1Password) with 6-digit verification and backup recovery keys.
+* **Associated Data:** Link to corporate client, personal RFID cards, and vehicle battery energy profiles.
 
----
+![Users Directory](../Screenshots/51_Users_Accounts_Directory.png)
 
-### 2.2 Install Runtime Dependencies
+### 2.3 5-Tier Role-Based Access Control (RBAC Matrix)
 
-**Install Node.js (v24+) & PM2:**
-```bash
-curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-sudo apt install -y nodejs
-sudo npm install -g pm2
-```
+| Operational Domain | Superadmin | Platform Admin | Operator / Tech | Client Admin | User / Driver |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Infrastructure & Stations** | Full CRUD | Full CRUD | View & Diagnostics | Assigned Only | Map View |
+| **Remote Controls (Reset/Unlock)** | Full Access | Full Access | Full Access | Restricted | Own Connector |
+| **Dynamic Tariffs & EPEX** | Full CRUD | Full CRUD | View Only | View Assigned | View Rates |
+| **Invoicing & SEPA Exports** | Full CRUD | Full CRUD | No Access | Own Invoices | Own Receipts |
+| **Roaming Hubs (OCPI/OICP)** | Full CRUD | Manage | View Only | No Access | No Access |
+| **PKI Security & Audit Trail** | Full CRUD | View Audit | No Access | No Access | No Access |
+| **System Settings & Mail** | Full CRUD | Company Level | No Access | No Access | No Access |
 
-**Install PostgreSQL:**
-```bash
-sudo apt install postgresql postgresql-contrib -y
-sudo systemctl start postgresql.service
-sudo systemctl enable postgresql.service
-
-# Setup Database and User
-sudo -u postgres psql -c "CREATE DATABASE ocpp_cms;"
-sudo -u postgres psql -c "CREATE USER cms_user WITH PASSWORD 'your_secure_password';"
-sudo -u postgres psql -c "ALTER ROLE cms_user SET client_encoding TO 'utf8';"
-sudo -u postgres psql -c "ALTER ROLE cms_user SET default_transaction_isolation TO 'read committed';"
-sudo -u postgres psql -c "ALTER ROLE cms_user SET timezone TO 'UTC';"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ocpp_cms TO cms_user;"
-sudo -u postgres psql -d ocpp_cms -c "GRANT ALL ON SCHEMA public TO cms_user;"
-```
-
-**Install Redis:**
-```bash
-sudo apt install redis-server -y
-sudo systemctl start redis-server
-sudo systemctl enable redis-server
-```
-
-**Install Nginx & Certbot:**
-```bash
-sudo apt install nginx certbot python3-certbot-nginx -y
-```
+![Roles & Permissions Matrix](../Screenshots/51b_Roles_Permissions_Matrix.png)
 
 ---
 
-### 2.3 Clone & Setup the Application
+## 3. Security Profiles & PKI / TLS Certificates
 
-```bash
-sudo mkdir -p /var/www
-cd /var/www/
-sudo git clone https://github.com/webdotpulse/GRID-OCPP-CPMS.git ocpp-cms
-sudo chown -R $USER:$USER /var/www/ocpp-cms
-cd ocpp-cms
+The CPMS supports full compliance with **OCPP 1.6 Security Whitepaper Edition 3** and **ISO 15118 PKI**:
+
+```mermaid
+flowchart LR
+    CA["🏛️ Root Certificate Authority (CA)"] --> SubCA["🏢 Sub-CA (CSMS / CPO)"]
+    SubCA --> CSMS_CERT["🔒 CSMS Server Certificate\n(WSS TLS Termination)"]
+    SubCA --> CP_CERT["⚡ Charge Point Client Certificate\n(Security Profile 3 - mTLS)"]
+    CA --> V2G_ROOT["🚗 V2G Root CA\n(ISO 15118 Plug & Charge)"]
+    V2G_ROOT --> CONTRACT["📜 Vehicle Contract Certificate (EMAID)"]
 ```
 
-#### Backend Setup
-```bash
-cd /var/www/ocpp-cms/Backend
-npm install
+### Security Profiles Configuration (`/settings/security`)
+* **Security Profile 1 (Unsecured):** HTTP / WS transport without TLS encryption. Recommended strictly for isolated private VPNs.
+* **Security Profile 2 (TLS with Basic Auth):** WSS connection with HTTP Basic Authentication (charger identity + password).
+* **Security Profile 3 (Mutual TLS / mTLS):** WSS with bidirectional X.509 client and server certificate verification.
+* **Certificate Authority Management:** Upload Root CA certificates, intermediate CAs, and inspect certificate validity dates, SHA-256 fingerprints, and revocation lists (CRLs).
 
-# Create environment configuration
-cat <<EOT >> .env
-DATABASE_URL="postgresql://cms_user:your_secure_password@localhost:5432/ocpp_cms?schema=public"
-PORT=3000
-OCPP_PORT=9220
-OCPP_LOG_WS_PORT=3001
-JWT_SECRET="$(openssl rand -hex 32)"
-REDIS_URL="redis://localhost:6379"
-TZ="Europe/Brussels"
-
-# Payment Gateways (Optional)
-STRIPE_SECRET_KEY="sk_test_..."
-STRIPE_WEBHOOK_SECRET="whsec_..."
-MOLLIE_API_KEY="test_..."
-
-# Smart Charging & EPEX
-ENTSOE_API_KEY=""
-
-# SMTP Mail Server
-SMTP_HOST="smtp.mailgun.org"
-SMTP_PORT=587
-SMTP_USER="postmaster@yourdomain.com"
-SMTP_PASS="smtp_password"
-SMTP_FROM="Mobility Pulse <no-reply@mobilitypulse.com>"
-EOT
-
-# Generate Prisma Client & Sync Database Schema
-npx prisma generate
-npx prisma db push --accept-data-loss
-
-# Create initial Superadmin account
-npm run create-superadmin -- "admin@mobilitypulse.com" "SuperSecurePassword123!"
-```
-
-#### Frontend Setup & Production Build
-```bash
-cd /var/www/ocpp-cms/Frontend
-npm install
-
-cat <<EOT >> .env.production
-NEXT_PUBLIC_API_URL="https://ocpp.mobilitypulse.com/api"
-EOT
-
-npm run build
-```
+![PKI Security Profiles](../Screenshots/63_Settings_Security_Profiles_PKI.png)
 
 ---
 
-### 2.4 PM2 Process Configuration
+## 4. Enterprise Audit Trail & Compliance Logging
 
-Create an ecosystem file `/var/www/ocpp-cms/ecosystem.config.cjs`:
-```javascript
-module.exports = {
-  apps: [
-    {
-      name: "ocpp-backend",
-      cwd: "/var/www/ocpp-cms/Backend",
-      script: "npm",
-      args: "start",
-      env: {
-        NODE_ENV: "production",
-      },
-    },
-    {
-      name: "ocpp-frontend",
-      cwd: "/var/www/ocpp-cms/Frontend",
-      script: "node_modules/.bin/next",
-      args: "start -p 3002",
-      env: {
-        NODE_ENV: "production",
-      },
-    },
-  ],
-};
-```
+The **Enterprise Audit Trail** (`/settings/audit`) provides an immutable chronological log of administrative and operational events:
+* **Recorded Parameters:** Timestamp (UTC), User ID, User Email, Action Type (e.g. `REMOTE_RESET`, `TARIFF_UPDATE`, `SEPA_EXPORT`), Target Resource ID, Client IP Address, User-Agent, and Result (`SUCCESS` / `FAILED`).
+* **Filtering & Search:** Filter by date range, administrative actor, specific charger ID, or severity level.
+* **Export for Compliance:** Export audit logs in CSV or JSON format for SOC 2 and ISO 27001 regulatory audits.
 
-Start applications with PM2 and configure auto-restart on system reboot:
-```bash
-cd /var/www/ocpp-cms
-pm2 start ecosystem.config.cjs
-pm2 save
-pm2 startup systemd
-```
+![Enterprise Audit Trail](../Screenshots/64_Settings_Enterprise_Audit_Trail.png)
 
 ---
 
-### 2.5 Nginx Configuration with SSL
+## 5. Dynamic EPEX Spot Tariff Configuration & Feeds
 
-Create `/etc/nginx/sites-available/ocpp-cms`:
-```nginx
-# 1. Frontend Dashboard
-server {
-    server_name ui.mobilitypulse.com;
+The **Dynamic Tariffs Engine** (`/settings/tariffs`) integrates Day-Ahead wholesale electricity market prices into consumer and corporate charging tariffs.
 
-    location / {
-        proxy_pass http://127.0.0.1:3002;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
+### EPEX Integration Workflow
+1. **Automated Price Fetching:** A background cron job pulls Day-Ahead hourly spot market prices daily at 13:15 CET from providers like **EnergyZero**, **ENTSO-E Transparency Platform**, or **Energy-Charts API**.
+2. **Pricing Formula:**
+   $$\text{Final Tariff (€/kWh)} = (\text{Spot Price} \times \text{Multiplier}) + \text{CPO Markup} + \text{Grid Operator Fee} + \text{VAT (21\%)}$$
+3. **Transaction Slicing:** When a multi-hour charging session completes, the metering service breaks consumption into distinct hourly intervals and applies the exact corresponding spot rate.
 
-# 2. Backend REST API & Real-Time WebSockets
-server {
-    server_name ocpp.mobilitypulse.com;
+![Dynamic EPEX Tariffs Settings](../Screenshots/65_Settings_DynamicTariffs_EPEX.png)
 
-    # REST API
-    location /api/ {
-        proxy_pass http://127.0.0.1:3000/api/;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
+---
 
-    # Socket.IO Realtime stream
-    location /api/realtime/ {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-    }
+## 6. SMTP Server & HTML Mail Template Engine
 
-    # Live Log Stream
-    location /api/ocpp/logs {
-        proxy_pass http://127.0.0.1:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-    }
+### 6.1 Outgoing Mail Configuration (`/settings/mail`)
+Configure transactional email delivery via Postmark, SendGrid, Amazon SES, or custom SMTP servers:
+* Hostname, Port (587 / 465 / 25), TLS/STARTTLS mode, SMTP User, and Password.
+* Test Email Dispatcher to verify deliverability and SPF/DKIM alignment.
 
-    # OCPP 1.6 & 2.1 WebSocket Server
-    location /OCPP/ {
-        proxy_pass http://127.0.0.1:9220/OCPP/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_read_timeout 86400s;
-        proxy_send_timeout 86400s;
-    }
-}
+![SMTP Server Settings](../Screenshots/67_Settings_SMTP_Server.png)
+
+### 6.2 HTML Mail Template Editor (`/settings/templates`)
+Customize responsive HTML email templates with visual previews and dynamic variables:
+* **Supported Templates:** Welcome & Account Activation, Password Reset Request, Monthly Invoice Delivery (with PDF attachment), Charging Session Receipt, and Hardware Fault Warning.
+* **Dynamic Placeholders:** `{{user_name}}`, `{{invoice_number}}`, `{{total_amount}}`, `{{kwh_delivered}}`, `{{charger_name}}`, `{{reset_link}}`.
+
+![Mail Templates Editor](../Screenshots/66_Settings_MailTemplates_Editor.png)
+
+---
+
+## 7. Screen Advertising Manager & Target Playlists
+
+The **Screen Ad Manager** (`/settings/ad-manager`) schedules and delivers media campaigns to EV chargers equipped with color multimedia screens:
+* **Asset Formats:** MP4 video (H.264), PNG, JPG, and HTML5 responsive widgets.
+* **Display Locations:** Idle attract screen, Active charging banner, and Post-session thank-you screen.
+* **Targeting Rules:** Filter campaigns by specific charging stations, geographic cities, or charge groups.
+* **OCPP DataTransfer Delivery:** Assets and playlists are distributed to hardware using customized `DataTransfer` vendor commands.
+
+![Screen Advertising Manager](../Screenshots/68_Settings_Screen_AdManager.png)
+
+---
+
+## 8. Hardware-at-Risk Engine & Auto-Heal Rules
+
+The **Hardware-at-Risk Subsystem** (`/settings/hardware-at-risk` and `/hardware-at-risk`) continuously monitors fleet telemetry to identify deteriorating or stalled hardware before drivers experience outages.
+
+```mermaid
+flowchart TD
+    CRON["⏱️ 60-Second Fleet Health Scan"] --> DETECT{"Anomaly Detected?"}
+    DETECT -- "Missed Heartbeat (>180s)" --> RISK1["Flag as 'At Risk' (Connection Stalled)"]
+    DETECT -- "Connector Faulted / Unavailable" --> RISK2["Flag as 'Connector Fault'"]
+    DETECT -- "Zero Power Draw with EV Connected (>10m)" --> RISK3["Flag as 'SuspendedEVSE Hang'"]
+
+    RISK1 & RISK2 & RISK3 --> HEAL{"Auto-Heal Rule Enabled?"}
+    HEAL -- Yes --> ACT1["Trigger OCPP Remote Soft Reset"]
+    ACT1 --> WAIT["Wait 120s for Reconnect"]
+    WAIT --> RESOLVED{"Healthy Re-registration?"}
+    RESOLVED -- Yes --> PASS["Clear Risk Flag & Log Healed"]
+    RESOLVED -- No --> ESCALATE["Dispatch Incident Alert to Field Tech"]
+    HEAL -- No --> LOG["Log Risk & Alert Operator Dashboard"]
 ```
 
-Enable the configuration and obtain SSL certificates:
-```bash
-sudo ln -s /etc/nginx/sites-available/ocpp-cms /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl restart nginx
+### Configurable Healing Rules
+1. **Heartbeat Timeout:** Maximum allowed delay before triggering an automated soft reset.
+2. **Connector Stuck Unlock:** Automatically fire `UnlockConnector` if a session terminates with connector locked for >3 minutes.
+3. **Firmware Rollback:** Fall back to stable firmware if newly deployed firmware produces error rates > 5%.
 
-# Obtain Let's Encrypt Certificates
-sudo certbot --nginx -d ui.mobilitypulse.com -d ocpp.mobilitypulse.com
-```
+| Hardware at Risk Live Status | Auto-Heal Configuration Rules |
+| :---: | :---: |
+| ![Hardware at Risk](../Screenshots/54_HardwareAtRisk_AutoHeal.png) | ![Hardware at Risk Rules](../Screenshots/69_Settings_HardwareAtRisk_Rules.png) |
+
+---
+
+## 9. Payment Gateways Configuration (Stripe & Mollie)
+
+Configure ad-hoc walk-in payment processing under `/settings/payments`:
+
+### 9.1 Stripe Configuration
+* **API Keys:** Live Publishable Key, Live Secret Key, Test Publishable Key, Test Secret Key.
+* **Webhook Secret:** Signing secret (`whsec_...`) used by `/api/payments/webhook/stripe` to verify transaction events (`checkout.session.completed`, `payment_intent.succeeded`).
+* **Supported Methods:** Visa, MasterCard, American Express, Apple Pay, Google Pay.
+
+### 9.2 Mollie Configuration
+* **API Key:** `live_...` or `test_...` key.
+* **Webhook Endpoint:** `/api/payments/webhook/mollie`.
+* **European Methods:** iDEAL 2.0, Bancontact, EPS, KBC/CBC, Belfius Direct Net.
+
+![Mollie Payments Gateway Settings](../Screenshots/70_Settings_MolliePayments_Gateway.png)
+
+---
+
+## 10. Roaming Hubs: OCPI 2.2.1 & Hubject OICP Credentials
+
+The CPMS operates as both a **CPO (Charge Point Operator)** and an **eMSP (e-Mobility Service Provider)** across standard roaming protocols.
+
+### 10.1 OCPI 2.2.1 Configuration (`/roaming`)
+* **Role Credentials:** Set your Country Code (e.g. `NL`), Party ID (e.g. `PUL`), and generate `TOKEN_A` / `TOKEN_B` / `TOKEN_C` authentication handshakes.
+* **Supported Modules:**
+  * `locations`: Synchronize charging stations, connectors, tariffs, and real-time status.
+  * `tariffs`: Export multi-currency tariff matrices.
+  * `sessions`: Stream active charging sessions to roaming partners.
+  * `cdrs`: Transmit finalized Charge Detail Records.
+  * `tokens`: Ingest and validate roaming RFID cards and tokens in real-time.
+
+### 10.2 Hubject OICP 2.3 Integration
+* Configure Hubject Operator ID, Staging/Production endpoints, and client certificates for eRoaming Authorization, EVSE Data, and CDR Push.
+
+| OCPI Roaming Hubs | Hubject OICP Roaming | Roaming Settlement Visualizer |
+| :---: | :---: | :---: |
+| ![OCPI Roaming](../Screenshots/48_Roaming_OCPI_Hubs.png) | ![Hubject OICP](../Screenshots/49_Roaming_OICP_Hubject_Tab.png) | ![Roaming Settlements](../Screenshots/50_Roaming_Settlement_Visualizer_Tab.png) |
+
+---
+
+## 11. Live OCPP Packet Inspector & WebSocket Triggers
+
+The **Live Packet Inspector** (`/ocpp`) provides low-level diagnostics for debugging charging hardware communications:
+* **Raw JSON-RPC Stream:** Real-time stream of incoming `CALL` [2], `CALLRESULT` [3], and `CALLERROR` [4] frames.
+* **Message Parsing:** Decodes action types (`BootNotification`, `StatusNotification`, `MeterValues`, `StartTransaction`, `StopTransaction`).
+* **Manual RPC Dispatcher:** Send ad-hoc RPC commands to any connected charger (`GetConfiguration`, `ChangeConfiguration`, `TriggerMessage`, `RemoteStartTransaction`, `RemoteStopTransaction`, `UnlockConnector`, `Reset`).
+
+![Live OCPP Packet Inspector](../Screenshots/55_OCPP_PacketInspector_Console.png)
+
+---
+
+## 12. Hardware Quirk Profiles & Config Profile Templates
+
+### 12.1 Quirk Profiles (`/quirk-profiles`)
+Manufacturers often deviate slightly from the official OCPP specification. Quirk Profiles allow operators to normalize hardware behaviors non-intrusively:
+* **Missing Active Power:** Synthesize `Power.Active.Import` from active voltage and current telemetry if omitted by hardware.
+* **Scaling Multipliers:** Correct raw integer meter values from chargers requiring 0.1x or 10x division.
+* **Card Tag Normalization:** Strip leading zeroes or convert RFID UID endianness before database validation.
+
+![Quirk Profiles Overrides](../Screenshots/59_QuirkProfiles_HardwareOverrides.png)
+
+### 12.2 Configuration Profile Templates (`/config-profiles`)
+Create standardized templates containing standard OCPP parameters (e.g. `HeartbeatInterval: 60`, `MeterValueSampleInterval: 30`, `MeterValuesSampledData: "Energy.Active.Import.Register,Power.Active.Import,SoC,Current.Import,Voltage"`) and push them in bulk to chargers across a station.
+
+![Config Profiles Templates](../Screenshots/58_ConfigProfiles_Templates.png)
+
+---
+
+## 13. Scheduled Background Cron Jobs & Auto-Maintenance
+
+The CPMS runs several background cron jobs managed by `node-cron` and BullMQ:
+
+| Job Name | Schedule | Description |
+| :--- | :--- | :--- |
+| **`fetchEpexSpotRates`** | Daily at `13:15 CET` | Pulls Day-Ahead hourly spot rates for tomorrow's 24 hours. |
+| **`autoHealFleetScan`** | Every `60 seconds` | Scans all chargers for stalled connections, missed heartbeats, and fault states. |
+| **`predictiveLoadOptimization`**| Every `15 minutes` | Computes 24-hour solar forecast and dynamic power allocation limits. |
+| **`reimbursementLedgerMonthly`**| 1st of month at `01:00` | Aggregates employee home charging and generates SEPA Credit Transfer records. |
+| **`roamingStatusSync`** | Every `30 seconds` | Broadcasts connector status changes to active OCPI and Hubject connections. |
+| **`auditLogPurge`** | Monthly | Archives audit trail records older than the configured retention policy (e.g. 7 years). |
+
+---
+*Authored for Enterprise Platform Administrators & DevOps — webdotpulse/GRID-OCPP-CPMS.*

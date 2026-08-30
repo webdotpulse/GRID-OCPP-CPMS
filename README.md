@@ -224,16 +224,24 @@ flowchart TD
 
 ## Documentation & Manuals
 
-Comprehensive guides tailored for administrators, operators, and developers are located in the [`Manual/`](Manual/) directory:
+### 📑 Publication-Ready PDF Manuals
+
+| Manual | Format | Description |
+| :--- | :---: | :--- |
+| 📕 **[OCPP CPMS User & Operator Manual](Manual/OCPP_CPMS_User_Manual.pdf)** | **PDF** | Complete operational manual for CPOs, station managers, and EV drivers with high-res UI screenshots. |
+| 📘 **[OCPP CPMS System Admin Manual](Manual/OCPP_CPMS_Admin_Manual.pdf)** | **PDF** | Comprehensive administrator guide for Multi-Tenancy, RBAC, PKI, EPEX Tariffs, Mail, Gateways, and Auto-Heal. |
+| 📗 **[OCPP CPMS Installation & Deployment Manual](Manual/OCPP_CPMS_Installation_Manual.pdf)** | **PDF** | Complete DevOps guide for Ubuntu 24.04 VM deployment, Nginx, Let's Encrypt SSL, PostgreSQL, Redis, and PM2. |
+
+### 📖 Online Markdown Documentation
 
 | Document | Audience | Description |
 | :--- | :--- | :--- |
-| 📖 **[Platform Overview & Architecture](Manual/platform_overview.md)** | All | High-level system topology, data flow sequence diagrams, and hardware quirk handling. |
-| 👤 **[User & CPO Manual](Manual/user_manual.md)** | Station Operators & CPOs | Complete UI guide covering fleet management, tariffs, invoicing, RFID, and mobile tools with screenshots. |
+| 👤 **[User & Operator Manual](Manual/user_manual.md)** | Station Operators & CPOs | Complete UI guide covering fleet management, ground plans, tariffs, invoicing, RFID, and mobile tools. |
+| 👑 **[System Admin Manual](Manual/admin_manual.md)** | System & Enterprise Admins | Multi-tenant clients, RBAC matrix, PKI security, audit trails, EPEX configs, and hardware-at-risk rules. |
+| 🛠️ **[Installation & Deployment Manual](Manual/installation_manual.md)** | DevOps & SysAdmins | Complete step-by-step installation, automated `install.sh`, interactive web wizard, Nginx WSS, and PM2. |
 | ⚙️ **[Core Operations Manual](Manual/core_operations_manual.md)** | Daily Operations | Step-by-step procedures for asset hierarchy, ground plans, remote control, and live diagnostics. |
-| 🛠️ **[Admin & Deployment Manual](Manual/admin_manual.md)** | DevOps & SysAdmins | Production deployment on Ubuntu/Google Cloud VMs (PM2, Nginx, PostgreSQL, Redis, Certbot SSL). |
-| 💰 **[Financial & Roaming Manual](Manual/financial_roaming_manual.md)** | Finance & Roaming Managers | Invoicing ledger, SEPA Direct Debit (`pain.008`), Reimbursements (`pain.001`), Stripe & Mollie gateways, and OCPI/OICP. |
-| ⚡ **[Smart Charging, EMS & V2G Guide](Manual/advanced_ems_smart_charging_guide.md)** | Energy Engineers | In-depth technical algorithms for dynamic EPEX tariffs, solar predictive balancing, and V2G discharging. |
+| 💰 **[Financial & Roaming Manual](Manual/financial_roaming_manual.md)** | Finance & Roaming Managers | Invoicing ledger, SEPA Direct Debit (`pain.008`), Reimbursements (`pain.001`), Stripe & Mollie, and OCPI/OICP. |
+| ⚡ **[Smart Charging, EMS & V2G Guide](Manual/advanced_ems_smart_charging_guide.md)** | Energy Engineers | Technical algorithms for dynamic EPEX tariffs, solar predictive balancing, and V2G discharging. |
 | 🗺️ **[Parking Ground Plan Manual](Manual/ground_plan_manual.md)** | Facility Managers | Guide to building 2D station layouts and operating the real-time glassmorphism Live Monitor. |
 | 💻 **[Developer & API Guide](Manual/DeveloperGuide.md)** | Software Engineers | REST API endpoints, JWT Bearer auth, Socket.IO real-time subscriptions, and custom quirk development. |
 
