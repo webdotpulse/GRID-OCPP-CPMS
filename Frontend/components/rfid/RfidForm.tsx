@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Globe, Building2 } from "lucide-react";
 import { useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,6 +26,7 @@ const rfidSchema = z.object({
   company_name: z.string().optional(),
   address: z.string().optional(),
   type: z.string().min(1),
+  cardScope: z.string().optional(),
   active: z.boolean(),
   owner_id: z.number().optional(),
 });
@@ -40,8 +41,13 @@ export function RfidForm({ initialData }: { initialData?: any }) {
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<RfidFormValues>({
     resolver: zodResolver(rfidSchema),
-    defaultValues: initialData || {
+    defaultValues: initialData ? {
+      ...initialData,
+      cardScope: initialData?.cardScope || "Roaming",
+      email: initialData?.email || "",
+    } : {
       type: "postpaid",
+      cardScope: "Roaming",
       active: true,
       email: "",
     },
@@ -128,6 +134,60 @@ export function RfidForm({ initialData }: { initialData?: any }) {
               <Label htmlFor="address">Address (Optional)</Label>
               <Input id="address" {...register('address')} />
               {errors.address && <p className="text-sm text-destructive">{errors.address.message}</p>}
+            </div>
+          </div>
+
+          {/* Card Scope Selection: Roaming vs Local */}
+          <div className="space-y-3 border-t pt-4">
+            <Label className="text-base font-semibold">Card Authorization Scope</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div 
+                onClick={() => setValue('cardScope', 'Roaming')}
+                className={`cursor-pointer rounded-xl border p-4 transition-all flex flex-col justify-between ${
+                  watch('cardScope') !== 'Local' 
+                    ? 'border-[#54a8c7]/60 bg-[#54a8c7]/10 shadow-xs ring-1 ring-[#54a8c7]/30' 
+                    : 'border-border/60 bg-muted/20 hover:border-border'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="size-8 rounded-lg bg-[#54a8c7]/20 text-[#54a8c7] flex items-center justify-center">
+                      <Globe className="size-4" />
+                    </div>
+                    <span className="font-semibold text-sm">Roaming Card</span>
+                  </div>
+                  {watch('cardScope') !== 'Local' && (
+                    <span className="text-[11px] font-bold text-[#54a8c7] uppercase tracking-wider bg-[#54a8c7]/15 px-2 py-0.5 rounded-full">Active</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Network-wide access. Can be used on all public chargers across the network and connected charge groups.
+                </p>
+              </div>
+
+              <div 
+                onClick={() => setValue('cardScope', 'Local')}
+                className={`cursor-pointer rounded-xl border p-4 transition-all flex flex-col justify-between ${
+                  watch('cardScope') === 'Local' 
+                    ? 'border-purple-500/60 bg-purple-500/10 shadow-xs ring-1 ring-purple-500/30' 
+                    : 'border-border/60 bg-muted/20 hover:border-border'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="size-8 rounded-lg bg-purple-500/20 text-purple-500 flex items-center justify-center">
+                      <Building2 className="size-4" />
+                    </div>
+                    <span className="font-semibold text-sm">Local Card</span>
+                  </div>
+                  {watch('cardScope') === 'Local' && (
+                    <span className="text-[11px] font-bold text-purple-500 uppercase tracking-wider bg-purple-500/15 px-2 py-0.5 rounded-full">Active</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Restricted access. Only valid on connected charge groups and own chargers (cannot roam on external public stations).
+                </p>
+              </div>
             </div>
           </div>
 

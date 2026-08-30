@@ -184,6 +184,9 @@ model Charger {
   // Third-Party Backend Straight-Through Connection Mode
   isStraightThroughProxy       Boolean           @default(false)
 
+  // Public vs Private Charger Access
+  isPublic                     Boolean           @default(false)
+
   quirkProfileId Int?
   quirkProfile   ChargerQuirkProfile?   @relation(fields: [quirkProfileId], references: [id], onDelete: SetNull)
   schedulePlans  ChargingSchedulePlan[]
@@ -249,6 +252,7 @@ model RfidUser {
   company_name String?
   address      String?
   type         String   @default("postpaid")
+  cardScope    String   @default("Roaming") // "Roaming" | "Local"
   active       Boolean  @default(true)
   owner_id     Int
   createdAt    DateTime @default(now())

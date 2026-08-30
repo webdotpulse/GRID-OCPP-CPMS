@@ -123,147 +123,28 @@ export async function handleAuthorize(
   const hashData = payload.iso15118CertificateHashData || payload["15118CertificateHashData"] || payload.certificateHashData;
 
   try {
-    let isAuthorized = true;
-    let authStatus = "Accepted";
-    let userName = "";
-
-    // 0. If Straight-Through Proxy is enabled, delegate authorization to Third-Party Backend
-    const chargerInfo = await prisma.charger.findUnique({
-      where: { charger_id: chargerId },
-      select: { isStraightThroughProxy: true, thirdPartyBackendUrl: true }
+    const { AuthorizationService } = await import("../../services/AuthorizationService.js");
+    const authResult = await AuthorizationService.validateAuthorization({
+      chargerId,
+      rawIdTag,
+      hashData,
     });
-    if (chargerInfo?.isStraightThroughProxy && chargerInfo?.thirdPartyBackendUrl) {
-      logger.info(`[Straight-Through Proxy] Delegating Authorize (v2.1) directly to Third-Party Backend for charger ${chargerId}`);
-      let response: any = { idTokenInfo: { status: "Accepted" } };
-      await logOcppMessage(chargerId, "out", response);
-      return response;
-    }
 
-    // 1. Check ISO 15118 Certificate Hash Data if present
-    if (hashData) {
-      const { PkiCertificateService } = await import("../../services/PkiCertificateService.js");
-      const validation = await PkiCertificateService.validate15118CertificateHash(hashData);
+    const status = authResult.isAuthorized ? "Accepted" : (authResult.status || "Invalid");
+    const response = { idTokenInfo: { status } };
 
-      if (!validation.isValid) {
-        authStatus = validation.status;
-        isAuthorized = false;
-      } else {
-        const vcc = validation.certificate;
-        userName = vcc.user?.name || `eMAID: ${vcc.emaid}`;
-
-        // Verify charge group restrictions
-        const charger = await prisma.charger.findUnique({
-          where: { charger_id: chargerId },
-          select: { chargeGroupId: true },
-        });
-
-        if (charger?.chargeGroupId && vcc.userId) {
-          const userInGroup = await prisma.chargeGroupUser.findUnique({
-            where: {
-              chargeGroupId_userId: {
-                chargeGroupId: charger.chargeGroupId,
-                userId: vcc.userId,
-              },
-            },
-          });
-          if (!userInGroup) {
-            logger.warn(`Authorize rejected: User of ISO 15118 certificate ${vcc.emaid} is not in charge group ${charger.chargeGroupId}`);
-            isAuthorized = false;
-            authStatus = "Invalid";
-          }
-        }
-      }
+    if (!authResult.isAuthorized) {
+      logger.warn(`Authorize rejected: Identifier ${rawIdTag || "ISO15118"} not authorized (status: ${status}, reason: ${authResult.reason})`);
     } else {
-      // Look up Quirk Profile for card ID / solar mode mapping
-      const charger = await prisma.charger.findUnique({
-        where: { charger_id: chargerId },
-        include: { quirkProfile: true },
-      });
-      const rules = charger?.quirkProfile?.rules as any;
-      const effectiveIdTag = rawIdTag ? resolveMappedCardId(rawIdTag, rules) : rawIdTag;
-
-      // 2. Look up RFID tag in database
-      let rfidUser = await prisma.rfidUser.findUnique({
-        where: { rfid_tag: effectiveIdTag },
-      });
-
-      if (!rfidUser && rawIdTag && effectiveIdTag !== rawIdTag) {
-        rfidUser = await prisma.rfidUser.findUnique({
-          where: { rfid_tag: rawIdTag },
-        });
-      }
-
-      if (!rfidUser || !rfidUser.active) {
-        // If not an RFID user, check if it's a valid EMAID for Plug & Charge
-        let vcc = await prisma.vehicleContractCertificate.findUnique({
-          where: { emaid: effectiveIdTag },
-          include: { user: true },
-        });
-
-        if (!vcc && rawIdTag && effectiveIdTag !== rawIdTag) {
-          vcc = await prisma.vehicleContractCertificate.findUnique({
-            where: { emaid: rawIdTag },
-            include: { user: true },
-          });
-        }
-
-        if (!vcc || vcc.status !== "Valid" || new Date(vcc.expirationDate) < new Date()) {
-          isAuthorized = false;
-          authStatus = vcc?.status === "Expired" || (vcc && new Date(vcc.expirationDate) < new Date()) ? "Expired" : "Invalid";
-        } else {
-          userName = vcc.user?.name || "";
-          // Also check charge group for Plug&Charge users
-          if (charger && charger.chargeGroupId) {
-            const userInGroup = await prisma.chargeGroupUser.findUnique({
-              where: {
-                chargeGroupId_userId: {
-                  chargeGroupId: charger.chargeGroupId,
-                  userId: vcc.userId,
-                },
-              },
-            });
-            if (!userInGroup) {
-              logger.warn(`Authorize rejected: User of EMAID ${effectiveIdTag} is not in the required charge group ${charger.chargeGroupId}`);
-              isAuthorized = false;
-              authStatus = "Invalid";
-            }
-          }
-        }
-      } else {
-        userName = rfidUser.name || "";
-        // Check if charger belongs to a group and if user is in that group
-        if (charger && charger.chargeGroupId) {
-          const userInGroup = await prisma.chargeGroupUser.findUnique({
-            where: {
-              chargeGroupId_userId: {
-                chargeGroupId: charger.chargeGroupId,
-                userId: rfidUser.owner_id,
-              },
-            },
-          });
-          if (!userInGroup) {
-            logger.warn(`Authorize rejected: User of RFID tag ${effectiveIdTag} is not in the required charge group ${charger.chargeGroupId}`);
-            isAuthorized = false;
-            authStatus = "Invalid";
-          }
-        }
-      }
+      logger.info(`Authorize accepted: Identifier ${rawIdTag || "ISO15118"} (${authResult.userName || "Authorized"})`);
     }
 
-    if (!isAuthorized) {
-      logger.warn(`Authorize rejected: Identifier ${rawIdTag || "ISO15118"} not authorized (status: ${authStatus})`);
-      const response = { idTokenInfo: { status: authStatus } };
-      await logOcppMessage(chargerId, "out", response);
-      return response;
-    }
-
-    logger.info(`Authorize accepted: Identifier ${rawIdTag || "ISO15118"} (${userName})`);
-    const response = { idTokenInfo: { status: "Accepted" } };
     await logOcppMessage(chargerId, "out", response);
     return response;
   } catch (error) {
     logger.error(`Error handling Authorize: ${error}`);
-    return { idTokenInfo: { status: "Invalid" } };
+    const errResponse = { idTokenInfo: { status: "Invalid" } };
+    return errResponse;
   }
 }
 
@@ -400,51 +281,23 @@ export async function handleTransactionEvent(
       }
 
       let rfidUserId: number | undefined;
-      if (idTag) {
-        let rfidUser = await prisma.rfidUser.findUnique({
-          where: { rfid_tag: idTag },
+      if (rawIdTag || idTag) {
+        const { AuthorizationService } = await import("../../services/AuthorizationService.js");
+        const authResult = await AuthorizationService.validateAuthorization({
+          chargerId,
+          rawIdTag: rawIdTag || idTag,
         });
 
-        if (!rfidUser && rawIdTag && idTag !== rawIdTag) {
-          rfidUser = await prisma.rfidUser.findUnique({
-            where: { rfid_tag: rawIdTag },
-          });
+        if (!authResult.isAuthorized) {
+          logger.warn(
+            `TransactionEvent (Started) rejected: RFID tag ${rawIdTag || idTag} not authorized: ${authResult.reason || authResult.status}`
+          );
+          let response: any = {};
+          response.idTokenInfo = { status: authResult.status || "Invalid" };
+          await logOcppMessage(chargerId, "out", response);
+          return response;
         }
-
-        let isAuthorized = true;
-
-        if (charger?.isStraightThroughProxy && charger?.thirdPartyBackendUrl) {
-          logger.info(`[Straight-Through Proxy] Accepting TransactionEvent (Started) for tag ${rawIdTag} on charger ${chargerId}`);
-          rfidUserId = rfidUser?.rfid_user_id;
-        } else {
-          if (!rfidUser || !rfidUser.active) {
-            isAuthorized = false;
-          } else {
-            // Check if charger belongs to a group and if user is in that group
-            if (charger && charger.chargeGroupId) {
-              const userInGroup = await prisma.chargeGroupUser.findUnique({
-                where: {
-                  chargeGroupId_userId: {
-                    chargeGroupId: charger.chargeGroupId,
-                    userId: rfidUser.owner_id
-                  }
-                }
-              });
-              if (!userInGroup) {
-                isAuthorized = false;
-              }
-            }
-          }
-
-          if (!isAuthorized) {
-            logger.warn(`TransactionEvent (Started) rejected: RFID tag ${rawIdTag} (effective: ${idTag}) not authorized`);
-            let response: any = {};
-            response.idTokenInfo = { status: "Invalid" };
-            await logOcppMessage(chargerId, "out", response);
-            return response;
-          }
-          rfidUserId = rfidUser?.rfid_user_id;
-        }
+        rfidUserId = authResult.rfidUser?.rfid_user_id;
       }
 
       const newTransaction = await prisma.transaction.create({

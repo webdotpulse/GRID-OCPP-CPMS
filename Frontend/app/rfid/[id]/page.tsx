@@ -9,7 +9,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Edit, CreditCard, Mail, Phone, Building, MapPin } from "lucide-react";
+import { ChevronLeft, Edit, CreditCard, Mail, Phone, Building, MapPin, Globe, Building2 } from "lucide-react";
 import { RfidSessionHistory } from "@/components/rfid/RfidSessionHistory";
 
 export default function RfidDetailPage() {
@@ -56,6 +56,15 @@ export default function RfidDetailPage() {
             <Badge variant="outline" className={tag.active ? 'text-green-500 bg-green-500/10' : 'bg-muted'}>
               {tag.active ? 'AUTHORIZED' : 'BLOCKED'}
             </Badge>
+            {tag.cardScope?.toLowerCase() === 'local' ? (
+              <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 gap-1.5 px-3 py-1 text-xs font-bold">
+                <Building2 className="size-3.5" /> LOCAL ONLY
+              </Badge>
+            ) : (
+              <Badge className="bg-[#54a8c7]/20 text-[#54a8c7] border-[#54a8c7]/30 gap-1.5 px-3 py-1 text-xs font-bold">
+                <Globe className="size-3.5" /> ROAMING
+              </Badge>
+            )}
           </div>
           <p className="text-muted-foreground">Assigned to: <span className="font-medium text-foreground">{tag.name}</span></p>
         </div>
@@ -97,9 +106,17 @@ export default function RfidDetailPage() {
               </div>
             )}
             
-            <div className="pt-4 border-t mt-4">
-              <p className="text-xs text-muted-foreground mb-1">Account Type</p>
-              <Badge variant="secondary" className="capitalize">{tag.type}</Badge>
+            <div className="pt-4 border-t mt-4 grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Account Type</p>
+                <Badge variant="secondary" className="capitalize">{tag.type}</Badge>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Authorization Scope</p>
+                <Badge variant="outline" className="capitalize font-semibold">
+                  {tag.cardScope || "Roaming"}
+                </Badge>
+              </div>
             </div>
           </CardContent>
         </Card>

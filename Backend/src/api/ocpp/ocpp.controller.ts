@@ -517,70 +517,40 @@ export const testAuth = async (req: Request, res: Response) => {
       });
     }
 
+    if (chargerId) {
+      const { AuthorizationService } = await import("../../services/AuthorizationService.js");
+      const authResult = await AuthorizationService.validateAuthorization({
+        chargerId: Number(chargerId),
+        idTag,
+      });
+
+      return res.json({
+        success: true,
+        valid: authResult.isAuthorized,
+        status: authResult.status,
+        message: authResult.isAuthorized
+          ? `Tag is valid and authorized for ${authResult.userName || authResult.rfidUser?.name || "User"}`
+          : (authResult.reason || `Tag is not authorized (status: ${authResult.status})`),
+      });
+    }
+
     const rfidUser = await prisma.rfidUser.findUnique({
       where: { rfid_tag: idTag },
-      include: { owner: true }
+      include: { owner: true },
     });
 
     if (!rfidUser || !rfidUser.active) {
       return res.json({
         success: true,
         valid: false,
-        message: "Tag is invalid or inactive"
+        message: "Tag is invalid or inactive",
       });
-    }
-
-    if (rfidUser.owner?.role === "admin") {
-      return res.json({
-        success: true,
-        valid: true,
-        message: `Tag is valid and belongs to ${rfidUser.name} (Admin)`
-      });
-    }
-
-    if (chargerId) {
-      const charger = await prisma.charger.findUnique({
-        where: { charger_id: Number(chargerId) }
-      });
-
-      if (!charger || !charger.chargeGroupId) {
-         return res.json({
-           success: true,
-           valid: false,
-           message: "Charger not found or not in a charge group"
-         });
-      }
-
-      if (!rfidUser.owner_id) {
-         return res.json({
-           success: true,
-           valid: false,
-           message: "Tag is not assigned to any user"
-         });
-      }
-
-      const groupUser = await prisma.chargeGroupUser.findUnique({
-        where: {
-          chargeGroupId_userId: {
-            chargeGroupId: charger.chargeGroupId,
-            userId: rfidUser.owner_id
-          }
-        }
-      });
-
-      if (!groupUser) {
-        return res.json({
-          success: true,
-          valid: false,
-          message: `Tag belongs to ${rfidUser.name} but user is not in the same charge group as charger`
-        });
-      }
     }
 
     return res.json({
       success: true,
       valid: true,
-      message: `Tag is valid and belongs to ${rfidUser.name}`
+      message: `Tag is valid and belongs to ${rfidUser.name} (${rfidUser.cardScope || "Roaming"})`,
     });
   } catch (error) {
     logger.error(`Error testing auth: ${error}`);

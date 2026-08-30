@@ -70,6 +70,7 @@ export interface CreateChargerDto {
   service_contacts: string;
   charging_station_id: number;
   owner_id: number;
+  isPublic?: boolean;
   isCombined?: boolean;
   pairedChargerId?: number | null;
   pairedRole?: string | null;
@@ -93,6 +94,7 @@ export interface UpdateChargerDto {
   service_contacts?: string;
   tariffId?: number;
   requireAuth?: boolean;
+  isPublic?: boolean;
   thirdPartyBackendUrl?: string | null;
   isStraightThroughProxy?: boolean;
   isCombined?: boolean;
@@ -148,6 +150,7 @@ export interface CreateRfidUserDto {
   company_name?: string;
   address?: string;
   type?: string;
+  cardScope?: string;
   active?: boolean;
   owner_id: number;
 }
@@ -161,7 +164,9 @@ export interface UpdateRfidUserDto {
   company_name?: string;
   address?: string;
   type?: string;
+  cardScope?: string;
   active?: boolean;
+  owner_id?: number;
 }
 
 export interface RemoteStartRequest {

@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { ChevronLeft, Edit, Zap, Info, Clock, CheckCircle, Layers, Link2, Unlink, Share2, AlertCircle } from "lucide-react";
+import { ChevronLeft, Edit, Zap, Info, Clock, CheckCircle, Layers, Link2, Unlink, Share2, AlertCircle, Globe, Lock } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { RemoteControlPanel } from "@/components/chargers/RemoteControlPanel";
 import { ConnectorList } from "@/components/chargers/ConnectorList";
@@ -34,6 +34,7 @@ interface ChargerDetail {
   manufacturer: string;
   serial_number: string;
   status: string;
+  isPublic?: boolean;
   firmware_version: string;
   power_capacity: number;
   last_heartbeat: string;
@@ -237,6 +238,19 @@ export default function ChargerDetailPage() {
             <h1 className="text-3xl font-bold tracking-tight">{charger.name}</h1>
             {getStatusBadge(charger.status)}
 
+            {/* Public / Private Badge */}
+            {charger.isPublic ? (
+              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 gap-1.5 px-3 py-1 text-xs font-bold">
+                <Globe className="h-3.5 w-3.5" />
+                PUBLIC CHARGER
+              </Badge>
+            ) : (
+              <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 gap-1.5 px-3 py-1 text-xs font-bold">
+                <Lock className="h-3.5 w-3.5" />
+                PRIVATE CHARGER
+              </Badge>
+            )}
+
             {/* Combined Setup Badge */}
             {charger.isCombined && charger.pairedRole === "primary" && (
               <Badge className="bg-indigo-500/20 text-indigo-400 border-indigo-500/30 gap-1.5 px-3 py-1 text-xs font-bold">
@@ -391,6 +405,20 @@ export default function ChargerDetailPage() {
                       <p className="text-sm text-muted-foreground">Power Capacity</p>
                       <p className="font-medium">{charger.power_capacity} kW</p>
                     </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Access Mode</p>
+                    <p className="font-medium flex items-center gap-1.5">
+                      {charger.isPublic ? (
+                        <span className="text-emerald-400 font-semibold inline-flex items-center gap-1">
+                          <Globe className="size-4 text-emerald-400" /> Public (Open to all cards)
+                        </span>
+                      ) : (
+                        <span className="text-amber-400 font-semibold inline-flex items-center gap-1">
+                          <Lock className="size-4 text-amber-400" /> Private (Owner & Group only)
+                        </span>
+                      )}
+                    </p>
                   </div>
                 </div>
               </CardContent>

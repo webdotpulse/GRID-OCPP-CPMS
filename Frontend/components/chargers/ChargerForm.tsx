@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Loader2 } from "lucide-react";
+import { Loader2, Globe, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const chargerSchema = z.object({
@@ -25,6 +25,7 @@ const chargerSchema = z.object({
   firmware_version: z.string().optional(),
   service_contacts: z.string(),
   charging_station_id: z.number().positive("Must assign a station"),
+  isPublic: z.boolean().optional(),
   thirdPartyBackendUrl: z.union([z.string().url("Must be a valid URL"), z.literal("")]).optional().nullable(),
   isStraightThroughProxy: z.boolean().optional(),
   tariffId: z.number().optional(),
@@ -53,6 +54,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
     resolver: zodResolver(chargerSchema),
     defaultValues: initialData ? {
       ...initialData,
+      isPublic: initialData?.isPublic ?? false,
       thirdPartyBackendUrl: initialData?.thirdPartyBackendUrl || undefined,
       isStraightThroughProxy: initialData?.isStraightThroughProxy || false,
       tariffId: initialData?.tariffs?.[0]?.tariff_id || undefined,
@@ -62,6 +64,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
       localSolarKwp: initialData?.localSolarKwp || undefined,
     } : {
       name: nameParam || '',
+      isPublic: false,
       thirdPartyBackendUrl: undefined,
       isStraightThroughProxy: false,
       tariffId: initialData?.tariffs?.[0]?.tariff_id || undefined,
@@ -203,6 +206,60 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
                 Proxy upstream endpoint. Quirk profiles with Card ID mappings will translate solar mode tags before forwarding.
               </p>
               {errors.thirdPartyBackendUrl && <p className="text-sm text-destructive">{errors.thirdPartyBackendUrl.message}</p>}
+            </div>
+          </div>
+
+          {/* Charger Access Mode: Public vs Private */}
+          <div className="space-y-3 border-t pt-4">
+            <Label className="text-base font-semibold">Access & Visibility Mode</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div 
+                onClick={() => setValue('isPublic', false)}
+                className={`cursor-pointer rounded-xl border p-4 transition-all flex flex-col justify-between ${
+                  !watch('isPublic') 
+                    ? 'border-amber-500/60 bg-amber-500/10 shadow-xs ring-1 ring-amber-500/30' 
+                    : 'border-border/60 bg-muted/20 hover:border-border'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="size-8 rounded-lg bg-amber-500/20 text-amber-500 flex items-center justify-center">
+                      <Lock className="size-4" />
+                    </div>
+                    <span className="font-semibold text-sm">Private Charger</span>
+                  </div>
+                  {!watch('isPublic') && (
+                    <span className="text-[11px] font-bold text-amber-500 uppercase tracking-wider bg-amber-500/15 px-2 py-0.5 rounded-full">Active</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Restricted access. Only accepts own owned RFID cards and connected charge group members.
+                </p>
+              </div>
+
+              <div 
+                onClick={() => setValue('isPublic', true)}
+                className={`cursor-pointer rounded-xl border p-4 transition-all flex flex-col justify-between ${
+                  watch('isPublic') 
+                    ? 'border-[#54a8c7]/60 bg-[#54a8c7]/10 shadow-xs ring-1 ring-[#54a8c7]/30' 
+                    : 'border-border/60 bg-muted/20 hover:border-border'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="size-8 rounded-lg bg-[#54a8c7]/20 text-[#54a8c7] flex items-center justify-center">
+                      <Globe className="size-4" />
+                    </div>
+                    <span className="font-semibold text-sm">Public Charger</span>
+                  </div>
+                  {watch('isPublic') && (
+                    <span className="text-[11px] font-bold text-[#54a8c7] uppercase tracking-wider bg-[#54a8c7]/15 px-2 py-0.5 rounded-full">Active</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Open network access. Accepts all roaming RFID cards and public charging drivers.
+                </p>
+              </div>
             </div>
           </div>
 

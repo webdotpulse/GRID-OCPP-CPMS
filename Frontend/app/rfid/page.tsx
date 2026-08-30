@@ -8,7 +8,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Edit, Trash2, CreditCard, ArrowUpDown, Search, ShieldCheck } from "lucide-react";
+import { Plus, Edit, Trash2, CreditCard, ArrowUpDown, Search, ShieldCheck, Globe, Building2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ interface RfidTag {
   rfid_tag: string;
   name: string;
   type: string;
+  cardScope?: string;
   active: boolean;
   createdAt: string;
 }
@@ -142,6 +143,9 @@ export default function RfidPage() {
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
                   <div className="flex items-center gap-1.5">Assigned Holder <ArrowUpDown className="size-3" /></div>
                 </TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('cardScope')}>
+                  <div className="flex items-center gap-1.5">Scope <ArrowUpDown className="size-3" /></div>
+                </TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('type')}>
                   <div className="flex items-center gap-1.5">Type <ArrowUpDown className="size-3" /></div>
                 </TableHead>
@@ -152,7 +156,7 @@ export default function RfidPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <div className="size-6 border-2 border-[#54a8c7] border-t-transparent rounded-full animate-spin"></div>
                       <span className="text-xs">Loading authorization tags...</span>
@@ -161,7 +165,7 @@ export default function RfidPage() {
                 </TableRow>
               ) : sortedTags.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-1.5">
                       <CreditCard className="size-8 text-muted-foreground/50" />
                       <p className="font-semibold text-foreground text-sm">No RFID Tags Found</p>
@@ -182,6 +186,17 @@ export default function RfidPage() {
                     </TableCell>
                     <TableCell className="font-semibold text-sm text-foreground">
                       {tag.name || 'Unassigned'}
+                    </TableCell>
+                    <TableCell>
+                      {tag.cardScope?.toLowerCase() === 'local' ? (
+                        <Badge variant="outline" className="text-[11px] bg-purple-500/10 text-purple-400 border-purple-500/30 gap-1 inline-flex items-center font-medium">
+                          <Building2 className="size-3" /> Local
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[11px] bg-[#54a8c7]/10 text-[#54a8c7] border-[#54a8c7]/30 gap-1 inline-flex items-center font-medium">
+                          <Globe className="size-3" /> Roaming
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs uppercase">

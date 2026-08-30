@@ -111,6 +111,12 @@
       "remoteControl": "Afstandsbediening",
       "connectors": "Connectors",
       "overview": "Overzicht",
+      "publicCharger": "Publieke Laadpaal",
+      "privateCharger": "Private Laadpaal",
+      "accessMode": "Toegangsmodus",
+      "cardScope": "Pasbereik",
+      "roamingCard": "Roaming Laadpas",
+      "localCard": "Lokale Laadpas",
       "deleteConfirm": "Weet u zeker dat u deze lader wilt verwijderen?",
       "deleteSuccess": "Lader succesvol verwijderd."
     },

@@ -56,36 +56,9 @@ export class LocalAuthListService {
         return { success: false, status: "Failed", listVersion: 0, count: 0, error: "Charger not found" };
       }
 
-      // Fetch all active RFID tags and ISO 15118 EMAID tokens
-      const activeRfidUsers = await prisma.rfidUser.findMany({
-        where: { active: true },
-      });
-
-      const activeCertificates = await prisma.vehicleContractCertificate.findMany({
-        where: {
-          status: "Valid",
-          expirationDate: { gte: new Date() },
-        },
-      });
-
-      const authItems: LocalAuthListItem[] = [];
-
-      for (const rfid of activeRfidUsers) {
-        authItems.push({
-          idTag: rfid.rfid_tag,
-          status: "Accepted",
-        });
-      }
-
-      for (const cert of activeCertificates) {
-        if (!authItems.some((item) => item.idTag === cert.emaid)) {
-          authItems.push({
-            idTag: cert.emaid,
-            status: "Accepted",
-            expiryDate: cert.expirationDate.toISOString(),
-          });
-        }
-      }
+      // Fetch authorized RFID tags and ISO 15118 EMAID tokens filtered by charger access and card scope
+      const { AuthorizationService } = await import("./AuthorizationService.js");
+      const authItems: LocalAuthListItem[] = await AuthorizationService.getAuthorizedEntriesForCharger(chargerId);
 
       const currentVersion = charger.localAuthList?.listVersion || 0;
       const targetVersion = currentVersion + 1;

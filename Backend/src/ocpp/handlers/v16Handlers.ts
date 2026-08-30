@@ -143,6 +143,8 @@ export async function handleHeartbeat(
   }
 }
 
+export { resolveMappedCardId } from "../quirkNormalizer.js";
+
 /**
  * Handle Authorize request from charger
  */
@@ -154,102 +156,23 @@ export async function handleAuthorize(
   const rawIdTag = payload.idToken?.idToken || payload.idTag;
 
   try {
-    let isAuthorized = true;
-    let userName = "";
-
-    // Check Quirk Profile for card ID / solar mode mapping
-    const charger = await prisma.charger.findUnique({
-      where: { charger_id: chargerId },
-      include: { quirkProfile: true },
+    const { AuthorizationService } = await import("../../services/AuthorizationService.js");
+    const authResult = await AuthorizationService.validateAuthorization({
+      chargerId,
+      rawIdTag,
     });
 
-    // 1. If Straight-Through Proxy is enabled with a Third-Party Backend, delegate authorization entirely
-    if (charger?.isStraightThroughProxy && charger?.thirdPartyBackendUrl) {
-      logger.info(`[Straight-Through Proxy] Delegating authorization for tag ${rawIdTag} directly to Third-Party Backend (charger ${chargerId})`);
-      let response: any = {};
-      response.idTagInfo = { status: "Accepted" };
-      await logOcppMessage(chargerId, "out", response);
-      return response;
-    }
+    const status = authResult.isAuthorized ? "Accepted" : (authResult.status || "Invalid");
+    let response: any = {
+      idTagInfo: { status },
+    };
 
-    const rules = charger?.quirkProfile?.rules as any;
-    const effectiveIdTag = resolveMappedCardId(rawIdTag, rules);
-
-    // Look up RFID tag in database (checking effective mapped tag first, fallback to raw tag)
-    let rfidUser = await prisma.rfidUser.findUnique({
-      where: { rfid_tag: effectiveIdTag },
-    });
-
-    if (!rfidUser && effectiveIdTag !== rawIdTag) {
-      rfidUser = await prisma.rfidUser.findUnique({
-        where: { rfid_tag: rawIdTag },
-      });
-    }
-
-    if (!rfidUser || !rfidUser.active) {
-      // If not an RFID user, check if it's a valid EMAID for Plug & Charge
-      let vcc = await prisma.vehicleContractCertificate.findUnique({
-        where: { emaid: effectiveIdTag },
-        include: { user: true }
-      });
-
-      if (!vcc && effectiveIdTag !== rawIdTag) {
-        vcc = await prisma.vehicleContractCertificate.findUnique({
-          where: { emaid: rawIdTag },
-          include: { user: true }
-        });
-      }
-
-      if (!vcc || vcc.status !== "Valid" || vcc.expirationDate < new Date()) {
-         isAuthorized = false;
-      } else {
-         userName = vcc.user?.name || "";
-         // Also check charge group for Plug&Charge users
-         if (charger && charger.chargeGroupId) {
-           const userInGroup = await prisma.chargeGroupUser.findUnique({
-             where: {
-               chargeGroupId_userId: {
-                 chargeGroupId: charger.chargeGroupId,
-                 userId: vcc.userId
-               }
-             }
-           });
-           if (!userInGroup) {
-             logger.warn(`Authorize rejected: User of EMAID ${effectiveIdTag} is not in the required charge group ${charger.chargeGroupId}`);
-             isAuthorized = false;
-           }
-         }
-      }
+    if (!authResult.isAuthorized) {
+      logger.warn(`Authorize rejected: RFID/EMAID tag ${rawIdTag} not authorized (${authResult.reason || status})`);
     } else {
-      userName = rfidUser.name || "";
-      // Check if charger belongs to a group and if user is in that group
-      if (charger && charger.chargeGroupId) {
-        const userInGroup = await prisma.chargeGroupUser.findUnique({
-          where: {
-            chargeGroupId_userId: {
-              chargeGroupId: charger.chargeGroupId,
-              userId: rfidUser.owner_id
-            }
-          }
-        });
-        if (!userInGroup) {
-          logger.warn(`Authorize rejected: User of RFID tag ${effectiveIdTag} is not in the required charge group ${charger.chargeGroupId}`);
-          isAuthorized = false;
-        }
-      }
+      logger.info(`Authorize accepted: RFID/EMAID tag ${rawIdTag} (${authResult.userName || "Authorized"})`);
     }
 
-    if (!isAuthorized) {
-      logger.warn(`Authorize rejected: RFID/EMAID tag ${rawIdTag} (effective: ${effectiveIdTag}) not authorized`);
-      let response: any = {};
-      response.idTagInfo = { status: "Invalid" };
-      await logOcppMessage(chargerId, "out", response);
-      return response;
-    }
-
-    logger.info(`Authorize accepted: RFID/EMAID tag ${rawIdTag} (effective: ${effectiveIdTag}, ${userName})`);
-    let response: any = {};
-    response.idTagInfo = { status: "Accepted" };
     await logOcppMessage(chargerId, "out", response);
     return response;
   } catch (error) {
@@ -304,57 +227,21 @@ export async function handleStartTransaction(
 
     // Check if RFID tag is valid (if provided)
     let rfidUserId: number | undefined;
-    if (effectiveIdTag) {
-      let rfidUser = await prisma.rfidUser.findUnique({
-        where: { rfid_tag: effectiveIdTag },
+    if (idTag) {
+      const { AuthorizationService } = await import("../../services/AuthorizationService.js");
+      const authResult = await AuthorizationService.validateAuthorization({
+        chargerId,
+        rawIdTag: idTag,
       });
 
-      if (!rfidUser && idTag && effectiveIdTag !== idTag) {
-        rfidUser = await prisma.rfidUser.findUnique({
-          where: { rfid_tag: idTag },
-        });
+      if (!authResult.isAuthorized) {
+        logger.warn(`StartTransaction rejected: RFID tag ${idTag} (effective: ${effectiveIdTag}) not authorized: ${authResult.reason || authResult.status}`);
+        let response: any = {};
+        response.idTagInfo = { status: authResult.status || "Invalid" };
+        await logOcppMessage(chargerId, "out", response);
+        return response;
       }
-
-      let isAuthorized = true;
-
-      // In Straight-Through Proxy mode, authorization is delegated to the Third-Party Backend
-      if (charger?.isStraightThroughProxy && charger?.thirdPartyBackendUrl) {
-        logger.info(`[Straight-Through Proxy] Accepting StartTransaction for tag ${idTag} (effective: ${effectiveIdTag}) on charger ${chargerId}`);
-        rfidUserId = rfidUser?.rfid_user_id;
-      } else {
-        if (!rfidUser || !rfidUser.active) {
-          isAuthorized = false;
-        } else {
-          // Check if charger belongs to a group and if user is in that group
-          const chargerInfo = await prisma.charger.findUnique({
-            where: { charger_id: chargerId },
-            select: { chargeGroupId: true }
-          });
-
-          if (chargerInfo && chargerInfo.chargeGroupId) {
-            const userInGroup = await prisma.chargeGroupUser.findUnique({
-              where: {
-                chargeGroupId_userId: {
-                  chargeGroupId: chargerInfo.chargeGroupId,
-                  userId: rfidUser.owner_id
-                }
-              }
-            });
-            if (!userInGroup) {
-              isAuthorized = false;
-            }
-          }
-        }
-
-        if (!isAuthorized) {
-          logger.warn(`StartTransaction rejected: RFID tag ${idTag} (effective: ${effectiveIdTag}) not authorized`);
-          let response: any = {};
-          response.idTagInfo = { status: "Invalid" };
-          await logOcppMessage(chargerId, "out", response);
-          return response;
-        }
-        rfidUserId = rfidUser?.rfid_user_id;
-      }
+      rfidUserId = authResult.rfidUser?.rfid_user_id;
     }
 
     // Always create a system Transaction record

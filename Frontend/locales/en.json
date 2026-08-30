@@ -111,6 +111,12 @@
       "remoteControl": "Remote Control",
       "connectors": "Connectors",
       "overview": "Overview",
+      "publicCharger": "Public Charger",
+      "privateCharger": "Private Charger",
+      "accessMode": "Access Mode",
+      "cardScope": "Card Scope",
+      "roamingCard": "Roaming Card",
+      "localCard": "Local Card",
       "deleteConfirm": "Are you sure you want to delete this charger?",
       "deleteSuccess": "Charger deleted successfully."
     },

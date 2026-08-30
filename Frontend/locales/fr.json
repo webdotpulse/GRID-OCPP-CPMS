@@ -111,6 +111,12 @@
       "remoteControl": "Contrôle à Distance",
       "connectors": "Connecteurs",
       "overview": "Aperçu",
+      "publicCharger": "Borne Publique",
+      "privateCharger": "Borne Privée",
+      "accessMode": "Mode d'accès",
+      "cardScope": "Portée du badge",
+      "roamingCard": "Badge Itinérance",
+      "localCard": "Badge Local",
       "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette borne ?",
       "deleteSuccess": "Borne supprimée avec succès."
     },

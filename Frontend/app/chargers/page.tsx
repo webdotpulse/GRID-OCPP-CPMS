@@ -9,7 +9,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Edit, Trash2, Zap, ArrowUpDown, ChevronLeft, ChevronRight, Search, Filter, ShieldAlert, CheckCircle2, AlertTriangle, Radio } from "lucide-react";
+import { Plus, Edit, Trash2, Zap, ArrowUpDown, ChevronLeft, ChevronRight, Search, Filter, ShieldAlert, CheckCircle2, AlertTriangle, Radio, Globe, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -286,7 +286,16 @@ export default function ChargersPage() {
                           </div>
                           <span>{charger.name}</span>
                         </Link>
-                        <div className="flex items-center gap-1.5 ml-9">
+                        <div className="flex items-center gap-1.5 ml-9 flex-wrap">
+                          {charger.isPublic ? (
+                            <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30 px-1.5 py-0 font-medium inline-flex items-center gap-1">
+                              <Globe className="size-2.5" /> Public
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30 px-1.5 py-0 font-medium inline-flex items-center gap-1">
+                              <Lock className="size-2.5" /> Private
+                            </Badge>
+                          )}
                           {charger.isCombined && (
                             <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-400 border-indigo-500/30 px-1.5 py-0 font-medium">
                               2 Sockets ({charger.pairedRole === "primary" ? "Ch 1+2" : "Ch 2"})
