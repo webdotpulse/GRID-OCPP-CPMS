@@ -86,9 +86,9 @@ This document outlines strategic enhancements, next-generation capabilities, and
 
 * **Active-Active Multi-Region Clustering & WebSocket Sharding**
   * Distributed Redis Pub/Sub WebSocket gateways with sticky sessions and zero-downtime rolling deploys.
-* **Fine-Grained Custom RBAC & Audit Trails**
+* **Fine-Grained Custom RBAC & Audit Trails** *(Completed)*
   * Policy-based access controls (PBAC) allowing custom roles with granular per-site, per-charger-group, and per-action permissions.
-* **Exportable Webhooks & Event-Driven API Subscriptions** *(In Execution)*
+* **Exportable Webhooks & Event-Driven API Subscriptions** *(Completed)*
   * Outbound webhook system allowing enterprise customers to stream real-time CPMS events directly into their ERP/SCADA/CRM systems.
 
 ---

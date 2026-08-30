@@ -118,6 +118,31 @@ export async function processStatusEventJob(job: Job<StatusEventJobData>): Promi
       })
       .catch(() => {});
 
+    // 6. Dispatch outbound Webhook for status changes and hardware faults
+    import("../services/WebhookService.js")
+      .then(({ WebhookService }) => {
+        WebhookService.dispatch("charger.status_changed", {
+          chargerId,
+          connectorId,
+          status,
+          errorCode: errorCode || "NoError",
+          info: info || null,
+          timestamp: new Date().toISOString(),
+        }).catch(() => {});
+
+        if (status === "Faulted") {
+          WebhookService.dispatch("connector.faulted", {
+            chargerId,
+            connectorId,
+            errorCode: errorCode || "InternalError",
+            vendorErrorCode: job.data.vendorErrorCode || null,
+            info: info || "Connector reported Faulted state",
+            timestamp: new Date().toISOString(),
+          }).catch(() => {});
+        }
+      })
+      .catch(() => {});
+
     logger.debug(`Status event processed for charger ${chargerId}, connector ${connectorId} -> ${status}`);
   } catch (error) {
     logger.error(`Error processing status event for charger ${chargerId}: ${error}`);

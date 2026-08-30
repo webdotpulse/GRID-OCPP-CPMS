@@ -330,3 +330,97 @@ export function requireResourceAccess(resourceType: ResourceType) {
   };
 }
 
+/**
+ * Policy-Based Access Control (PBAC) / Fine-Grained RBAC Middleware
+ * Validates whether the authenticated user possesses the specific capability/permission.
+ */
+export function requirePermission(permissionKey: string) {
+  return async (req: AuthRequest, res: Response, next: NextFunction): Promise<void | Response> => {
+    try {
+      const role = req.userRole || "user";
+      const userId = req.userId;
+
+      // 1. Superadmin has global unrestricted bypass
+      if (role === "superadmin") {
+        return next();
+      }
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: "Authentication required",
+        });
+      }
+
+      const { prisma } = await import("../config/database.js");
+
+      // 2. Fetch user along with customRole
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { customRole: true },
+      });
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          error: "User not found",
+        });
+      }
+
+      // 3. If user has a custom role, evaluate policy permissions array
+      if (user.customRole) {
+        const permissions = Array.isArray(user.customRole.permissions)
+          ? (user.customRole.permissions as string[])
+          : [];
+
+        const hasPermission =
+          permissions.includes("*") ||
+          permissions.includes(permissionKey) ||
+          permissions.some((p) => p.endsWith(".*") && permissionKey.startsWith(p.slice(0, -2)));
+
+        if (!hasPermission) {
+          return res.status(403).json({
+            success: false,
+            error: `Insufficient permissions. Custom role "${user.customRole.name}" lacks permission: ${permissionKey}`,
+          });
+        }
+
+        // Check site-level restrictions if specified
+        if (user.customRole.siteScopes && Array.isArray(user.customRole.siteScopes)) {
+          const scopes = user.customRole.siteScopes as number[];
+          if (scopes.length > 0) {
+            const rawStationId = req.params.stationId || req.body?.stationId || req.query?.stationId;
+            if (rawStationId) {
+              const stationIdNum = parseInt(String(rawStationId), 10);
+              if (!isNaN(stationIdNum) && !scopes.includes(stationIdNum)) {
+                return res.status(403).json({
+                  success: false,
+                  error: `Access denied: Role is restricted to specific sites (${scopes.join(", ")})`,
+                });
+              }
+            }
+          }
+        }
+
+        return next();
+      }
+
+      // 4. Default fallback: evaluate against SYSTEM_CAPABILITIES for default roles
+      const { SYSTEM_CAPABILITIES } = await import("../api/roles/roles.controller.js");
+      const capability = SYSTEM_CAPABILITIES.find((c) => c.key === permissionKey);
+
+      if (capability && capability.allowedRoles.includes(role)) {
+        return next();
+      }
+
+      return res.status(403).json({
+        success: false,
+        error: `Insufficient permissions. Role "${role}" lacks required permission: ${permissionKey}`,
+      });
+    } catch (error: any) {
+      logger.error(`Error in requirePermission (${permissionKey}): ${error.message}`);
+      return res.status(500).json({ success: false, error: "Authorization verification failed" });
+    }
+  };
+}
+

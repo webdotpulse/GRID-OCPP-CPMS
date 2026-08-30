@@ -344,13 +344,25 @@ export class InvoiceService {
         results.totalSubtotal += subtotal;
         results.totalVat += totalVat;
         results.totalAmount += totalAmount;
-        results.invoices.push({
-          id: invoice.id,
-          invoiceNumber: invoice.invoiceNumber,
-          recipientName: entity.recipientName,
-          totalAmount: invoice.totalAmount,
-          itemCount: lineItemsData.length,
-        });
+        // Dispatch outbound webhook for invoice.issued
+        import("./WebhookService.js")
+          .then(({ WebhookService }) => {
+            WebhookService.dispatch("invoice.issued", {
+              invoiceId: invoice.id,
+              invoiceNumber: invoice.invoiceNumber,
+              companyId: invoice.companyId,
+              userId: invoice.userId,
+              recipientName: invoice.recipientName,
+              recipientEmail: invoice.recipientEmail,
+              subtotal: invoice.subtotal,
+              vatAmount: invoice.vatAmount,
+              totalAmount: invoice.totalAmount,
+              currency: invoice.currency,
+              dueDate: invoice.dueDate.toISOString(),
+              timestamp: new Date().toISOString(),
+            }, invoice.companyId || null).catch(() => {});
+          })
+          .catch(() => {});
 
         logger.info(
           `Generated Invoice ${invoice.invoiceNumber} for ${entity.recipientName}: Subtotal €${subtotal}, VAT €${totalVat}, Total €${totalAmount}`

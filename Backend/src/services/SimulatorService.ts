@@ -1266,7 +1266,7 @@ export class SimulatedChargerInstance {
 /**
  * Singleton Simulator Service
  */
-class SimulatorServiceManager {
+export class SimulatorServiceManager {
   private instances: Map<string, SimulatedChargerInstance> = new Map();
 
   public getInstances(): SimulatedChargerInstance[] {

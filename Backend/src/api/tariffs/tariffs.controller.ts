@@ -188,6 +188,22 @@ export const createTariff = async (req: Request, res: Response) => {
     });
 
     logger.info(`Tariff created: ${tariff.tariff_name} (ID: ${tariff.tariff_id})`);
+
+    // Dispatch Webhook for tariff.created
+    import("../../services/WebhookService.js")
+      .then(({ WebhookService }) => {
+        WebhookService.dispatch("tariff.created", {
+          tariffId: tariff.tariff_id,
+          tariffName: tariff.tariff_name,
+          pricingType: tariff.tariffType,
+          energyFee: tariff.electricity_rate,
+          connectionFee: tariff.charge,
+          idleFee: tariff.idle_fee,
+          timestamp: new Date().toISOString(),
+        }).catch(() => {});
+      })
+      .catch(() => {});
+
     res.status(201).json({ success: true, data: tariff });
   } catch (error) {
     logger.error(`Error creating tariff: ${error}`);
@@ -258,6 +274,22 @@ export const updateTariff = async (req: Request, res: Response) => {
     });
 
     logger.info(`Tariff updated: ${tariff.tariff_name} (ID: ${tariff.tariff_id})`);
+
+    // Dispatch Webhook for tariff.updated
+    import("../../services/WebhookService.js")
+      .then(({ WebhookService }) => {
+        WebhookService.dispatch("tariff.updated", {
+          tariffId: tariff.tariff_id,
+          tariffName: tariff.tariff_name,
+          pricingType: tariff.tariffType,
+          energyFee: tariff.electricity_rate,
+          connectionFee: tariff.charge,
+          idleFee: tariff.idle_fee,
+          timestamp: new Date().toISOString(),
+        }).catch(() => {});
+      })
+      .catch(() => {});
+
     res.json({ success: true, data: tariff });
   } catch (error) {
     logger.error(`Error updating tariff: ${error}`);

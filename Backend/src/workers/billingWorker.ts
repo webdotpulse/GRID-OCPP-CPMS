@@ -83,6 +83,21 @@ export async function processBillingJob(job: Job<BillingJobData>): Promise<void>
           .balanceChargeGroupLoad(updatedTransaction.charger.chargeGroupId)
           .catch((err) => logger.error(`Error balancing charge group load: ${err}`));
       }
+
+      // Dispatch Webhook for transaction.stopped
+      const { WebhookService } = await import("../services/WebhookService.js");
+      WebhookService.dispatch("transaction.stopped", {
+        transactionId: String(transactionId),
+        chargerId,
+        chargerName: updatedTransaction.charger?.name || `Charger #${chargerId}`,
+        meterStart: transaction.initialMeterValue || 0,
+        meterStop,
+        totalEnergyKwh: Math.abs(energyConsumedTx),
+        totalCost: totalCost || 0,
+        stopReason: reason || null,
+        durationMinutes: Math.round((stopTime.getTime() - new Date(transaction.startTime).getTime()) / 60000),
+        timestamp: stopTime.toISOString(),
+      }, updatedTransaction.charger?.owner_id || null).catch(() => {});
     }
 
     // Update RfidSession if exists

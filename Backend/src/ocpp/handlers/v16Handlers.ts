@@ -94,6 +94,21 @@ export async function handleBootNotification(
     // Update registry heartbeat
     await chargerRegistry.updateHeartbeat(chargerId);
 
+    // Dispatch Webhook for charger.booted
+    import("../../services/WebhookService.js")
+      .then(({ WebhookService }) => {
+        WebhookService.dispatch("charger.booted", {
+          chargerId,
+          chargerName: charger.name,
+          model: chargePointModel,
+          vendor: chargePointVendor,
+          firmwareVersion: firmwareVersion || "Unknown",
+          stationId: charger.charging_station_id,
+          timestamp: new Date().toISOString(),
+        }, charger.owner_id || null).catch(() => {});
+      })
+      .catch(() => {});
+
     const response = {
       status: "Accepted",
       currentTime: new Date().toISOString(),
@@ -326,6 +341,21 @@ export async function handleStartTransaction(
       loadManagementService.balanceChargeGroupLoad(newTransaction.charger.chargeGroupId)
         .catch(err => logger.error(`Error balancing charge group load: ${err}`));
     }
+
+    // Dispatch Webhook for transaction.started
+    import("../../services/WebhookService.js")
+      .then(({ WebhookService }) => {
+        WebhookService.dispatch("transaction.started", {
+          transactionId: String(transactionId),
+          chargerId,
+          chargerName: newTransaction.charger.name,
+          connectorId: effectiveConnectorId,
+          idTag: effectiveIdTag || idTag,
+          meterStart,
+          timestamp: new Date(timestamp || new Date()).toISOString(),
+        }, newTransaction.charger.owner_id || null).catch(() => {});
+      })
+      .catch(() => {});
 
     let response: any = {
       transactionId: parseInt(transactionId, 10) || 0,

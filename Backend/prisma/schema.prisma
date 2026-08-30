@@ -36,6 +36,8 @@ model User {
   updatedAt           DateTime  @updatedAt
   deletedAt           DateTime?
 
+  customRoleId                Int?
+  customRole                  CustomRole?             @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
   chargingStations            ChargingStation[]
   chargers                    Charger[]
   rfidUsers                   RfidUser[]
@@ -47,6 +49,7 @@ model User {
   invoices                    Invoice[]
   sepaMandates                SepaMandate[]
   reservations                Reservation[]
+  webhookSubscriptions        WebhookSubscription[]
 }
 
 model Company {
@@ -73,6 +76,8 @@ model Company {
   invoices     Invoice[]
   sepaMandates SepaMandate[]
   chargingStations ChargingStation[]
+  customRoles      CustomRole[]
+  webhookSubscriptions WebhookSubscription[]
 }
 
 model MollieConfig {
@@ -1024,5 +1029,75 @@ model CertificateRequest {
   @@index([chargerId])
   @@index([status])
 }
+
+// Custom Role & Policy-Based Access Control (SEC-03)
+model CustomRole {
+  id          Int       @id @default(autoincrement())
+  name        String
+  slug        String    @unique
+  description String?
+  color       String    @default("#3f78e0")
+  companyId   Int?
+  company     Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  isSystem    Boolean   @default(false)
+  permissions Json      // Array of strings, e.g. ["chargers.view", "chargers.control", "tariffs.manage"]
+  siteScopes  Json?     // Array of station / chargeGroup IDs for site-level restrictions
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  users       User[]
+
+  @@index([companyId])
+  @@index([slug])
+}
+
+// Outbound Webhook Subscriptions (INT-01)
+model WebhookSubscription {
+  id              Int               @id @default(autoincrement())
+  companyId       Int?
+  company         Company?          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId          Int?
+  user            User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name            String
+  targetUrl       String
+  secret          String            // HMAC-SHA256 signing secret
+  events          Json              // Array of event topics, e.g. ["transaction.started", "connector.faulted"]
+  isActive        Boolean           @default(true)
+  customHeaders   Json?             // Optional key-value header dictionary
+  failureCount    Int               @default(0)
+  lastTriggeredAt DateTime?
+  lastStatusCode  Int?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  deliveries      WebhookDelivery[]
+
+  @@index([companyId])
+  @@index([isActive])
+}
+
+// Webhook Delivery Logs & Retry Ledger (INT-02)
+model WebhookDelivery {
+  id                 Int                 @id @default(autoincrement())
+  subscriptionId     Int
+  subscription       WebhookSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  event              String
+  payload            Json
+  requestHeaders     Json?
+  responseCode       Int?
+  responseBody       String?             @db.Text
+  responseDurationMs Int?
+  status             String              @default("Pending") // "Success", "Failed", "Retrying"
+  attempts           Int                 @default(1)
+  nextRetryAt        DateTime?
+  error              String?
+  createdAt          DateTime            @default(now())
+  deliveredAt        DateTime?
+
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([createdAt])
+}
+
 
 

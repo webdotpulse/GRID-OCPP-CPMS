@@ -84,6 +84,19 @@ export function startAutoHealCron() {
             });
             logger.warn(`Hardware at Risk flagged for charger ${charger.charger_id}: ${reasons.join(" ")}`);
 
+            // Dispatch outbound webhook for hardware risk alert
+            import("../services/WebhookService.js")
+              .then(({ WebhookService }) => {
+                WebhookService.dispatch("alert.hardware_at_risk", {
+                  chargerId: charger.charger_id,
+                  chargerName: charger.name,
+                  consecutiveErrors: charger.consecutiveErrors,
+                  reason: reasons.join(" "),
+                  timestamp: new Date().toISOString(),
+                }, charger.owner_id || null).catch(() => {});
+              })
+              .catch(() => {});
+
             // Optionally, send an email to the admin if configured
             // In a real scenario, integrate with the mail service here
             if (harSettings.notifyAdminEmail && harSettings.adminEmailAddress) {
