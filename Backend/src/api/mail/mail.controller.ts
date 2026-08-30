@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { prisma } from "../../config/database.js";
 import { logger } from "../../utils/logger.js";
+import { DEFAULT_MAIL_TEMPLATES } from "../../services/MailTemplateDefaults.js";
 
 // Mail Config
 
@@ -47,9 +48,31 @@ export const updateMailConfig = async (req: Request, res: Response) => {
 
 export const getMailTemplates = async (req: Request, res: Response) => {
   try {
-    const templates = await prisma.mailTemplate.findMany({
-      orderBy: { id: "asc" },
+    let templates = await prisma.mailTemplate.findMany({
+      orderBy: [{ type: "asc" }, { language: "asc" }],
     });
+
+    if (templates.length === 0) {
+      // Auto-seed default templates
+      for (const tpl of DEFAULT_MAIL_TEMPLATES) {
+        await prisma.mailTemplate.upsert({
+          where: { type_language: { type: tpl.type, language: tpl.language } },
+          update: {},
+          create: {
+            name: tpl.name,
+            type: tpl.type,
+            language: tpl.language,
+            subject: tpl.subject,
+            bodyHtml: tpl.bodyHtml,
+            bodyText: tpl.bodyText,
+          },
+        });
+      }
+      templates = await prisma.mailTemplate.findMany({
+        orderBy: [{ type: "asc" }, { language: "asc" }],
+      });
+    }
+
     res.json({ success: true, data: templates });
   } catch (error) {
     logger.error(`Error getting mail templates: ${error}`);

@@ -93,6 +93,7 @@ export default function MobileSettings() {
   const [setupSecret, setSetupSecret] = useState<string | null>(null);
   const [setupCode, setSetupCode] = useState("");
   const [is2FALoading, setIs2FALoading] = useState(false);
+  const [emergencyContact, setEmergencyContact] = useState<{ phone: string; email: string; name: string } | null>(null);
 
   const fetchProfile = async () => {
     try {
@@ -114,9 +115,22 @@ export default function MobileSettings() {
     }
   };
 
+  const fetchEmergencyContact = async () => {
+    try {
+      const response = await api.get("/auth/emergency-contact");
+      const data = response.data?.data || response.data;
+      if (data) {
+        setEmergencyContact(data);
+      }
+    } catch (error) {
+      logger.error("Failed to fetch emergency contact", error);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       fetchProfile();
+      fetchEmergencyContact();
     }
     // Load notification preferences from localStorage
     try {
@@ -864,41 +878,41 @@ export default function MobileSettings() {
               </div>
             </div>
 
-            {/* Support Contacts */}
-            <div className="space-y-3 pt-4">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
-                Contact CPO Support
-              </span>
+              {/* Support Contacts */}
+              <div className="space-y-3 pt-4">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                  Contact CPO Support
+                </span>
 
-              <a
-                href="mailto:support@thechargegrid.com"
-                className="flex items-center justify-between p-3 bg-blue-50/60 hover:bg-blue-50 border border-blue-100 rounded-xl text-blue-700 transition-colors"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Mail className="w-4 h-4" />
-                  <div className="text-left">
-                    <span className="text-xs font-bold block">Email Customer Support</span>
-                    <span className="text-[10px] text-blue-600/80">support@thechargegrid.com</span>
+                <a
+                  href={`mailto:${emergencyContact?.email || "support@thechargegrid.com"}`}
+                  className="flex items-center justify-between p-3 bg-blue-50/60 hover:bg-blue-50 border border-blue-100 rounded-xl text-blue-700 transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Mail className="w-4 h-4" />
+                    <div className="text-left">
+                      <span className="text-xs font-bold block">Email Customer Support</span>
+                      <span className="text-[10px] text-blue-600/80">{emergencyContact?.email || "support@thechargegrid.com"}</span>
+                    </div>
                   </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-blue-500" />
-              </a>
+                  <ChevronRight className="w-4 h-4 text-blue-500" />
+                </a>
 
-              <a
-                href="tel:+31201234567"
-                className="flex items-center justify-between p-3 bg-emerald-50/60 hover:bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-700 transition-colors"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Phone className="w-4 h-4" />
-                  <div className="text-left">
-                    <span className="text-xs font-bold block">24/7 Charging Emergency Hotline</span>
-                    <span className="text-[10px] text-emerald-600/80">+31 (0) 20 123 4567</span>
+                <a
+                  href={`tel:${(emergencyContact?.phone || "+31 20 555 0199").replace(/[^0-9+]/g, '')}`}
+                  className="flex items-center justify-between p-3 bg-emerald-50/60 hover:bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-700 transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Phone className="w-4 h-4" />
+                    <div className="text-left">
+                      <span className="text-xs font-bold block">24/7 Charging Emergency Hotline</span>
+                      <span className="text-[10px] text-emerald-600/80">{emergencyContact?.phone || "+31 20 555 0199"}</span>
+                    </div>
                   </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-emerald-500" />
-              </a>
+                  <ChevronRight className="w-4 h-4 text-emerald-500" />
+                </a>
+              </div>
             </div>
-          </div>
 
           <DialogFooter className="pt-2">
             <Button

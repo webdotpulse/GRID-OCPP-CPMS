@@ -4,6 +4,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { prisma, pgliteInstance } from "../config/database.js";
 import { PkiCertificateService } from "../services/PkiCertificateService.js";
+import { DEFAULT_MAIL_TEMPLATES } from "../services/MailTemplateDefaults.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,6 +29,7 @@ async function seed() {
   // 1. Clean existing records in reverse dependency order
   console.log("[1/10] Cleaning existing records...");
   await prisma.auditLog.deleteMany({});
+  await prisma.mailTemplate.deleteMany({});
   await prisma.meterValue.deleteMany({});
   await prisma.transaction.deleteMany({});
   await prisma.rfidSession.deleteMany({});
@@ -508,6 +510,21 @@ async function seed() {
       },
     ],
   });
+
+  // 14. Seed Default Multilingual Mail Templates
+  console.log("[14/14] Seeding Multilingual Mail Templates (EN, NL, FR)...");
+  for (const tpl of DEFAULT_MAIL_TEMPLATES) {
+    await prisma.mailTemplate.create({
+      data: {
+        name: tpl.name,
+        type: tpl.type,
+        language: tpl.language,
+        subject: tpl.subject,
+        bodyHtml: tpl.bodyHtml,
+        bodyText: tpl.bodyText,
+      },
+    });
+  }
 
   console.log("==================================================");
   console.log("  Demo Data Seeding Completed Successfully!       ");

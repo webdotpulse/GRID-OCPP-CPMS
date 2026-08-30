@@ -15,10 +15,13 @@ import {
   send2FAEmailCode,
   verifyEmail,
   resendVerification,
+  getEmergencyContact,
 } from "./auth.controller.js";
 import { authenticateToken } from "../../middleware/auth.js";
 
 const router = Router();
+
+router.get("/emergency-contact", getEmergencyContact);
 
 router.post("/register", register);
 router.post("/login", login);

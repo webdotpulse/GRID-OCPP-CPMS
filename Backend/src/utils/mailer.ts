@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { logger } from './logger.js';
 import { prisma } from '../config/database.js';
+import { getDefaultMailTemplate } from '../services/MailTemplateDefaults.js';
 
 /**
  * Replace placeholders like {{var}} in string with values from variables object.
@@ -38,11 +39,20 @@ export const sendEmail = async (
     let finalText = textFallback;
     let finalHtml = htmlFallback || textFallback;
 
-    // If templateType provided, try to find and parse template
+    // If templateType provided, try to find in DB or fallback to default template
     if (templateType) {
-      const template = await prisma.mailTemplate.findUnique({
+      let template = await prisma.mailTemplate.findUnique({
         where: { type_language: { type: templateType, language: language } }
       });
+
+      if (!template) {
+        // Try fallback to built-in default template
+        const defaultTpl = getDefaultMailTemplate(templateType, language);
+        if (defaultTpl) {
+          template = defaultTpl as any;
+        }
+      }
+
       if (template) {
         finalSubject = variables ? parseTemplate(template.subject, variables) : template.subject;
         finalText = variables ? parseTemplate(template.bodyText, variables) : template.bodyText;

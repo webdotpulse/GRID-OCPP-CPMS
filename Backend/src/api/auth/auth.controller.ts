@@ -860,3 +860,37 @@ export const resendVerification = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * GET /api/auth/emergency-contact - Get emergency contact / superadmin hotline details
+ */
+export const getEmergencyContact = async (req: Request, res: Response) => {
+  try {
+    const superadmin = await prisma.user.findFirst({
+      where: { role: "superadmin", deletedAt: null },
+      select: {
+        name: true,
+        email: true,
+        phone: true,
+        companyName: true,
+      },
+      orderBy: { id: "asc" },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        phone: superadmin?.phone || "+31 20 555 0199",
+        email: superadmin?.email || "support@thechargegrid.com",
+        name: superadmin?.name || "CPO Support Hotline",
+        companyName: superadmin?.companyName || "OCPP-CPMS Global Operations",
+      },
+    });
+  } catch (error: any) {
+    logger.error(`Error getting emergency contact: ${error}`);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get emergency contact",
+    });
+  }
+};
+
