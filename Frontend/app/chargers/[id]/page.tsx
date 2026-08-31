@@ -52,6 +52,17 @@ interface ChargerDetail {
   isCombined?: boolean;
   pairedChargerId?: number | null;
   pairedRole?: string | null;
+  productId?: number | null;
+  product?: {
+    id: number;
+    name: string;
+    description: string | null;
+    category: string;
+    price: number;
+    paymentFrequency: string;
+    vatRate: number;
+    isActive: boolean;
+  } | null;
   pairedCharger?: {
     charger_id: number;
     name: string;
@@ -421,6 +432,26 @@ export default function ChargerDetailPage() {
                         </span>
                       )}
                     </p>
+                  </div>
+                  <div className="space-y-1 col-span-2 border-t border-border/50 pt-3">
+                    <p className="text-sm text-muted-foreground">Platform Subscription Product</p>
+                    {charger.product ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge className="bg-[#fab758]/15 text-[#fab758] border-[#fab758]/30 font-semibold text-xs">
+                          {charger.product.name}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground font-mono">
+                          €{charger.product.price.toFixed(2)} excl. VAT / {charger.product.paymentFrequency}
+                        </span>
+                        {charger.product.description && (
+                          <span className="text-xs text-muted-foreground italic">
+                            ({charger.product.description})
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">None (Ad-Hoc Hardware)</p>
+                    )}
                   </div>
                 </div>
               </CardContent>

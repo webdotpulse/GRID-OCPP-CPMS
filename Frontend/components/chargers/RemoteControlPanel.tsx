@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Zap, Play, Square, RefreshCw, Unlock, Send } from "lucide-react";
+import { Zap, Play, Square, RefreshCw, Unlock, Send, Server, Globe, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -27,6 +27,10 @@ export function RemoteControlPanel({ chargerId, hideTriggerMessage }: RemoteCont
   const [showTestAuth, setShowTestAuth] = useState(false);
   const [showFirmwareUpdate, setShowFirmwareUpdate] = useState(false);
   const [firmwareLocation, setFirmwareLocation] = useState("");
+  const [availableFirmware, setAvailableFirmware] = useState<any[]>([]);
+  const [firmwareSource, setFirmwareSource] = useState<"server" | "url">("url");
+  const [selectedFirmwareId, setSelectedFirmwareId] = useState<string>("");
+  const [loadingFirmware, setLoadingFirmware] = useState(false);
   const [testTagId, setTestTagId] = useState("");
   const [showDataTransfer, setShowDataTransfer] = useState(false);
   const [vendorId, setVendorId] = useState("");
@@ -36,6 +40,36 @@ export function RemoteControlPanel({ chargerId, hideTriggerMessage }: RemoteCont
   const [diagnosticsLocation, setDiagnosticsLocation] = useState("");
   const [showChargingProfile, setShowChargingProfile] = useState(false);
   const [chargingProfileJson, setChargingProfileJson] = useState("");
+
+  const fetchChargerFirmware = async () => {
+    try {
+      setLoadingFirmware(true);
+      const res = await api.get(`/firmware/for-charger/${chargerId}`);
+      const list = res.data?.data || [];
+      setAvailableFirmware(list);
+      if (list.length > 0) {
+        setFirmwareSource("server");
+        setSelectedFirmwareId(String(list[0].id));
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        setFirmwareLocation(`${origin}${list[0].fileUrl}`);
+      } else {
+        setFirmwareSource("url");
+        setFirmwareLocation("");
+      }
+    } catch {
+      setAvailableFirmware([]);
+      setFirmwareSource("url");
+    } finally {
+      setLoadingFirmware(false);
+    }
+  };
+
+  const toggleFirmwareUpdate = () => {
+    if (!showFirmwareUpdate) {
+      fetchChargerFirmware();
+    }
+    setShowFirmwareUpdate(!showFirmwareUpdate);
+  };
 
   const testAuthTag = async () => {
     setIsLoading(true);
@@ -169,7 +203,7 @@ export function RemoteControlPanel({ chargerId, hideTriggerMessage }: RemoteCont
 
             <Button
               variant={showFirmwareUpdate ? "default" : "outline"}
-              onClick={() => setShowFirmwareUpdate(!showFirmwareUpdate)}
+              onClick={toggleFirmwareUpdate}
               className="whitespace-nowrap"
             >
               <Zap className="mr-2 h-4 w-4" /> Update Firmware
@@ -267,19 +301,124 @@ export function RemoteControlPanel({ chargerId, hideTriggerMessage }: RemoteCont
 
             {/* Firmware Update */}
             {showFirmwareUpdate && (
-              <div className="space-y-4 border p-4 rounded-md">
-                <h4 className="font-medium text-sm">Update Firmware</h4>
-                <div className="space-y-1">
-                  <Label className="text-xs">Firmware Location URL</Label>
-                  <Input value={firmwareLocation} onChange={e => setFirmwareLocation(e.target.value)} placeholder="ftp://server/firmware.bin" />
+              <div className="space-y-4 border border-border p-4 rounded-xl bg-card">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
+                    <Zap className="size-4 text-[#54a8c7]" />
+                    Update Charger Firmware
+                  </h4>
+                  {loadingFirmware && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
                 </div>
+
+                {availableFirmware.length > 0 ? (
+                  <div className="space-y-3">
+                    {/* Source Selector */}
+                    <div className="grid grid-cols-2 gap-2 p-1 bg-muted/50 rounded-lg border border-border">
+                      <Button
+                        type="button"
+                        variant={firmwareSource === "server" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => {
+                          setFirmwareSource("server");
+                          const fw = availableFirmware.find(f => String(f.id) === selectedFirmwareId) || availableFirmware[0];
+                          if (fw) {
+                            const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                            setFirmwareLocation(`${origin}${fw.fileUrl}`);
+                          }
+                        }}
+                        className="text-xs h-7 gap-1.5"
+                      >
+                        <Server className="size-3.5" />
+                        CPMS Server ({availableFirmware.length})
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={firmwareSource === "url" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setFirmwareSource("url")}
+                        className="text-xs h-7 gap-1.5"
+                      >
+                        <Globe className="size-3.5" />
+                        Custom URL
+                      </Button>
+                    </div>
+
+                    {firmwareSource === "server" ? (
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold text-foreground">Select Firmware Release</Label>
+                        <Select
+                          value={selectedFirmwareId}
+                          onValueChange={(val) => {
+                            setSelectedFirmwareId(val);
+                            const fw = availableFirmware.find(f => String(f.id) === val);
+                            if (fw) {
+                              const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                              setFirmwareLocation(`${origin}${fw.fileUrl}`);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="text-xs h-9 bg-background border-border text-foreground">
+                            <SelectValue placeholder="Choose a firmware version..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableFirmware.map((fw) => (
+                              <SelectItem key={fw.id} value={String(fw.id)}>
+                                {fw.name} v{fw.version} {fw.model ? `(${fw.model})` : ''} - {Math.round((fw.fileSize || 0) / 1024 / 1024 * 10) / 10} MB
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        {selectedFirmwareId && (() => {
+                          const selectedFw = availableFirmware.find(f => String(f.id) === selectedFirmwareId);
+                          return selectedFw?.releaseNotes ? (
+                            <div className="p-2.5 rounded-lg bg-muted/40 border border-border text-[11px] text-muted-foreground">
+                              <span className="font-semibold text-foreground block mb-0.5">Changelog:</span>
+                              {selectedFw.releaseNotes}
+                            </div>
+                          ) : null;
+                        })()}
+
+                        <div className="text-[11px] font-mono text-muted-foreground truncate bg-muted/30 p-2 rounded border border-border/50">
+                          Target Location: {firmwareLocation}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-foreground">Firmware Location URL</Label>
+                        <Input
+                          value={firmwareLocation}
+                          onChange={e => setFirmwareLocation(e.target.value)}
+                          placeholder="https://firmware.vendor.com/releases/v2.1.0.bin"
+                          className="text-xs h-9 bg-background border-border text-foreground"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+                      No server-hosted firmware binaries found matching this charger model. You can specify an external download URL below, or upload binary releases in Settings &gt; Firmware.
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-foreground">Firmware Location URL</Label>
+                      <Input
+                        value={firmwareLocation}
+                        onChange={e => setFirmwareLocation(e.target.value)}
+                        placeholder="ftp://firmware.vendor.com/charger.bin"
+                        className="text-xs h-9 bg-background border-border text-foreground"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <Button
                   variant="outline"
-                  className="w-full border-primary text-primary hover:bg-primary/10"
+                  className="w-full border-[#54a8c7] text-[#54a8c7] hover:bg-[#54a8c7]/10 text-xs font-bold h-9"
                   onClick={() => sendCommand('update-firmware', { location: firmwareLocation })}
                   disabled={isLoading || !firmwareLocation}
                 >
-                  <Zap className="mr-2 h-4 w-4" /> Trigger Update
+                  <Zap className="mr-2 h-4 w-4" /> Dispatch UpdateFirmware RPC
                 </Button>
               </div>
             )}

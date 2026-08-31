@@ -201,6 +201,9 @@ model Charger {
   localAuthList         LocalAuthList?
   reservations          Reservation[]
   scheduledChargings    ScheduledCharging[]
+
+  productId      Int?
+  product        SubscriptionProduct?   @relation(fields: [productId], references: [id], onDelete: SetNull)
 }
 
 model ChargerQuirkProfile {
@@ -1141,6 +1144,48 @@ model ScheduledCharging {
   @@index([userId])
   @@index([chargerId])
   @@index([status])
+}
+
+// Firmware Repository & Binary Distribution (DEV-04)
+model FirmwareFile {
+  id           Int      @id @default(autoincrement())
+  name         String
+  version      String
+  manufacturer String?
+  model        String?
+  chargerId    Int?
+  filename     String
+  fileUrl      String
+  fileSize     Int      // Size in bytes
+  checksum     String?  // SHA-256 Checksum
+  releaseNotes String?
+  uploadedBy   Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([model])
+  @@index([manufacturer])
+  @@index([chargerId])
+}
+
+// Platform Subscription Products & Charger Recurring Fees (FIN-03)
+model SubscriptionProduct {
+  id               Int      @id @default(autoincrement())
+  name             String
+  description      String?  // Line item description on generated invoices
+  category         String   @default("public") // "private", "business", "public"
+  price            Float    // Base recurring fee excl. VAT
+  currency         String   @default("EUR")
+  paymentFrequency String   @default("monthly") // "monthly", "quarterly", "yearly"
+  vatRate          Float    @default(21.0)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  chargers         Charger[]
+
+  @@index([category])
+  @@index([isActive])
 }
 
 

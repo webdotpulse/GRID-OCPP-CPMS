@@ -48,6 +48,8 @@ import rolesRoutes from "./api/roles/roles.routes.js";
 import webhooksRoutes from "./api/webhooks/webhooks.routes.js";
 import scheduledChargingRoutes from "./api/scheduled-charging/scheduledCharging.routes.js";
 import simulatorRoutes from "./api/simulator/simulator.routes.js";
+import firmwareRoutes from "./api/firmware/firmware.routes.js";
+import productsRoutes from "./api/products/products.routes.js";
 
 // Import OCPP servers
 import { ocppServer } from "./ocpp/ocppServer.js";
@@ -148,6 +150,8 @@ export function createApp(): Application {
   app.use("/api/simulator", authenticateToken, simulatorRoutes);
   app.use("/api/webhooks", authenticateToken, webhooksRoutes);
   app.use("/api/scheduled-charging", authenticateToken, scheduledChargingRoutes);
+  app.use("/api/firmware", firmwareRoutes);
+  app.use("/api/products", productsRoutes);
 
   // Error handling
   app.use(notFoundHandler);

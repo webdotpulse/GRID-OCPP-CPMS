@@ -296,6 +296,40 @@ export class InvoiceService {
           subtotal += lineCostEur;
         }
 
+        // Check for active subscription products attached to chargers owned by this entity
+        const chargersWithProduct = await prisma.charger.findMany({
+          where: {
+            OR: [
+              ...(entity.companyId ? [{ chargingStation: { companyId: entity.companyId } }] : []),
+              ...(entity.userId ? [{ owner_id: entity.userId }] : []),
+            ],
+            productId: { not: null },
+            product: { isActive: true },
+          },
+          include: { product: true },
+        });
+
+        for (const ch of chargersWithProduct) {
+          if (ch.product) {
+            const feeExclVat = ch.product.price;
+            const feeVat = Math.round(feeExclVat * (vatRate / 100) * 100) / 100;
+            const itemDesc = ch.product.description
+              ? `${ch.product.description} - Charger: ${ch.name} (#${ch.charger_id})`
+              : `Platform Subscription Fee: ${ch.product.name} (${ch.product.paymentFrequency}) - Charger: ${ch.name} (#${ch.charger_id})`;
+
+            lineItemsData.push({
+              description: itemDesc,
+              quantity: 1,
+              unitPrice: feeExclVat,
+              vatRate: vatRate,
+              vatAmount: feeVat,
+              amount: feeExclVat,
+            });
+
+            subtotal += feeExclVat;
+          }
+        }
+
         subtotal = Math.round(subtotal * 100) / 100;
         const totalVat = Math.round(subtotal * (vatRate / 100) * 100) / 100;
         const totalAmount = Math.round((subtotal + totalVat) * 100) / 100;

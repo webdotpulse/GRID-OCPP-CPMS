@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { Loader2, User, KeyRound, ShieldAlert, ShieldCheck, Settings, WalletCards, Mail, Globe, Activity, Tv, Sparkles, Shield, Webhook } from "lucide-react";
+import { Loader2, User, KeyRound, ShieldAlert, ShieldCheck, Settings, WalletCards, Mail, Globe, Activity, Tv, Sparkles, Shield, Webhook, Cpu, Package } from "lucide-react";
 import Image from "next/image";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -492,6 +492,8 @@ export default function SettingsPage() {
                     { title: 'Mail Templates', desc: 'Custom HTML email layouts for receipts & password resets.', link: '/settings/templates', icon: Mail, color: 'text-[#54a8c7] bg-[#54a8c7]/15' },
                     { title: 'SMTP Mail Server', desc: 'Outgoing mail server credentials and sender delivery rules.', link: '/settings/mail', icon: Mail, color: 'text-[#3f78e0] bg-[#3f78e0]/15' },
                     { title: 'Roaming (OCPI & OICP)', desc: 'Interoperability hubs, Hubject OICP and e-clearing.net OCPI.', link: '/roaming', icon: Globe, color: 'text-[#45c4a0] bg-[#45c4a0]/15' },
+                    { title: 'Firmware Repository', desc: 'Host and deploy firmware binaries (.bin, .hex) to specific charger models.', link: '/settings/firmware', icon: Cpu, color: 'text-[#54a8c7] bg-[#54a8c7]/15' },
+                    { title: 'Charger Subscription Products', desc: 'Monthly platform licensing fees attached to hardware for automated invoicing.', link: '/settings/products', icon: Package, color: 'text-[#fab758] bg-[#fab758]/15' },
                     { title: 'Config Profiles', desc: 'Standardized OCPP 1.6/2.0.1 key-value parameter templates.', link: '/config-profiles', icon: Settings, color: 'text-[#747ed1] bg-[#747ed1]/15' },
                     { title: 'Quirk Profiles', desc: 'Hardware-specific compatibility fixes for non-compliant chargers.', link: '/quirk-profiles', icon: ShieldAlert, color: 'text-[#e2626b] bg-[#e2626b]/15' },
                     { title: 'Ad Manager', desc: 'Promotional multimedia campaigns for charger LCD screens.', link: '/settings/ad-manager', icon: Tv, color: 'text-[#54a8c7] bg-[#54a8c7]/15' },

@@ -29,6 +29,7 @@ const chargerSchema = z.object({
   thirdPartyBackendUrl: z.union([z.string().url("Must be a valid URL"), z.literal("")]).optional().nullable(),
   isStraightThroughProxy: z.boolean().optional(),
   tariffId: z.number().optional(),
+  productId: z.number().optional().nullable(),
   owner_id: z.number().optional(),
   chargeGroupId: z.number().optional().nullable(),
   quirkProfileId: z.number().optional().nullable(),
@@ -44,6 +45,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
   const [tariffs, setTariffs] = useState<any[]>([]);
   const [chargeGroups, setChargeGroups] = useState<any[]>([]);
   const [quirkProfiles, setQuirkProfiles] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
@@ -58,6 +60,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
       thirdPartyBackendUrl: initialData?.thirdPartyBackendUrl || undefined,
       isStraightThroughProxy: initialData?.isStraightThroughProxy || false,
       tariffId: initialData?.tariffs?.[0]?.tariff_id || undefined,
+      productId: initialData?.productId || undefined,
       chargeGroupId: initialData?.chargeGroupId || undefined,
       quirkProfileId: initialData?.quirkProfileId || undefined,
       isPredictiveBalancingEnabled: initialData?.isPredictiveBalancingEnabled || false,
@@ -67,7 +70,8 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
       isPublic: false,
       thirdPartyBackendUrl: undefined,
       isStraightThroughProxy: false,
-      tariffId: initialData?.tariffs?.[0]?.tariff_id || undefined,
+      tariffId: undefined,
+      productId: undefined,
       chargeGroupId: undefined,
       quirkProfileId: undefined,
       isPredictiveBalancingEnabled: false,
@@ -78,11 +82,12 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
   useEffect(() => {
     const fetchStations = async () => {
       try {
-        const promises = [
+        const promises: Promise<any>[] = [
           api.get('/stations'),
           api.get('/tariffs'),
           api.get('/charge-groups'),
-          api.get('/quirk-profiles')
+          api.get('/quirk-profiles'),
+          api.get('/products?isActive=true'),
         ];
 
         if (user?.role === 'admin' || user?.role === 'superadmin') {
@@ -94,9 +99,10 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
         setTariffs(results[1].data);
         setChargeGroups(results[2].data?.data || results[2].data);
         setQuirkProfiles(results[3].data?.data || results[3].data);
+        setProducts(results[4].data?.data || results[4].data || []);
 
-        if (results[4]) {
-          setUsersList(results[4].data);
+        if (results[5]) {
+          setUsersList(results[5].data);
         }
       } catch (error) {
         logger.error("Failed to fetch initial data", error);
@@ -320,7 +326,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
               </p>
             </div>
 
-             <div className="space-y-2">
+              <div className="space-y-2">
               <Label htmlFor="tariffId">Assigned Tariff Plan</Label>
               <Select 
                 value={watch('tariffId')?.toString() || 'none'} 
@@ -344,6 +350,29 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
                   })}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="productId">Platform Subscription Product</Label>
+              <Select 
+                value={watch('productId')?.toString() || 'none'} 
+                onValueChange={(val) => setValue('productId', val === 'none' ? null : parseInt(val))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a subscription product" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Attached Product</SelectItem>
+                  {products.map(prod => (
+                    <SelectItem key={prod.id} value={prod.id.toString()}>
+                      {prod.name} (€{prod.price.toFixed(2)} excl. VAT / {prod.paymentFrequency})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Recurring software licensing and platform usage fee attached to this charger for monthly invoicing.
+              </p>
             </div>
 
             {(user?.role === 'admin' || user?.role === 'superadmin') && (

@@ -424,94 +424,109 @@ export default function ReservationsPage() {
 
         {/* New Reservation Modal */}
         <Dialog open={isNewModalOpen} onOpenChange={setIsNewModalOpen}>
-          <DialogContent className="sm:max-w-[480px]">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-lg">
+          <DialogContent className="sm:max-w-md p-0 flex flex-col overflow-hidden bg-card text-card-foreground border-border">
+            <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
+              <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground font-heading">
                 <CalendarClock className="w-5 h-5 text-[#3f78e0]" />
                 Create Connector Reservation
               </DialogTitle>
-              <DialogDescription>
-                Sends an OCPP <code className="text-primary font-mono text-xs">ReserveNow</code> command directly to the charge point.
+              <DialogDescription className="text-muted-foreground text-xs">
+                Sends an OCPP <code className="text-primary font-mono text-[11px]">ReserveNow</code> command directly to the charge point.
               </DialogDescription>
             </DialogHeader>
 
-            <form onSubmit={handleCreateReservation} className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold">Select Charge Point</Label>
-                <Select value={selectedChargerId} onValueChange={setSelectedChargerId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a charger..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {chargers.map((ch) => (
-                      <SelectItem key={ch.charger_id} value={String(ch.charger_id)}>
-                        {ch.name} {ch.model ? `(${ch.model})` : ''} - #{ch.charger_id}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold">Connector / Channel</Label>
-                  <Select value={connectorId} onValueChange={setConnectorId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Connector ID" />
+            <form onSubmit={handleCreateReservation} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 text-sm">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-foreground">Select Charge Point *</Label>
+                  <Select value={selectedChargerId} onValueChange={setSelectedChargerId}>
+                    <SelectTrigger className="bg-background border-border text-foreground text-xs h-9">
+                      <SelectValue placeholder="Choose a charger..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">Connector 1</SelectItem>
-                      <SelectItem value="2">Connector 2</SelectItem>
-                      <SelectItem value="0">Any / Station Main (0)</SelectItem>
+                      {chargers.map((ch) => (
+                        <SelectItem key={ch.charger_id} value={String(ch.charger_id)}>
+                          {ch.name} {ch.model ? `(${ch.model})` : ''} - #{ch.charger_id}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold">Reservation Duration</Label>
-                  <Select value={durationMinutes} onValueChange={setDurationMinutes}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Duration" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="15">15 minutes</SelectItem>
-                      <SelectItem value="30">30 minutes</SelectItem>
-                      <SelectItem value="60">1 hour</SelectItem>
-                      <SelectItem value="120">2 hours</SelectItem>
-                      <SelectItem value="240">4 hours</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-foreground">Connector / Channel</Label>
+                    <Select value={connectorId} onValueChange={setConnectorId}>
+                      <SelectTrigger className="bg-background border-border text-foreground text-xs h-9">
+                        <SelectValue placeholder="Connector ID" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Connector 1</SelectItem>
+                        <SelectItem value="2">Connector 2</SelectItem>
+                        <SelectItem value="0">Any / Station Main (0)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-foreground">Reservation Duration</Label>
+                    <Select value={durationMinutes} onValueChange={setDurationMinutes}>
+                      <SelectTrigger className="bg-background border-border text-foreground text-xs h-9">
+                        <SelectValue placeholder="Duration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="15">15 minutes</SelectItem>
+                        <SelectItem value="30">30 minutes</SelectItem>
+                        <SelectItem value="60">1 hour</SelectItem>
+                        <SelectItem value="120">2 hours</SelectItem>
+                        <SelectItem value="240">4 hours</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-foreground">Authorized RFID Tag / EMAID *</Label>
+                  <Input
+                    value={idTag}
+                    onChange={(e) => setIdTag(e.target.value)}
+                    placeholder="e.g. TAG-998231 or EMAID..."
+                    className="font-mono text-xs bg-background border-border text-foreground h-9 focus-visible:ring-[#3f78e0]"
+                    required
+                  />
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Only this RFID card or ISO 15118 vehicle certificate will be permitted to start a session on the reserved connector.
+                  </p>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold">Authorized RFID Tag / EMAID</Label>
-                <Input
-                  value={idTag}
-                  onChange={(e) => setIdTag(e.target.value)}
-                  placeholder="e.g. TAG-998231 or EMAID..."
-                  className="font-mono text-sm focus-visible:ring-[#3f78e0]"
-                  required
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Only this RFID card or ISO 15118 vehicle certificate will be permitted to start a session on the reserved connector.
-                </p>
-              </div>
-
-              <DialogFooter className="pt-4 border-t border-border">
+              <DialogFooter className="px-6 py-4 shrink-0 border-t border-border bg-muted/20 flex flex-row items-center justify-end gap-2">
                 <Button
                   type="button"
                   variant="outline"
+                  size="sm"
                   onClick={() => setIsNewModalOpen(false)}
+                  className="border-border text-foreground hover:bg-muted"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
+                  size="sm"
                   disabled={submitting}
-                  className="bg-[#3f78e0] hover:bg-[#3364be] text-white"
+                  className="bg-[#3f78e0] hover:bg-[#3364be] text-white font-bold shadow-md shadow-blue-500/20"
                 >
-                  {submitting ? 'Dispatching...' : 'Dispatch ReserveNow'}
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                      Creating Reservation...
+                    </>
+                  ) : (
+                    <>
+                      <CalendarClock className="w-4 h-4 mr-1.5" />
+                      Create Reservation
+                    </>
+                  )}
                 </Button>
               </DialogFooter>
             </form>

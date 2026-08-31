@@ -169,6 +169,7 @@ export const getAllChargers = async (req: Request, res: Response) => {
           pairedCharger: true,
           evses: { include: { connectors: true } },
           owner: { select: { id: true, email: true } },
+          product: true,
         },
         orderBy: { createdAt: "desc" },
       }),
@@ -227,6 +228,7 @@ export const getChargerById = async (req: Request, res: Response) => {
         transactions: { take: 10, orderBy: { createdAt: "desc" } },
         owner: { select: { id: true, email: true } },
         tariffs: true,
+        product: true,
       },
     });
 
@@ -379,9 +381,10 @@ export const createCharger = async (req: Request, res: Response) => {
         isCombined: chargerData.isCombined ?? false,
         pairedChargerId: chargerData.pairedChargerId ?? null,
         pairedRole: chargerData.pairedRole ?? null,
+        productId: (chargerData as any).productId ? Number((chargerData as any).productId) : null,
         tariffs: tariffId ? { connect: [{ tariff_id: tariffId }] } : undefined,
       },
-      include: { chargingStation: true, owner: true, tariffs: true, pairedCharger: true },
+      include: { chargingStation: true, owner: true, tariffs: true, pairedCharger: true, product: true },
     });
 
     // Automatically create default EVSE and connector
@@ -464,7 +467,8 @@ export const updateCharger = async (req: Request, res: Response) => {
       "isStraightThroughProxy",
       "isCombined",
       "pairedChargerId",
-      "pairedRole"
+      "pairedRole",
+      "productId"
     ];
 
     if (userRole === "superadmin") {
@@ -481,15 +485,16 @@ export const updateCharger = async (req: Request, res: Response) => {
       }
     }
 
-    const { tariffId, protocol, ...rest } = safeData;
+    const { tariffId, protocol, productId, ...rest } = safeData;
 
     const charger = await prisma.charger.update({
       where: { charger_id: chargerId },
       data: {
         ...rest,
+        productId: productId !== undefined ? (productId ? Number(productId) : null) : undefined,
         tariffs: tariffId !== undefined ? { set: tariffId ? [{ tariff_id: tariffId }] : [] } : undefined,
       },
-      include: { chargingStation: true, owner: true, tariffs: true },
+      include: { chargingStation: true, owner: true, tariffs: true, product: true },
     });
 
     if (charger.owner) {
