@@ -73,4 +73,24 @@ describe("CORS & Origin Validation Helper", () => {
     expect(isOriginAllowed("https://thechargegrid.com")).toBe(true);
     expect(isOriginAllowed("https://attacker-thechargegrid.com")).toBe(false);
   });
+
+  it("should support FRONTEND_DOMAIN and DOMAIN env variables", () => {
+    process.env.NODE_ENV = "production";
+    process.env.FRONTEND_DOMAIN = "cpo.thechargegrid.com";
+    process.env.DOMAIN = "thechargegrid.com";
+
+    expect(isOriginAllowed("https://cpo.thechargegrid.com")).toBe(true);
+    expect(isOriginAllowed("http://cpo.thechargegrid.com")).toBe(true);
+    expect(isOriginAllowed("https://driver.thechargegrid.com")).toBe(true);
+    expect(isOriginAllowed("https://otherdomain.com")).toBe(false);
+  });
+
+  it("should handle quoted and whitespace-separated origins gracefully", () => {
+    process.env.NODE_ENV = "production";
+    process.env.ALLOWED_ORIGINS = '"https://cpo.thechargegrid.com" \'https://admin.thechargegrid.com\'';
+
+    expect(isOriginAllowed("https://cpo.thechargegrid.com")).toBe(true);
+    expect(isOriginAllowed("https://admin.thechargegrid.com")).toBe(true);
+    expect(isOriginAllowed("https://unknown.com")).toBe(false);
+  });
 });

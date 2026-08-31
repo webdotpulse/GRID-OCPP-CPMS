@@ -1,10 +1,10 @@
 import { logger } from "./logger.js";
 
 /**
- * Normalizes an origin URL by stripping trailing slashes and converting to lowercase.
+ * Normalizes an origin URL by stripping surrounding quotes, trailing slashes, and converting to lowercase.
  */
 function normalizeOrigin(origin: string): string {
-  return origin.trim().replace(/\/+$/, "").toLowerCase();
+  return origin.trim().replace(/^['"]+|['"]+$/g, "").replace(/\/+$/, "").toLowerCase();
 }
 
 /**
@@ -24,9 +24,20 @@ export function getAllowedOrigins(): string[] {
     configuredOrigins.push(process.env.FRONTEND_URL);
   }
 
+  if (process.env.FRONTEND_DOMAIN) {
+    configuredOrigins.push(
+      `https://${process.env.FRONTEND_DOMAIN}`,
+      `http://${process.env.FRONTEND_DOMAIN}`
+    );
+  }
+
+  if (process.env.DOMAIN) {
+    configuredOrigins.push(process.env.DOMAIN, `*.${process.env.DOMAIN}`);
+  }
+
   if (process.env.ALLOWED_ORIGINS) {
-    const split = process.env.ALLOWED_ORIGINS.split(",")
-      .map((o) => o.trim())
+    const split = process.env.ALLOWED_ORIGINS.split(/[,\s]+/)
+      .map((o) => o.trim().replace(/^['"]+|['"]+$/g, ""))
       .filter(Boolean);
     configuredOrigins.push(...split);
   }

@@ -96,11 +96,19 @@ export function createApp(): Application {
           return callback(null, true);
         }
         logger.warn(`CORS policy blocked REST request from origin: ${origin}`);
-        return callback(new Error("CORS policy violation: origin not allowed"));
+        return callback(null, false);
       },
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "stripe-signature"],
+      allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Accept",
+        "Origin",
+        "stripe-signature",
+      ],
+      optionsSuccessStatus: 204,
     })
   );
 
