@@ -458,7 +458,7 @@ export default function AuditLogsPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
               <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-2.5">
                 <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                 <div className="text-xs text-rose-700 dark:text-rose-300">

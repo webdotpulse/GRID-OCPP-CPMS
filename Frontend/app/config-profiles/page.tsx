@@ -540,7 +540,7 @@ export default function ConfigProfilesPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 text-sm">
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4 text-sm">
               {/* Quick Preset Loader Selector */}
               {!editingProfile && (
                 <div className="p-3 rounded-xl bg-muted/40 border border-border flex items-center justify-between gap-3">

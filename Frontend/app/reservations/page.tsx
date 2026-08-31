@@ -436,7 +436,7 @@ export default function ReservationsPage() {
             </DialogHeader>
 
             <form onSubmit={handleCreateReservation} className="flex flex-col flex-1 min-h-0 overflow-hidden">
-              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 text-sm">
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4 text-sm">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-foreground">Select Charge Point *</Label>
                   <Select value={selectedChargerId} onValueChange={setSelectedChargerId}>

@@ -725,7 +725,7 @@ export default function ScheduledChargingPage() {
             </DialogHeader>
 
             <form onSubmit={handleSubmitSchedule} className="flex flex-col flex-1 min-h-0 overflow-hidden">
-              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-5">
                 {/* Quick Preset Buttons (Only when creating) */}
                 {!editingSchedule && (
                   <div className="space-y-2">

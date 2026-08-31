@@ -61,7 +61,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] max-h-[calc(100vh-3rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-2xl bg-card p-6 text-sm text-card-foreground shadow-2xl border border-border/80 duration-200 outline-none sm:max-w-lg data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-2xl bg-card p-6 text-sm text-card-foreground shadow-2xl border border-border/80 duration-200 outline-none sm:max-w-lg overflow-y-auto data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}
@@ -106,11 +106,18 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end pt-4 border-t border-border/50",
+        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end pt-4 border-t border-border/50 shrink-0",
         className
       )}
       {...props}
-    />
+    >
+      {children}
+      {showCloseButton && (
+        <DialogClose asChild>
+          <Button variant="outline">Close</Button>
+        </DialogClose>
+      )}
+    </div>
   )
 }
 

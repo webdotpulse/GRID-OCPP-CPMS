@@ -808,7 +808,7 @@ export default function WebhooksManagementPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Endpoint Name *</Label>
                 <Input
@@ -952,7 +952,7 @@ export default function WebhooksManagementPage() {
             </DialogHeader>
 
             {selectedDelivery && (
-              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 text-xs">
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4 text-xs">
                 {selectedDelivery.error && (
                   <div className="p-3 rounded-lg bg-destructive/15 border border-destructive/30 text-destructive flex items-center gap-2">
                     <AlertTriangle className="size-4 shrink-0" />
