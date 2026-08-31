@@ -376,7 +376,7 @@ export default function ScheduledChargingPage() {
 
   return (
     <AppShell>
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
         {/* Header Bar */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -385,7 +385,7 @@ export default function ScheduledChargingPage() {
                 <CalendarRange className="size-5" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2 font-heading">
                   Scheduled Charging
                   {kpiData.executing > 0 && (
                     <Badge variant="soft-primary" className="animate-pulse text-xs">
@@ -406,7 +406,7 @@ export default function ScheduledChargingPage() {
               size="sm"
               onClick={fetchSchedules}
               disabled={loading}
-              className="border-white/10 hover:bg-white/5 text-slate-300"
+              className="border-border text-foreground hover:bg-muted/50"
             >
               <RefreshCw className={`size-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Refresh
@@ -423,30 +423,30 @@ export default function ScheduledChargingPage() {
 
         {/* Overview KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-[#1e2228]/80 border-white/10 backdrop-blur-sm">
+          <Card className="bg-card border-border shadow-sm">
             <CardContent className="p-5 flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Active Schedules
                 </p>
-                <div className="text-2xl font-bold text-white">{kpiData.active}</div>
-                <p className="text-xs text-emerald-400 font-medium flex items-center gap-1">
+                <div className="text-2xl font-bold text-foreground">{kpiData.active}</div>
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
                   <CheckCircle2 className="size-3.5" /> Ready for dispatch
                 </p>
               </div>
-              <div className="size-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <div className="size-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
                 <Clock className="size-5" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-[#1e2228]/80 border-white/10 backdrop-blur-sm">
+          <Card className="bg-card border-border shadow-sm">
             <CardContent className="p-5 flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Active Charging
                 </p>
-                <div className="text-2xl font-bold text-white">{kpiData.executing}</div>
+                <div className="text-2xl font-bold text-foreground">{kpiData.executing}</div>
                 <p className="text-xs text-[#54a8c7] font-medium flex items-center gap-1">
                   <BatteryCharging className="size-3.5" /> Sessions currently open
                 </p>
@@ -457,35 +457,35 @@ export default function ScheduledChargingPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-[#1e2228]/80 border-white/10 backdrop-blur-sm">
+          <Card className="bg-card border-border shadow-sm">
             <CardContent className="p-5 flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Scheduled Fleet Power
                 </p>
-                <div className="text-2xl font-bold text-white">{kpiData.totalKw.toFixed(1)} kW</div>
-                <p className="text-xs text-amber-400 font-medium flex items-center gap-1">
+                <div className="text-2xl font-bold text-foreground">{kpiData.totalKw.toFixed(1)} kW</div>
+                <p className="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
                   <Sliders className="size-3.5" /> Smart profile derated
                 </p>
               </div>
-              <div className="size-11 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <div className="size-11 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
                 <Sliders className="size-5" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-[#1e2228]/80 border-white/10 backdrop-blur-sm">
+          <Card className="bg-card border-border shadow-sm">
             <CardContent className="p-5 flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Total Schedule Plans
                 </p>
-                <div className="text-2xl font-bold text-white">{kpiData.total}</div>
-                <p className="text-xs text-indigo-400 font-medium flex items-center gap-1">
+                <div className="text-2xl font-bold text-foreground">{kpiData.total}</div>
+                <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium flex items-center gap-1">
                   <Layers className="size-3.5" /> Across all chargers
                 </p>
               </div>
-              <div className="size-11 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+              <div className="size-11 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                 <CalendarRange className="size-5" />
               </div>
             </CardContent>
@@ -493,20 +493,20 @@ export default function ScheduledChargingPage() {
         </div>
 
         {/* Filter & Search Bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#1e2228]/60 p-3 rounded-xl border border-white/10">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border shadow-sm">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               placeholder="Search schedules or chargers..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 bg-black/20 border-white/10 h-9 text-sm"
+              className="pl-9 bg-background border-border h-9 text-sm"
             />
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-40 bg-black/20 border-white/10 h-9 text-xs">
+              <SelectTrigger className="w-full sm:w-40 bg-background border-border h-9 text-xs">
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
               <SelectContent>
@@ -522,18 +522,18 @@ export default function ScheduledChargingPage() {
 
         {/* Schedules Grid / List */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center p-16 space-y-3 bg-[#1e2228]/40 rounded-2xl border border-white/10">
+          <div className="flex flex-col items-center justify-center p-16 space-y-3 bg-card/60 rounded-2xl border border-border">
             <div className="size-8 rounded-full border-2 border-[#54a8c7] border-t-transparent animate-spin" />
             <p className="text-sm text-muted-foreground">Loading scheduled charging plans...</p>
           </div>
         ) : schedules.length === 0 ? (
-          <Card className="bg-[#1e2228]/40 border-dashed border-white/10">
+          <Card className="border-dashed border-border bg-card/50">
             <CardContent className="flex flex-col items-center justify-center p-12 text-center space-y-4">
               <div className="size-14 rounded-2xl bg-[#54a8c7]/10 flex items-center justify-center text-[#54a8c7]">
                 <CalendarRange className="size-7" />
               </div>
               <div className="space-y-1 max-w-sm">
-                <h3 className="font-semibold text-lg text-white">No Scheduled Charges Configured</h3>
+                <h3 className="font-semibold text-lg text-foreground">No Scheduled Charges Configured</h3>
                 <p className="text-xs text-muted-foreground">
                   Create your first charging schedule to charge automatically during off-peak windows or solar hours.
                 </p>
@@ -556,19 +556,19 @@ export default function ScheduledChargingPage() {
               return (
                 <Card
                   key={schedule.id}
-                  className={`border transition-all duration-200 hover:shadow-xl ${
+                  className={`border transition-all duration-200 hover:shadow-lg ${
                     isExecuting
-                      ? 'bg-gradient-to-b from-[#54a8c7]/10 to-[#1e2228] border-[#54a8c7]/40 shadow-lg shadow-[#54a8c7]/10'
+                      ? 'bg-gradient-to-b from-[#54a8c7]/10 to-card border-[#54a8c7]/40 shadow-md shadow-[#54a8c7]/10'
                       : isActive
-                      ? 'bg-[#1e2228]/90 border-white/10 hover:border-white/20'
-                      : 'bg-[#1e2228]/50 border-white/5 opacity-75'
+                      ? 'bg-card border-border hover:border-primary/40'
+                      : 'bg-card/60 border-border/60 opacity-75'
                   }`}
                 >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <CardTitle className="text-base font-bold text-white leading-snug">
+                          <CardTitle className="text-base font-bold text-foreground leading-snug font-heading">
                             {schedule.name}
                           </CardTitle>
                           {isExecuting && (
@@ -577,20 +577,20 @@ export default function ScheduledChargingPage() {
                             </Badge>
                           )}
                           {isActive && (
-                            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">
+                            <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px]">
                               ACTIVE
                             </Badge>
                           )}
                           {isPaused && (
-                            <Badge variant="soft-secondary" className="text-[10px]">
+                            <Badge variant="outline" className="text-[10px] text-muted-foreground">
                               PAUSED
                             </Badge>
                           )}
                         </div>
-                        <CardDescription className="text-xs flex items-center gap-1.5 text-slate-400">
+                        <CardDescription className="text-xs flex items-center gap-1.5 text-muted-foreground">
                           <Zap className="size-3.5 text-[#54a8c7]" />
                           {schedule.charger?.name || `Charger #${schedule.chargerId}`}
-                          <span className="text-white/30">•</span>
+                          <span className="text-muted-foreground/40">•</span>
                           <span>Ch {schedule.connectorId}</span>
                         </CardDescription>
                       </div>
@@ -606,13 +606,13 @@ export default function ScheduledChargingPage() {
 
                   <CardContent className="space-y-4 pt-1">
                     {/* Time Window Visual Bar */}
-                    <div className="p-3 rounded-xl bg-black/30 border border-white/5 space-y-2">
+                    <div className="p-3 rounded-xl bg-muted/40 border border-border/50 space-y-2">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground flex items-center gap-1">
                           <Clock className="size-3.5 text-[#54a8c7]" />
                           {schedule.scheduleType === 'departure_time' ? 'Departure Ready' : 'Time Window'}
                         </span>
-                        <span className="font-semibold text-white font-mono">
+                        <span className="font-semibold text-foreground font-mono">
                           {schedule.scheduleType === 'departure_time'
                             ? `By ${schedule.departureTime || '07:30'}`
                             : `${schedule.startTime || '--:--'} ➔ ${schedule.stopTime || '--:--'}`}
@@ -620,7 +620,7 @@ export default function ScheduledChargingPage() {
                       </div>
 
                       {/* Recurrence Chips */}
-                      <div className="flex items-center justify-between text-xs pt-1 border-t border-white/5">
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40">
                         <span className="text-muted-foreground capitalize">
                           {schedule.recurrence === 'custom'
                             ? 'Custom Days'
@@ -636,7 +636,7 @@ export default function ScheduledChargingPage() {
                                   className={`size-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
                                     isDayActive
                                       ? 'bg-[#54a8c7] text-white'
-                                      : 'bg-white/5 text-white/30'
+                                      : 'bg-muted text-muted-foreground'
                                   }`}
                                 >
                                   {d.label}
@@ -650,11 +650,11 @@ export default function ScheduledChargingPage() {
 
                     {/* Power & Energy Specifications */}
                     <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="p-2.5 rounded-lg bg-white/5 border border-white/5">
+                      <div className="p-2.5 rounded-lg bg-muted/30 border border-border/50">
                         <span className="text-muted-foreground block text-[10px] uppercase font-semibold">
                           Max Rate
                         </span>
-                        <span className="font-bold text-white text-sm">
+                        <span className="font-bold text-foreground text-sm">
                           {schedule.maxCurrentAmps}A{' '}
                           <span className="text-xs font-normal text-muted-foreground">
                             ({schedule.maxPowerKw} kW)
@@ -662,11 +662,11 @@ export default function ScheduledChargingPage() {
                         </span>
                       </div>
 
-                      <div className="p-2.5 rounded-lg bg-white/5 border border-white/5">
+                      <div className="p-2.5 rounded-lg bg-muted/30 border border-border/50">
                         <span className="text-muted-foreground block text-[10px] uppercase font-semibold">
                           {schedule.scheduleType === 'departure_time' ? 'Target SoC' : 'Auth Card'}
                         </span>
-                        <span className="font-bold text-white text-sm truncate block font-mono">
+                        <span className="font-bold text-foreground text-sm truncate block font-mono">
                           {schedule.scheduleType === 'departure_time'
                             ? `${schedule.targetSoc || 80}%`
                             : schedule.idTag || 'Auto'}
@@ -675,12 +675,12 @@ export default function ScheduledChargingPage() {
                     </div>
 
                     {/* Footer Actions */}
-                    <div className="flex items-center justify-between pt-2 border-t border-white/10 gap-2">
+                    <div className="flex items-center justify-between pt-2 border-t border-border gap-2">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleExecuteNow(schedule.id, schedule.name)}
-                        className="h-8 text-xs text-[#54a8c7] hover:bg-[#54a8c7]/10 hover:text-white px-2.5"
+                        className="h-8 text-xs text-[#54a8c7] hover:bg-[#54a8c7]/10 px-2.5"
                       >
                         <Play className="size-3.5 mr-1.5 fill-current" /> Execute Now
                       </Button>
@@ -690,7 +690,7 @@ export default function ScheduledChargingPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleOpenEditModal(schedule)}
-                          className="size-8 text-slate-400 hover:text-white hover:bg-white/10"
+                          className="size-8 text-muted-foreground hover:text-foreground"
                         >
                           <Edit2 className="size-3.5" />
                         </Button>
@@ -698,7 +698,7 @@ export default function ScheduledChargingPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleDeleteSchedule(schedule.id, schedule.name)}
-                          className="size-8 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                          className="size-8 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
                         >
                           <Trash2 className="size-3.5" />
                         </Button>
@@ -711,313 +711,314 @@ export default function ScheduledChargingPage() {
           </div>
         )}
 
-        {/* Create / Edit Schedule Modal Dialog */}
+        {/* Create / Edit Schedule Modal Dialog with Pinned Header and Footer */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="sm:max-w-xl bg-[#1e2228] border-white/10 text-white max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+          <DialogContent className="sm:max-w-xl max-h-[90vh] p-0 flex flex-col overflow-hidden bg-card text-card-foreground border-border">
+            <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
+              <DialogTitle className="flex items-center gap-2 text-xl font-bold font-heading">
                 <CalendarRange className="size-5 text-[#54a8c7]" />
                 {editingSchedule ? 'Edit Charging Schedule' : 'Create Scheduled Charging Plan'}
               </DialogTitle>
-              <DialogDescription className="text-slate-400 text-xs">
+              <DialogDescription>
                 Configure smart charging periods, target power limits, and departure times.
               </DialogDescription>
             </DialogHeader>
 
-            <form onSubmit={handleSubmitSchedule} className="space-y-5 py-2">
-              {/* Quick Preset Buttons (Only when creating) */}
-              {!editingSchedule && (
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <Sparkles className="size-3.5 text-amber-400" /> Quick Smart Presets
-                  </Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => applyPreset('night')}
-                      className="p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-[#54a8c7]/15 hover:border-[#54a8c7]/40 text-left transition-colors"
-                    >
-                      <div className="font-semibold text-xs text-white flex items-center gap-1.5">
-                        <Moon className="size-3.5 text-indigo-400" /> Night Off-Peak
-                      </div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5">23:00 - 07:00 • 16A (11kW)</div>
-                    </button>
+            <form onSubmit={handleSubmitSchedule} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+                {/* Quick Preset Buttons (Only when creating) */}
+                {!editingSchedule && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="size-3.5 text-amber-500" /> Quick Smart Presets
+                    </Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('night')}
+                        className="p-2.5 rounded-xl border border-border bg-muted/20 hover:bg-[#54a8c7]/10 hover:border-[#54a8c7]/40 text-left transition-colors"
+                      >
+                        <div className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                          <Moon className="size-3.5 text-indigo-500" /> Night Off-Peak
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">23:00 - 07:00 • 16A (11kW)</div>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => applyPreset('solar')}
-                      className="p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-amber-500/15 hover:border-amber-500/40 text-left transition-colors"
-                    >
-                      <div className="font-semibold text-xs text-white flex items-center gap-1.5">
-                        <Sun className="size-3.5 text-amber-400" /> Solar Noon
-                      </div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5">11:30 - 15:30 • 32A (22kW)</div>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('solar')}
+                        className="p-2.5 rounded-xl border border-border bg-muted/20 hover:bg-amber-500/10 hover:border-amber-500/40 text-left transition-colors"
+                      >
+                        <div className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                          <Sun className="size-3.5 text-amber-500" /> Solar Noon
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">11:30 - 15:30 • 32A (22kW)</div>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => applyPreset('commute')}
-                      className="p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-emerald-500/15 hover:border-emerald-500/40 text-left transition-colors"
-                    >
-                      <div className="font-semibold text-xs text-white flex items-center gap-1.5">
-                        <Car className="size-3.5 text-emerald-400" /> Morning Commute
-                      </div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5">Ready by 07:30 • 85% SoC</div>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('commute')}
+                        className="p-2.5 rounded-xl border border-border bg-muted/20 hover:bg-emerald-500/10 hover:border-emerald-500/40 text-left transition-colors"
+                      >
+                        <div className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                          <Car className="size-3.5 text-emerald-500" /> Morning Commute
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">Ready by 07:30 • 85% SoC</div>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => applyPreset('office')}
-                      className="p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-purple-500/15 hover:border-purple-500/40 text-left transition-colors"
-                    >
-                      <div className="font-semibold text-xs text-white flex items-center gap-1.5">
-                        <Building2 className="size-3.5 text-purple-400" /> Workplace Hours
-                      </div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5">09:00 - 17:00 • Mon-Fri</div>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('office')}
+                        className="p-2.5 rounded-xl border border-border bg-muted/20 hover:bg-purple-500/10 hover:border-purple-500/40 text-left transition-colors"
+                      >
+                        <div className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                          <Building2 className="size-3.5 text-purple-500" /> Workplace Hours
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">09:00 - 17:00 • Mon-Fri</div>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Schedule Name */}
-              <div className="space-y-1.5">
-                <Label className="text-xs">Schedule Name</Label>
-                <Input
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  placeholder="e.g. Daily Night Charge"
-                  required
-                  className="bg-black/30 border-white/10 text-sm"
-                />
-              </div>
-
-              {/* Target Charger & Connector */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Schedule Name */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Target Charger</Label>
-                  <Select value={formChargerId} onValueChange={setFormChargerId} required>
-                    <SelectTrigger className="bg-black/30 border-white/10 text-xs">
-                      <SelectValue placeholder="Select Charger" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {chargers.map((c) => (
-                        <SelectItem key={c.charger_id} value={String(c.charger_id)}>
-                          {c.name} (#{c.charger_id})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs">EVSE Connector</Label>
-                  <Select value={formConnectorId} onValueChange={setFormConnectorId}>
-                    <SelectTrigger className="bg-black/30 border-white/10 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">Channel 1 (Primary)</SelectItem>
-                      <SelectItem value="2">Channel 2 (Secondary)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* RFID Card / Authorization */}
-              <div className="space-y-1.5">
-                <Label className="text-xs flex items-center justify-between">
-                  <span>RFID Card Tag (For Remote Start)</span>
-                  <span className="text-[10px] text-muted-foreground">Optional</span>
-                </Label>
-                <div className="flex gap-2">
+                  <Label className="text-xs">Schedule Name</Label>
                   <Input
-                    value={formIdTag}
-                    onChange={(e) => setFormIdTag(e.target.value)}
-                    placeholder="e.g. RFID_TAG_123"
-                    className="bg-black/30 border-white/10 text-xs font-mono"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    placeholder="e.g. Daily Night Charge"
+                    required
+                    className="bg-background border-border text-sm"
                   />
-                  {rfidTags.length > 0 && (
-                    <Select value={formIdTag} onValueChange={setFormIdTag}>
-                      <SelectTrigger className="w-36 bg-black/30 border-white/10 text-xs">
-                        <SelectValue placeholder="Pick Card" />
+                </div>
+
+                {/* Target Charger & Connector */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Target Charger</Label>
+                    <Select value={formChargerId} onValueChange={setFormChargerId} required>
+                      <SelectTrigger className="bg-background border-border text-xs">
+                        <SelectValue placeholder="Select Charger" />
                       </SelectTrigger>
                       <SelectContent>
-                        {rfidTags.map((r) => (
-                          <SelectItem key={r.rfid_user_id} value={r.rfid_tag}>
-                            {r.name || r.rfid_tag}
+                        {chargers.map((c) => (
+                          <SelectItem key={c.charger_id} value={String(c.charger_id)}>
+                            {c.name} (#{c.charger_id})
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">EVSE Connector</Label>
+                    <Select value={formConnectorId} onValueChange={setFormConnectorId}>
+                      <SelectTrigger className="bg-background border-border text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Channel 1 (Primary)</SelectItem>
+                        <SelectItem value="2">Channel 2 (Secondary)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* RFID Card / Authorization */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center justify-between">
+                    <span>RFID Card Tag (For Remote Start)</span>
+                    <span className="text-[10px] text-muted-foreground">Optional</span>
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={formIdTag}
+                      onChange={(e) => setFormIdTag(e.target.value)}
+                      placeholder="e.g. RFID_TAG_123"
+                      className="bg-background border-border text-xs font-mono"
+                    />
+                    {rfidTags.length > 0 && (
+                      <Select value={formIdTag} onValueChange={setFormIdTag}>
+                        <SelectTrigger className="w-36 bg-background border-border text-xs">
+                          <SelectValue placeholder="Pick Card" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {rfidTags.map((r) => (
+                            <SelectItem key={r.rfid_user_id} value={r.rfid_tag}>
+                              {r.name || r.rfid_tag}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mode & Timing */}
+                <div className="space-y-3 p-3.5 rounded-xl bg-muted/30 border border-border">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold">Schedule Mode</Label>
+                    <div className="flex rounded-lg bg-muted p-0.5 border border-border">
+                      <button
+                        type="button"
+                        onClick={() => setFormScheduleType('time_window')}
+                        className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                          formScheduleType === 'time_window' || formScheduleType === 'solar_optimal'
+                            ? 'bg-primary text-primary-foreground shadow-xs'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        Time Window
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormScheduleType('departure_time')}
+                        className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                          formScheduleType === 'departure_time'
+                            ? 'bg-primary text-primary-foreground shadow-xs'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        Departure Time
+                      </button>
+                    </div>
+                  </div>
+
+                  {formScheduleType === 'departure_time' ? (
+                    <div className="grid grid-cols-2 gap-3 pt-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Target Departure Time</Label>
+                        <Input
+                          type="time"
+                          value={formDepartureTime}
+                          onChange={(e) => setFormDepartureTime(e.target.value)}
+                          className="bg-background border-border text-sm font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Target SoC ({formTargetSoc}%)</Label>
+                        <Slider
+                          min={50}
+                          max={100}
+                          step={5}
+                          value={[formTargetSoc]}
+                          onValueChange={(val) => setFormTargetSoc(val[0])}
+                          className="py-3"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 pt-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Start Charging At</Label>
+                        <Input
+                          type="time"
+                          value={formStartTime}
+                          onChange={(e) => setFormStartTime(e.target.value)}
+                          className="bg-background border-border text-sm font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Stop Charging At</Label>
+                        <Input
+                          type="time"
+                          value={formStopTime}
+                          onChange={(e) => setFormStopTime(e.target.value)}
+                          className="bg-background border-border text-sm font-mono"
+                        />
+                      </div>
+                    </div>
                   )}
                 </div>
-              </div>
 
-              {/* Mode & Timing */}
-              <div className="space-y-3 p-3.5 rounded-xl bg-black/20 border border-white/10">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-semibold text-white">Schedule Mode</Label>
-                  <div className="flex rounded-lg bg-white/5 p-0.5 border border-white/10">
-                    <button
-                      type="button"
-                      onClick={() => setFormScheduleType('time_window')}
-                      className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                        formScheduleType === 'time_window' || formScheduleType === 'solar_optimal'
-                          ? 'bg-[#54a8c7] text-white shadow-xs'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      Time Window
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormScheduleType('departure_time')}
-                      className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                        formScheduleType === 'departure_time'
-                          ? 'bg-[#54a8c7] text-white shadow-xs'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      Departure Time
-                    </button>
+                {/* Recurrence Selection */}
+                <div className="space-y-2">
+                  <Label className="text-xs">Recurrence Frequency</Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { id: 'daily', label: 'Daily' },
+                      { id: 'weekdays', label: 'Weekdays' },
+                      { id: 'weekends', label: 'Weekends' },
+                      { id: 'custom', label: 'Custom' },
+                    ].map((rec) => (
+                      <button
+                        key={rec.id}
+                        type="button"
+                        onClick={() => setFormRecurrence(rec.id)}
+                        className={`py-2 px-1 rounded-xl border text-xs font-semibold transition-all ${
+                          formRecurrence === rec.id
+                            ? 'bg-[#54a8c7]/15 border-[#54a8c7] text-[#54a8c7]'
+                            : 'bg-muted/20 border-border text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {rec.label}
+                      </button>
+                    ))}
                   </div>
+
+                  {formRecurrence === 'custom' && (
+                    <div className="flex items-center justify-between gap-1 pt-2">
+                      {DAYS_OF_WEEK.map((d) => {
+                        const isSelected = formDaysOfWeek.includes(d.key);
+                        return (
+                          <button
+                            key={d.key}
+                            type="button"
+                            onClick={() => toggleDayOfWeek(d.key)}
+                            className={`size-9 rounded-xl flex items-center justify-center font-bold text-xs transition-all ${
+                              isSelected
+                                ? 'bg-gradient-to-br from-[#54a8c7] to-[#3f78e0] text-white shadow-md shadow-[#54a8c7]/20'
+                                : 'bg-muted/20 border border-border text-muted-foreground hover:text-foreground'
+                            }`}
+                          >
+                            {d.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
-                {formScheduleType === 'departure_time' ? (
-                  <div className="grid grid-cols-2 gap-3 pt-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Target Departure Time</Label>
-                      <Input
-                        type="time"
-                        value={formDepartureTime}
-                        onChange={(e) => setFormDepartureTime(e.target.value)}
-                        className="bg-black/30 border-white/10 text-sm font-mono"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Target SoC ({formTargetSoc}%)</Label>
-                      <Slider
-                        min={50}
-                        max={100}
-                        step={5}
-                        value={[formTargetSoc]}
-                        onValueChange={(val) => setFormTargetSoc(val[0])}
-                        className="py-3"
-                      />
-                    </div>
+                {/* Charging Power Limits */}
+                <div className="space-y-3 p-3.5 rounded-xl bg-muted/30 border border-border">
+                  <div className="flex items-center justify-between text-xs">
+                    <Label className="text-xs font-semibold">Current Limit (Amps)</Label>
+                    <span className="font-bold text-[#54a8c7] font-mono text-sm">
+                      {formMaxAmps} A <span className="text-xs font-normal text-muted-foreground">({formMaxPowerKw} kW)</span>
+                    </span>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3 pt-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Start Charging At</Label>
-                      <Input
-                        type="time"
-                        value={formStartTime}
-                        onChange={(e) => setFormStartTime(e.target.value)}
-                        className="bg-black/30 border-white/10 text-sm font-mono"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Stop Charging At</Label>
-                      <Input
-                        type="time"
-                        value={formStopTime}
-                        onChange={(e) => setFormStopTime(e.target.value)}
-                        className="bg-black/30 border-white/10 text-sm font-mono"
-                      />
-                    </div>
+                  <Slider
+                    min={6}
+                    max={32}
+                    step={1}
+                    value={[formMaxAmps]}
+                    onValueChange={(val) => {
+                      const a = val[0];
+                      setFormMaxAmps(a);
+                      // Approximate 3-phase kW: a * 3 * 230 / 1000
+                      setFormMaxPowerKw(Number(((a * 3 * 230) / 1000).toFixed(1)));
+                    }}
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
+                    <span>6A (4.1 kW)</span>
+                    <span>16A (11 kW)</span>
+                    <span>32A (22 kW)</span>
                   </div>
-                )}
-              </div>
-
-              {/* Recurrence Selection */}
-              <div className="space-y-2">
-                <Label className="text-xs">Recurrence Frequency</Label>
-                <div className="grid grid-cols-4 gap-2">
-                  {[
-                    { id: 'daily', label: 'Daily' },
-                    { id: 'weekdays', label: 'Weekdays' },
-                    { id: 'weekends', label: 'Weekends' },
-                    { id: 'custom', label: 'Custom' },
-                  ].map((rec) => (
-                    <button
-                      key={rec.id}
-                      type="button"
-                      onClick={() => setFormRecurrence(rec.id)}
-                      className={`py-2 px-1 rounded-xl border text-xs font-semibold transition-all ${
-                        formRecurrence === rec.id
-                          ? 'bg-[#54a8c7]/20 border-[#54a8c7] text-[#54a8c7]'
-                          : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      {rec.label}
-                    </button>
-                  ))}
-                </div>
-
-                {formRecurrence === 'custom' && (
-                  <div className="flex items-center justify-between gap-1 pt-2">
-                    {DAYS_OF_WEEK.map((d) => {
-                      const isSelected = formDaysOfWeek.includes(d.key);
-                      return (
-                        <button
-                          key={d.key}
-                          type="button"
-                          onClick={() => toggleDayOfWeek(d.key)}
-                          className={`size-9 rounded-xl flex items-center justify-center font-bold text-xs transition-all ${
-                            isSelected
-                              ? 'bg-gradient-to-br from-[#54a8c7] to-[#3f78e0] text-white shadow-md shadow-[#54a8c7]/20'
-                              : 'bg-white/5 border border-white/10 text-slate-400 hover:text-white'
-                          }`}
-                        >
-                          {d.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Charging Power Limits */}
-              <div className="space-y-3 p-3.5 rounded-xl bg-black/20 border border-white/10">
-                <div className="flex items-center justify-between text-xs">
-                  <Label className="text-xs font-semibold text-white">Current Limit (Amps)</Label>
-                  <span className="font-bold text-[#54a8c7] font-mono text-sm">
-                    {formMaxAmps} A <span className="text-xs font-normal text-slate-400">({formMaxPowerKw} kW)</span>
-                  </span>
-                </div>
-                <Slider
-                  min={6}
-                  max={32}
-                  step={1}
-                  value={[formMaxAmps]}
-                  onValueChange={(val) => {
-                    const a = val[0];
-                    setFormMaxAmps(a);
-                    // Approximate 3-phase kW: a * 3 * 230 / 1000
-                    setFormMaxPowerKw(Number(((a * 3 * 230) / 1000).toFixed(1)));
-                  }}
-                />
-                <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
-                  <span>6A (4.1 kW)</span>
-                  <span>16A (11 kW)</span>
-                  <span>32A (22 kW)</span>
                 </div>
               </div>
 
-              <DialogFooter className="gap-2 sm:gap-0 pt-3 border-t border-white/10">
+              <DialogFooter className="px-6 py-4 shrink-0 border-t border-border bg-muted/20 flex flex-row items-center justify-end gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setIsModalOpen(false)}
-                  className="border-white/10 text-slate-300"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={submitting}
-                  className="bg-gradient-to-r from-[#54a8c7] to-[#3f78e0] text-white"
+                  className="bg-gradient-to-r from-[#54a8c7] to-[#3f78e0] text-white font-bold"
                 >
                   {submitting ? 'Saving...' : editingSchedule ? 'Update Schedule' : 'Create Schedule'}
                 </Button>

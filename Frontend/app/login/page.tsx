@@ -1,5 +1,5 @@
 import { LoginForm } from '@/components/auth/LoginForm';
-import { Zap, ShieldCheck } from 'lucide-react';
+import { Zap, ShieldCheck, Globe } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -31,10 +31,16 @@ export default function LoginPage() {
         <LoginForm />
       </div>
 
-      {/* Footer info */}
-      <div className="relative z-10 mt-8 text-center text-xs text-white/50 flex items-center gap-2">
-        <ShieldCheck className="size-3.5 text-emerald-400" />
-        <span>Secured with OCPP 1.6-J & 2.0.1 Protocol Engine</span>
+      {/* Badges footer */}
+      <div className="relative z-10 mt-8 flex flex-wrap items-center justify-center gap-2.5 text-xs">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-xs text-slate-300 shadow-sm">
+          <ShieldCheck className="size-3.5 text-emerald-400" />
+          <span className="font-medium text-white/90">GDPR Compliant</span>
+        </div>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-xs text-slate-300 shadow-sm">
+          <Globe className="size-3.5 text-[#54a8c7]" />
+          <span className="font-medium text-white/90">Hosted in the EU</span>
+        </div>
       </div>
     </div>
   );

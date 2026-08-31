@@ -139,10 +139,10 @@ export function SimulatorControlDeck({
   });
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#1e2228] p-5 shadow-2xl">
+    <div className="rounded-2xl border border-border bg-card text-card-foreground p-5 shadow-sm">
       <Tabs defaultValue="operations" className="w-full">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10 mb-5">
-          <TabsList className="bg-black/40 border border-white/10 p-1 rounded-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border mb-5">
+          <TabsList className="bg-muted/50 border border-border p-1 rounded-xl">
             <TabsTrigger
               value="operations"
               className="data-[state=active]:bg-[#54a8c7]/20 data-[state=active]:text-[#54a8c7] rounded-lg text-xs font-semibold"
@@ -151,19 +151,19 @@ export function SimulatorControlDeck({
             </TabsTrigger>
             <TabsTrigger
               value="chaos"
-              className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400 rounded-lg text-xs font-semibold"
+              className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400 rounded-lg text-xs font-semibold"
             >
               <Flame className="size-3.5 mr-1.5" /> Anomaly & Chaos
             </TabsTrigger>
             <TabsTrigger
               value="testsuites"
-              className="data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400 rounded-lg text-xs font-semibold"
+              className="data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-600 dark:data-[state=active]:text-emerald-400 rounded-lg text-xs font-semibold"
             >
               <ShieldCheck className="size-3.5 mr-1.5" /> Test Suites
             </TabsTrigger>
             <TabsTrigger
               value="frames"
-              className="data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-300 rounded-lg text-xs font-semibold"
+              className="data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-300 rounded-lg text-xs font-semibold"
             >
               <Terminal className="size-3.5 mr-1.5" /> Frame Terminal
             </TabsTrigger>
@@ -180,8 +180,8 @@ export function SimulatorControlDeck({
         <TabsContent value="operations" className="space-y-6 m-0">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* 1. Protocol Messages */}
-            <div className="p-4 rounded-xl bg-black/30 border border-white/10 space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <div className="p-4 rounded-xl bg-muted/20 border border-border space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 font-heading">
                 <Radio className="size-3.5 text-[#54a8c7]" /> Protocol Messages
               </h3>
 
@@ -189,28 +189,28 @@ export function SimulatorControlDeck({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="rounded-lg border-white/10 hover:bg-white/5 text-xs text-white"
+                  className="rounded-lg border-border text-xs text-foreground hover:bg-muted"
                   onClick={() => onSendAction("BootNotification")}
                   disabled={loading}
                 >
-                  <RefreshCw className="size-3 mr-1.5 text-cyan-400" />
+                  <RefreshCw className="size-3 mr-1.5 text-cyan-500 dark:text-cyan-400" />
                   BootNotification
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  className="rounded-lg border-white/10 hover:bg-white/5 text-xs text-white"
+                  className="rounded-lg border-border text-xs text-foreground hover:bg-muted"
                   onClick={() => onSendAction("Heartbeat")}
                   disabled={loading}
                 >
-                  <Activity className="size-3 mr-1.5 text-emerald-400" />
+                  <Activity className="size-3 mr-1.5 text-emerald-500 dark:text-emerald-400" />
                   Heartbeat
                 </Button>
               </div>
 
               {/* Status Notification Trigger */}
-              <div className="space-y-1.5 pt-2 border-t border-white/5">
-                <Label className="text-[11px] text-muted-foreground">
+              <div className="space-y-1.5 pt-2 border-t border-border/40">
+                <Label className="text-[11px] text-muted-foreground font-semibold">
                   Status Notification
                 </Label>
                 <div className="flex gap-2">
@@ -218,10 +218,10 @@ export function SimulatorControlDeck({
                     value={selectedStatus}
                     onValueChange={setSelectedStatus}
                   >
-                    <SelectTrigger className="h-8 text-xs bg-black/40 border-white/10 text-white rounded-lg">
+                    <SelectTrigger className="h-8 text-xs bg-background border-border text-foreground rounded-lg">
                       <SelectValue placeholder="Select Status" />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                    <SelectContent>
                       <SelectItem value="Available">Available</SelectItem>
                       <SelectItem value="Preparing">Preparing</SelectItem>
                       <SelectItem value="Charging">Charging</SelectItem>
@@ -253,21 +253,21 @@ export function SimulatorControlDeck({
             </div>
 
             {/* 2. RFID & Authorization */}
-            <div className="p-4 rounded-xl bg-black/30 border border-white/10 space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <ShieldCheck className="size-3.5 text-purple-400" /> RFID &
+            <div className="p-4 rounded-xl bg-muted/20 border border-border space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 font-heading">
+                <ShieldCheck className="size-3.5 text-purple-500" /> RFID &
                 Authentication
               </h3>
 
               <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground">
+                <Label className="text-[11px] text-muted-foreground font-semibold">
                   RFID Tag Whitelist
                 </Label>
                 <Select value={selectedTag} onValueChange={setSelectedTag}>
-                  <SelectTrigger className="h-8 text-xs bg-black/40 border-white/10 text-white rounded-lg">
+                  <SelectTrigger className="h-8 text-xs bg-background border-border text-foreground rounded-lg">
                     <SelectValue placeholder="Select RFID Tag" />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                  <SelectContent>
                     {rfidTags.map((t) => (
                       <SelectItem key={t.rfid_tag} value={t.rfid_tag}>
                         {t.name} ({t.rfid_tag}){" "}
@@ -288,7 +288,7 @@ export function SimulatorControlDeck({
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground">
+                <Label className="text-[11px] text-muted-foreground font-semibold">
                   Or Custom Tag / ISO15118 Hash
                 </Label>
                 <div className="flex gap-2">
@@ -296,11 +296,11 @@ export function SimulatorControlDeck({
                     placeholder="e.g. CARD-42"
                     value={customTag}
                     onChange={(e) => setCustomTag(e.target.value)}
-                    className="h-8 text-xs bg-black/40 border-white/10 text-white rounded-lg"
+                    className="h-8 text-xs bg-background border-border text-foreground rounded-lg font-mono"
                   />
                   <Button
                     size="sm"
-                    className="h-8 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-xs font-bold"
+                    className="h-8 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-700 dark:text-purple-300 text-xs font-bold"
                     onClick={() =>
                       onSendAction("Authorize", { idTag: effectiveTag })
                     }
@@ -313,9 +313,9 @@ export function SimulatorControlDeck({
             </div>
 
             {/* 3. Session Controller (Start / Stop) */}
-            <div className="p-4 rounded-xl bg-black/30 border border-white/10 space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Zap className="size-3.5 text-cyan-400" /> Transaction
+            <div className="p-4 rounded-xl bg-muted/20 border border-border space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 font-heading">
+                <Zap className="size-3.5 text-cyan-500" /> Transaction
                 Controller
               </h3>
 
@@ -337,7 +337,7 @@ export function SimulatorControlDeck({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="rounded-lg border-white/10 hover:bg-white/5 text-xs text-white"
+                  className="rounded-lg border-border text-xs text-foreground hover:bg-muted"
                   onClick={() =>
                     onSendAction("MeterValues", {
                       connectorId: selectedConnectorId,
@@ -345,21 +345,21 @@ export function SimulatorControlDeck({
                   }
                   disabled={loading}
                 >
-                  <RefreshCw className="size-3 mr-1.5 text-cyan-400" /> Meter
+                  <RefreshCw className="size-3 mr-1.5 text-cyan-500 dark:text-cyan-400" /> Meter
                   Pulse
                 </Button>
               </div>
 
-              <div className="space-y-1.5 pt-2 border-t border-white/5">
-                <Label className="text-[11px] text-muted-foreground">
+              <div className="space-y-1.5 pt-2 border-t border-border/40">
+                <Label className="text-[11px] text-muted-foreground font-semibold">
                   Stop Transaction Reason
                 </Label>
                 <div className="flex gap-2">
                   <Select value={stopReason} onValueChange={setStopReason}>
-                    <SelectTrigger className="h-8 text-xs bg-black/40 border-white/10 text-white rounded-lg">
+                    <SelectTrigger className="h-8 text-xs bg-background border-border text-foreground rounded-lg">
                       <SelectValue placeholder="Stop Reason" />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                    <SelectContent>
                       <SelectItem value="Local">Local (RFID Stop)</SelectItem>
                       <SelectItem value="Remote">
                         Remote (CSMS Stop)
@@ -401,13 +401,13 @@ export function SimulatorControlDeck({
         <TabsContent value="chaos" className="space-y-4 m-0">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Anomaly 1: Premature Cable Disconnect */}
-            <div className="p-4 rounded-xl bg-black/30 border border-white/10 space-y-3">
+            <div className="p-4 rounded-xl bg-muted/20 border border-border space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Unplug className="size-4 text-rose-400" />
+                <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5 font-heading">
+                  <Unplug className="size-4 text-rose-500" />
                   Premature Cable Pull
                 </h3>
-                <Badge className="bg-rose-500/20 text-rose-300 text-[10px]">
+                <Badge className="bg-rose-500/20 text-rose-600 dark:text-rose-300 text-[10px]">
                   EVDisconn
                 </Badge>
               </div>
@@ -432,13 +432,13 @@ export function SimulatorControlDeck({
             </div>
 
             {/* Anomaly 2: Power Drop / Dynamic Grid Throttle */}
-            <div className="p-4 rounded-xl bg-black/30 border border-white/10 space-y-3">
+            <div className="p-4 rounded-xl bg-muted/20 border border-border space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Zap className="size-4 text-amber-400" />
+                <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5 font-heading">
+                  <Zap className="size-4 text-amber-500" />
                   Grid Power Curtailment
                 </h3>
-                <Badge className="bg-amber-500/20 text-amber-300 text-[10px]">
+                <Badge className="bg-amber-500/20 text-amber-600 dark:text-amber-300 text-[10px]">
                   Derating
                 </Badge>
               </div>
@@ -452,11 +452,11 @@ export function SimulatorControlDeck({
                   placeholder="Target kW"
                   value={powerDropKw}
                   onChange={(e) => setPowerDropKw(e.target.value)}
-                  className="h-8 text-xs bg-black/40 border-white/10 text-white rounded-lg"
+                  className="h-8 text-xs bg-background border-border text-foreground rounded-lg font-mono"
                 />
                 <Button
                   size="sm"
-                  className="h-8 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold"
+                  className="h-8 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-bold"
                   onClick={() =>
                     onTriggerScenario("power-drop", {
                       connectorId: selectedConnectorId,
@@ -471,13 +471,13 @@ export function SimulatorControlDeck({
             </div>
 
             {/* Anomaly 3: Meter Drift Injection */}
-            <div className="p-4 rounded-xl bg-black/30 border border-white/10 space-y-3">
+            <div className="p-4 rounded-xl bg-muted/20 border border-border space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Layers className="size-4 text-cyan-400" />
+                <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5 font-heading">
+                  <Layers className="size-4 text-cyan-500" />
                   Meter Calibration Drift
                 </h3>
-                <Badge className="bg-cyan-500/20 text-cyan-300 text-[10px]">
+                <Badge className="bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 text-[10px]">
                   Drift Wh
                 </Badge>
               </div>
@@ -491,11 +491,11 @@ export function SimulatorControlDeck({
                   placeholder="Offset Wh"
                   value={driftWh}
                   onChange={(e) => setDriftWh(e.target.value)}
-                  className="h-8 text-xs bg-black/40 border-white/10 text-white rounded-lg"
+                  className="h-8 text-xs bg-background border-border text-foreground rounded-lg font-mono"
                 />
                 <Button
                   size="sm"
-                  className="h-8 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-xs font-bold"
+                  className="h-8 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-700 dark:text-cyan-300 text-xs font-bold"
                   onClick={() =>
                     onTriggerScenario("meter-drift", {
                       connectorId: selectedConnectorId,
@@ -510,13 +510,13 @@ export function SimulatorControlDeck({
             </div>
 
             {/* Anomaly 4: Hardware Fault Injection */}
-            <div className="p-4 rounded-xl bg-black/30 border border-white/10 space-y-3">
+            <div className="p-4 rounded-xl bg-muted/20 border border-border space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <AlertTriangle className="size-4 text-rose-400" />
+                <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5 font-heading">
+                  <AlertTriangle className="size-4 text-rose-500" />
                   Hardware Fault Injection
                 </h3>
-                <Badge className="bg-rose-500/20 text-rose-300 text-[10px]">
+                <Badge className="bg-rose-500/20 text-rose-600 dark:text-rose-300 text-[10px]">
                   Fault
                 </Badge>
               </div>
@@ -529,10 +529,10 @@ export function SimulatorControlDeck({
                   value={faultErrorCode}
                   onValueChange={setFaultErrorCode}
                 >
-                  <SelectTrigger className="h-8 text-xs bg-black/40 border-white/10 text-white rounded-lg">
+                  <SelectTrigger className="h-8 text-xs bg-background border-border text-foreground rounded-lg">
                     <SelectValue placeholder="Fault Code" />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1e2228] border-white/10 text-white">
+                  <SelectContent>
                     <SelectItem value="GroundFailure">GroundFailure</SelectItem>
                     <SelectItem value="HighTemperature">
                       HighTemperature
@@ -565,18 +565,18 @@ export function SimulatorControlDeck({
             </div>
 
             {/* Anomaly 5 & 6: Network Outage & Store-and-Forward Buffering */}
-            <div className="col-span-1 md:col-span-2 p-4 rounded-xl bg-black/30 border border-white/10 space-y-3">
+            <div className="col-span-1 md:col-span-2 p-4 rounded-xl bg-muted/20 border border-border space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <WifiOff className="size-4 text-amber-400" />
+                <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5 font-heading">
+                  <WifiOff className="size-4 text-amber-500" />
                   Offline Store-and-Forward Buffering
                 </h3>
                 <Badge
                   className={cn(
                     "text-[10px]",
                     offlineBuffer.length > 0
-                      ? "bg-amber-500/20 text-amber-300"
-                      : "bg-white/10 text-muted-foreground"
+                      ? "bg-amber-500/20 text-amber-600 dark:text-amber-300"
+                      : "bg-muted text-muted-foreground"
                   )}
                 >
                   {offlineBuffer.length} Frames Queued
@@ -597,7 +597,7 @@ export function SimulatorControlDeck({
                     "rounded-lg text-xs font-bold",
                     isBufferingOffline
                       ? "bg-amber-500 text-black hover:bg-amber-400"
-                      : "border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+                      : "border-amber-500/40 text-amber-600 dark:text-amber-300 hover:bg-amber-500/10"
                   )}
                   onClick={() => {
                     const next = !isBufferingOffline;
@@ -621,7 +621,7 @@ export function SimulatorControlDeck({
 
                 <Button
                   size="sm"
-                  className="rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold"
+                  className="rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold"
                   onClick={() => {
                     setIsBufferingOffline(false);
                     onTriggerScenario("offline-buffer-flush");
@@ -640,14 +640,14 @@ export function SimulatorControlDeck({
         <TabsContent value="testsuites" className="space-y-5 m-0">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Suite 1 */}
-            <div className="p-4 rounded-xl bg-black/30 border border-white/10 flex flex-col justify-between space-y-3">
+            <div className="p-4 rounded-xl bg-muted/20 border border-border flex flex-col justify-between space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <CheckCircle2 className="size-4 text-emerald-400" />
+                  <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5 font-heading">
+                    <CheckCircle2 className="size-4 text-emerald-500" />
                     Happy Path Session
                   </h4>
-                  <Badge className="bg-emerald-500/10 text-emerald-400 text-[10px]">
+                  <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px]">
                     E2E
                   </Badge>
                 </div>
@@ -658,7 +658,7 @@ export function SimulatorControlDeck({
               </div>
               <Button
                 size="sm"
-                className="w-full rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold"
+                className="w-full rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold"
                 onClick={() => handleRunSuite("happy_path")}
                 disabled={loading || activeSuiteId !== null}
               >
@@ -672,14 +672,14 @@ export function SimulatorControlDeck({
             </div>
 
             {/* Suite 2 */}
-            <div className="p-4 rounded-xl bg-black/30 border border-white/10 flex flex-col justify-between space-y-3">
+            <div className="p-4 rounded-xl bg-muted/20 border border-border flex flex-col justify-between space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <Zap className="size-4 text-cyan-400" />
+                  <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5 font-heading">
+                    <Zap className="size-4 text-cyan-500" />
                     Smart Charging Derate
                   </h4>
-                  <Badge className="bg-cyan-500/10 text-cyan-400 text-[10px]">
+                  <Badge className="bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-[10px]">
                     LMS
                   </Badge>
                 </div>
@@ -690,7 +690,7 @@ export function SimulatorControlDeck({
               </div>
               <Button
                 size="sm"
-                className="w-full rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-xs font-bold"
+                className="w-full rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-700 dark:text-cyan-300 text-xs font-bold"
                 onClick={() => handleRunSuite("smart_charging")}
                 disabled={loading || activeSuiteId !== null}
               >
@@ -704,14 +704,14 @@ export function SimulatorControlDeck({
             </div>
 
             {/* Suite 3 */}
-            <div className="p-4 rounded-xl bg-black/30 border border-white/10 flex flex-col justify-between space-y-3">
+            <div className="p-4 rounded-xl bg-muted/20 border border-border flex flex-col justify-between space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <WifiOff className="size-4 text-amber-400" />
+                  <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5 font-heading">
+                    <WifiOff className="size-4 text-amber-500" />
                     Store-and-Forward
                   </h4>
-                  <Badge className="bg-amber-500/10 text-amber-400 text-[10px]">
+                  <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px]">
                     Buffer
                   </Badge>
                 </div>
@@ -722,7 +722,7 @@ export function SimulatorControlDeck({
               </div>
               <Button
                 size="sm"
-                className="w-full rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold"
+                className="w-full rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-bold"
                 onClick={() => handleRunSuite("offline_buffering")}
                 disabled={loading || activeSuiteId !== null}
               >
@@ -736,14 +736,14 @@ export function SimulatorControlDeck({
             </div>
 
             {/* Suite 4 */}
-            <div className="p-4 rounded-xl bg-black/30 border border-white/10 flex flex-col justify-between space-y-3">
+            <div className="p-4 rounded-xl bg-muted/20 border border-border flex flex-col justify-between space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <Unplug className="size-4 text-rose-400" />
+                  <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5 font-heading">
+                    <Unplug className="size-4 text-rose-500" />
                     Premature Disconnect
                   </h4>
-                  <Badge className="bg-rose-500/10 text-rose-400 text-[10px]">
+                  <Badge className="bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[10px]">
                     Anomaly
                   </Badge>
                 </div>
@@ -754,7 +754,7 @@ export function SimulatorControlDeck({
               </div>
               <Button
                 size="sm"
-                className="w-full rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-bold"
+                className="w-full rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-bold"
                 onClick={() => handleRunSuite("premature_disconnect")}
                 disabled={loading || activeSuiteId !== null}
               >
@@ -768,14 +768,14 @@ export function SimulatorControlDeck({
             </div>
 
             {/* Suite 5 */}
-            <div className="p-4 rounded-xl bg-black/30 border border-white/10 flex flex-col justify-between space-y-3">
+            <div className="p-4 rounded-xl bg-muted/20 border border-border flex flex-col justify-between space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <AlertTriangle className="size-4 text-orange-400" />
+                  <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5 font-heading">
+                    <AlertTriangle className="size-4 text-orange-500" />
                     Hardware Fault Recovery
                   </h4>
-                  <Badge className="bg-orange-500/10 text-orange-400 text-[10px]">
+                  <Badge className="bg-orange-500/10 text-orange-600 dark:text-orange-400 text-[10px]">
                     Auto-Heal
                   </Badge>
                 </div>
@@ -786,7 +786,7 @@ export function SimulatorControlDeck({
               </div>
               <Button
                 size="sm"
-                className="w-full rounded-lg bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 text-xs font-bold"
+                className="w-full rounded-lg bg-orange-500/20 hover:bg-orange-500/30 text-orange-700 dark:text-orange-300 text-xs font-bold"
                 onClick={() => handleRunSuite("hardware_fault_recovery")}
                 disabled={loading || activeSuiteId !== null}
               >
@@ -800,14 +800,14 @@ export function SimulatorControlDeck({
             </div>
 
             {/* Suite 6 */}
-            <div className="p-4 rounded-xl bg-black/30 border border-white/10 flex flex-col justify-between space-y-3">
+            <div className="p-4 rounded-xl bg-muted/20 border border-border flex flex-col justify-between space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <ShieldCheck className="size-4 text-purple-400" />
+                  <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5 font-heading">
+                    <ShieldCheck className="size-4 text-purple-500" />
                     Blocked RFID Rejection
                   </h4>
-                  <Badge className="bg-purple-500/10 text-purple-400 text-[10px]">
+                  <Badge className="bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px]">
                     Security
                   </Badge>
                 </div>
@@ -818,7 +818,7 @@ export function SimulatorControlDeck({
               </div>
               <Button
                 size="sm"
-                className="w-full rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-xs font-bold"
+                className="w-full rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-700 dark:text-purple-300 text-xs font-bold"
                 onClick={() => handleRunSuite("unauthorized_rfid")}
                 disabled={loading || activeSuiteId !== null}
               >
@@ -834,14 +834,14 @@ export function SimulatorControlDeck({
 
           {/* Test Suite Progress & Results Output */}
           {suiteReport && (
-            <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-3">
-              <div className="flex items-center justify-between pb-3 border-b border-white/10">
+            <div className="p-4 rounded-xl bg-card border border-border space-y-3 shadow-sm">
+              <div className="flex items-center justify-between pb-3 border-b border-border">
                 <div>
-                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-foreground flex items-center gap-2 font-heading">
                     {suiteReport.passed ? (
-                      <CheckCircle2 className="size-4 text-emerald-400" />
+                      <CheckCircle2 className="size-4 text-emerald-500" />
                     ) : (
-                      <XCircle className="size-4 text-rose-400" />
+                      <XCircle className="size-4 text-rose-500" />
                     )}
                     {suiteReport.suiteName || suiteReport.suiteId}
                   </h4>
@@ -853,8 +853,8 @@ export function SimulatorControlDeck({
                   className={cn(
                     "text-xs font-mono font-bold px-3 py-1",
                     suiteReport.passed
-                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-                      : "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                      ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/30"
+                      : "bg-rose-500/20 text-rose-600 dark:text-rose-300 border-rose-500/30"
                   )}
                 >
                   {suiteReport.passed ? "ALL PASSED ✓" : "TEST FAILED ✗"}
@@ -865,23 +865,23 @@ export function SimulatorControlDeck({
                 {suiteReport.steps?.map((step: any, idx: number) => (
                   <div
                     key={idx}
-                    className="p-2.5 rounded-lg bg-white/5 border border-white/5 flex items-center justify-between text-xs font-mono"
+                    className="p-2.5 rounded-lg bg-muted/30 border border-border flex items-center justify-between text-xs font-mono"
                   >
                     <div className="flex items-center gap-2.5">
                       {step.status === "passed" ? (
-                        <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
+                        <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
                       ) : (
-                        <XCircle className="size-4 text-rose-400 shrink-0" />
+                        <XCircle className="size-4 text-rose-500 shrink-0" />
                       )}
                       <div>
-                        <span className="font-bold text-white">
+                        <span className="font-bold text-foreground">
                           {step.name}
                         </span>
                         <span className="text-muted-foreground ml-2 text-[11px]">
                           {step.description}
                         </span>
                         {step.error && (
-                          <div className="text-rose-400 text-[11px] mt-0.5">
+                          <div className="text-rose-600 dark:text-rose-400 text-[11px] mt-0.5 font-sans">
                             Error: {step.error}
                           </div>
                         )}
@@ -903,8 +903,8 @@ export function SimulatorControlDeck({
             {/* Live Message Log Terminal */}
             <div className="lg:col-span-7 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Terminal className="size-3.5 text-purple-400" /> Bi-directional
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 font-heading">
+                  <Terminal className="size-3.5 text-purple-500" /> Bi-directional
                   Frame Stream
                 </span>
 
@@ -917,7 +917,7 @@ export function SimulatorControlDeck({
                       className={cn(
                         "h-6 px-2 text-[10px] rounded-md font-mono",
                         rawFrameFilter === f
-                          ? "bg-purple-500/30 text-purple-200 border border-purple-400/30"
+                          ? "bg-purple-500/30 text-purple-700 dark:text-purple-200 border border-purple-400/30"
                           : "text-muted-foreground"
                       )}
                       onClick={() => setRawFrameFilter(f)}
@@ -928,7 +928,7 @@ export function SimulatorControlDeck({
                 </div>
               </div>
 
-              <div className="h-80 overflow-y-auto rounded-xl bg-black/60 border border-white/10 p-3 font-mono text-xs space-y-2 scrollbar-thin scrollbar-thumb-white/10">
+              <div className="h-80 overflow-y-auto rounded-xl bg-muted/40 dark:bg-black/60 border border-border p-3 font-mono text-xs space-y-2 scrollbar-thin">
                 {filteredLogs.length === 0 ? (
                   <div className="text-muted-foreground text-center py-12">
                     No frames recorded yet. Send a command to begin.
@@ -944,10 +944,10 @@ export function SimulatorControlDeck({
                         className={cn(
                           "p-2 rounded-lg border text-[11px] leading-relaxed transition-all",
                           isError
-                            ? "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                            ? "bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-300"
                             : isOut
-                            ? "bg-cyan-500/5 border-cyan-500/20 text-cyan-200"
-                            : "bg-emerald-500/5 border-emerald-500/20 text-emerald-200"
+                            ? "bg-cyan-500/5 border-cyan-500/20 text-cyan-800 dark:text-cyan-200"
+                            : "bg-emerald-500/5 border-emerald-500/20 text-emerald-800 dark:text-emerald-200"
                         )}
                       >
                         <div className="flex items-center justify-between font-bold mb-1">
@@ -956,13 +956,13 @@ export function SimulatorControlDeck({
                               className={cn(
                                 "px-1.5 py-0.2 rounded text-[9px]",
                                 isOut
-                                  ? "bg-cyan-500/20 text-cyan-300"
-                                  : "bg-emerald-500/20 text-emerald-300"
+                                  ? "bg-cyan-500/20 text-cyan-700 dark:text-cyan-300"
+                                  : "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
                               )}
                             >
                               {isOut ? "OUT ➔" : "IN ⬅"}
                             </span>
-                            <span className="text-white">
+                            <span className="text-foreground">
                               {l.action || l.messageType}
                             </span>
                           </span>
@@ -973,7 +973,7 @@ export function SimulatorControlDeck({
                               : ""}
                           </span>
                         </div>
-                        <pre className="text-[10px] text-muted-foreground overflow-x-auto whitespace-pre-wrap">
+                        <pre className="text-[10px] text-muted-foreground overflow-x-auto whitespace-pre-wrap font-mono">
                           {JSON.stringify(l.payload, null, 2)}
                         </pre>
                       </div>
@@ -985,8 +985,8 @@ export function SimulatorControlDeck({
 
             {/* Raw JSON-RPC Frame Sender */}
             <div className="lg:col-span-5 space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Send className="size-3.5 text-cyan-400" /> Custom Frame
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 font-heading">
+                <Send className="size-3.5 text-cyan-500" /> Custom Frame
                 Builder
               </span>
 
@@ -994,7 +994,7 @@ export function SimulatorControlDeck({
                 value={rawFrameText}
                 onChange={(e) => setRawFrameText(e.target.value)}
                 rows={12}
-                className="w-full rounded-xl bg-black/60 border border-white/10 p-3 font-mono text-xs text-cyan-300 focus:outline-none focus:border-cyan-400/50 resize-none"
+                className="w-full rounded-xl bg-background border border-border p-3 font-mono text-xs text-foreground focus:outline-none focus:border-[#54a8c7] resize-none"
                 placeholder="[2, 'msgId', 'Action', { ... }]"
               />
 
@@ -1002,7 +1002,7 @@ export function SimulatorControlDeck({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="rounded-lg text-xs border-white/10 hover:bg-white/5"
+                  className="rounded-lg text-xs border-border hover:bg-muted"
                   onClick={() =>
                     setRawFrameText(
                       JSON.stringify(

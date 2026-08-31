@@ -66,3 +66,45 @@ export const exportAuditLogs = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ success: false, error: "Failed to export audit logs" });
   }
 };
+
+/**
+ * DELETE /api/audit (Clear/delete audit logs)
+ */
+export const clearAuditLogs = async (req: AuthRequest, res: Response) => {
+  try {
+    const { dateBefore, target } = req.query;
+
+    const filter: any = {};
+    if (dateBefore) {
+      filter.dateBefore = new Date(dateBefore as string);
+    }
+    if (target && target !== "all") {
+      filter.target = String(target);
+    }
+
+    const result = await AuditLogService.clearLogs(filter);
+
+    // Record an audit log for the clear action
+    await AuditLogService.recordLog({
+      userId: req.userId,
+      action: "CLEAR_AUDIT_LOGS",
+      target: "AUDIT_TRAIL",
+      payload: {
+        deletedCount: result.deletedCount,
+        dateBefore: dateBefore || "ALL",
+        target: target || "ALL",
+      },
+      ip: req.ip || "127.0.0.1",
+      userAgent: req.headers["user-agent"],
+    });
+
+    return res.json({
+      success: true,
+      message: `Successfully cleared ${result.deletedCount} audit log entries`,
+      deletedCount: result.deletedCount,
+    });
+  } catch (error: any) {
+    logger.error(`Error in clearAuditLogs: ${error.message}`);
+    return res.status(500).json({ success: false, error: "Failed to clear audit logs" });
+  }
+};

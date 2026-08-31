@@ -797,9 +797,9 @@ export default function WebhooksManagementPage() {
 
         {/* Modal: Register / Edit Webhook */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] p-0 flex flex-col overflow-hidden bg-card text-card-foreground border-border">
+            <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
+              <DialogTitle className="flex items-center gap-2 text-xl font-bold font-heading">
                 <Webhook className="size-5 text-[#54a8c7]" />
                 {editingSubId ? 'Edit Webhook Endpoint' : 'Register Outbound Webhook'}
               </DialogTitle>
@@ -808,33 +808,34 @@ export default function WebhooksManagementPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 py-2">
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-xs">Endpoint Name *</Label>
+                <Label className="text-xs font-semibold">Endpoint Name *</Label>
                 <Input
                   placeholder="e.g. Enterprise SAP ERP Invoicing Feed"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  className="bg-background border-border"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs">Destination URL (HTTP POST) *</Label>
+                <Label className="text-xs font-semibold">Destination URL (HTTP POST) *</Label>
                 <Input
                   placeholder="https://api.yourdomain.com/webhooks/ocpp"
                   value={targetUrl}
                   onChange={(e) => setTargetUrl(e.target.value)}
-                  className="font-mono text-xs"
+                  className="font-mono text-xs bg-background border-border"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs">HMAC-SHA256 Signing Secret</Label>
+                <Label className="text-xs font-semibold">HMAC-SHA256 Signing Secret</Label>
                 <div className="flex items-center gap-2">
                   <Input
                     value={secret}
                     onChange={(e) => setSecret(e.target.value)}
-                    className="font-mono text-xs"
+                    className="font-mono text-xs bg-background border-border"
                   />
                   <Button
                     type="button"
@@ -845,20 +846,20 @@ export default function WebhooksManagementPage() {
                         `whsec_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`
                       )
                     }
-                    className="h-9 px-3 text-xs"
+                    className="h-9 px-3 text-xs border-border"
                   >
                     Generate
                   </Button>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Payloads are signed with this secret in the <code className="text-[#54a8c7]">X-CPMS-Signature-256</code> header.
+                  Payloads are signed with this secret in the <code className="text-[#54a8c7] font-semibold">X-CPMS-Signature-256</code> header.
                 </p>
               </div>
 
               {/* Event Topics Selection */}
               <div className="space-y-2 pt-2 border-t border-border/40">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs font-bold">
+                  <Label className="text-xs font-bold font-heading">
                     Subscribed Event Topics ({selectedEvents.length} selected)
                   </Label>
                   <Button
@@ -881,8 +882,8 @@ export default function WebhooksManagementPage() {
                         onClick={() => handleToggleEvent(ev.topic)}
                         className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer select-none transition-all ${
                           isChecked
-                            ? 'bg-[#54a8c7]/10 border-[#54a8c7]/50 text-foreground'
-                            : 'bg-muted/20 border-border/30 text-muted-foreground hover:bg-muted/40'
+                            ? 'bg-[#54a8c7]/15 border-[#54a8c7]/50 text-foreground'
+                            : 'bg-muted/20 border-border text-muted-foreground hover:bg-muted/40'
                         }`}
                       >
                         <div
@@ -893,7 +894,7 @@ export default function WebhooksManagementPage() {
                           {isChecked && <Check className="size-2.5 stroke-[3]" />}
                         </div>
                         <div>
-                          <p className="text-xs font-semibold leading-none">{ev.name}</p>
+                          <p className="text-xs font-semibold leading-none text-foreground">{ev.name}</p>
                           <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{ev.topic}</p>
                         </div>
                       </div>
@@ -904,30 +905,30 @@ export default function WebhooksManagementPage() {
 
               {/* Custom Headers */}
               <div className="space-y-1.5 pt-2 border-t border-border/40">
-                <Label className="text-xs">Custom Request Headers (Optional JSON)</Label>
+                <Label className="text-xs font-semibold">Custom Request Headers (Optional JSON)</Label>
                 <Textarea
                   placeholder={`{\n  "Authorization": "Bearer enterprise_token_123"\n}`}
                   value={customHeadersJson}
                   onChange={(e) => setCustomHeadersJson(e.target.value)}
-                  className="font-mono text-xs"
+                  className="font-mono text-xs bg-background border-border"
                   rows={3}
                 />
               </div>
 
               <div className="flex items-center justify-between pt-2">
-                <Label className="text-xs">Active Subscription Status</Label>
+                <Label className="text-xs font-semibold">Active Subscription Status</Label>
                 <Switch checked={isActive} onCheckedChange={setIsActive} />
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="px-6 py-4 shrink-0 border-t border-border bg-muted/20 flex flex-row items-center justify-end gap-2">
               <Button variant="outline" onClick={() => setIsModalOpen(false)}>
                 Cancel
               </Button>
               <Button
                 onClick={handleSaveWebhook}
                 disabled={submitting}
-                className="bg-[#54a8c7] hover:bg-[#54a8c7]/90 text-white gap-2"
+                className="bg-[#54a8c7] hover:bg-[#54a8c7]/90 text-white gap-2 font-bold"
               >
                 {submitting && <Loader2 className="size-4 animate-spin" />}
                 {editingSubId ? 'Save Changes' : 'Register Webhook'}
@@ -938,9 +939,9 @@ export default function WebhooksManagementPage() {
 
         {/* Modal: Delivery Inspector */}
         <Dialog open={Boolean(selectedDelivery)} onOpenChange={(open) => !open && setSelectedDelivery(null)}>
-          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
+          <DialogContent className="sm:max-w-2xl max-h-[85vh] p-0 flex flex-col overflow-hidden bg-card text-card-foreground border-border">
+            <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
+              <DialogTitle className="flex items-center gap-2 font-heading">
                 <Send className="size-5 text-[#3f78e0]" />
                 Webhook Delivery #{selectedDelivery?.id}
               </DialogTitle>
@@ -951,7 +952,7 @@ export default function WebhooksManagementPage() {
             </DialogHeader>
 
             {selectedDelivery && (
-              <div className="space-y-4 py-2 text-xs">
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 text-xs">
                 {selectedDelivery.error && (
                   <div className="p-3 rounded-lg bg-destructive/15 border border-destructive/30 text-destructive flex items-center gap-2">
                     <AlertTriangle className="size-4 shrink-0" />
@@ -964,13 +965,13 @@ export default function WebhooksManagementPage() {
                     <span>Dispatched JSON Payload:</span>
                     <button
                       onClick={() => handleCopy(JSON.stringify(selectedDelivery.payload, null, 2), 'Payload')}
-                      className="hover:text-foreground flex items-center gap-1"
+                      className="hover:text-foreground flex items-center gap-1 text-xs"
                     >
                       <Copy className="size-3" />
                       Copy JSON
                     </button>
                   </div>
-                  <pre className="p-3 rounded-lg bg-black/40 border border-white/10 font-mono text-[11px] text-[#54a8c7] overflow-x-auto max-h-56">
+                  <pre className="p-3 rounded-lg bg-muted/50 dark:bg-black/40 border border-border font-mono text-[11px] text-[#54a8c7] overflow-x-auto max-h-56">
                     {JSON.stringify(selectedDelivery.payload, null, 2)}
                   </pre>
                 </div>
@@ -980,7 +981,7 @@ export default function WebhooksManagementPage() {
                     <div className="flex items-center justify-between text-muted-foreground">
                       <span>Server Response Body:</span>
                     </div>
-                    <pre className="p-3 rounded-lg bg-black/40 border border-white/10 font-mono text-[11px] text-foreground/80 overflow-x-auto max-h-36">
+                    <pre className="p-3 rounded-lg bg-muted/50 dark:bg-black/40 border border-border font-mono text-[11px] text-foreground/80 overflow-x-auto max-h-36">
                       {selectedDelivery.responseBody}
                     </pre>
                   </div>
@@ -988,7 +989,7 @@ export default function WebhooksManagementPage() {
               </div>
             )}
 
-            <DialogFooter>
+            <DialogFooter className="px-6 py-4 shrink-0 border-t border-border bg-muted/20">
               <Button variant="outline" onClick={() => setSelectedDelivery(null)}>
                 Close
               </Button>

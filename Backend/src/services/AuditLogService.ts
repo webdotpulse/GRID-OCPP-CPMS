@@ -124,6 +124,28 @@ export class AuditLogService {
   }
 
   /**
+   * Clear all or filtered audit logs (Admin/Superadmin only)
+   */
+  public static async clearLogs(filter: { dateBefore?: Date; target?: string } = {}): Promise<{ deletedCount: number }> {
+    try {
+      const where: any = {};
+      if (filter.dateBefore) {
+        where.createdAt = { lte: filter.dateBefore };
+      }
+      if (filter.target && filter.target !== "all") {
+        where.target = filter.target;
+      }
+
+      const result = await prisma.auditLog.deleteMany({ where });
+      logger.info(`[AuditLog] Cleared ${result.count} audit log entries`);
+      return { deletedCount: result.count };
+    } catch (error: any) {
+      logger.error(`Failed to clear audit logs: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
    * Sanitizes payload object to remove secret credentials
    */
   private static sanitizePayload(payload: any): any {

@@ -255,7 +255,7 @@ export default function SimulatorPage() {
 
   return (
     <AppShell>
-      <div className="space-y-6 max-w-7xl mx-auto pb-12">
+      <div className="space-y-6 max-w-7xl mx-auto pb-12 animate-in fade-in duration-300">
         {/* Page Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
@@ -264,9 +264,9 @@ export default function SimulatorPage() {
                 <Cpu className="size-5.5" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight text-white flex items-center gap-2">
+                <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight text-foreground flex items-center gap-2">
                   OCPP Charger Simulator & Test Lab
-                  <Badge className="bg-gradient-to-r from-[#54a8c7]/20 to-[#3f78e0]/20 text-[#54a8c7] border-[#54a8c7]/30 text-[10px] font-mono">
+                  <Badge className="bg-[#54a8c7]/15 text-[#54a8c7] border-[#54a8c7]/30 text-[10px] font-mono">
                     v3.4 PRO
                   </Badge>
                 </h1>
@@ -290,9 +290,9 @@ export default function SimulatorPage() {
             <Link href="/ocpp">
               <Button
                 variant="outline"
-                className="rounded-xl border-white/10 hover:bg-white/5 text-xs text-white"
+                className="rounded-xl border-border hover:bg-muted/50 text-xs text-foreground"
               >
-                <Terminal className="size-3.5 mr-1.5 text-purple-400" />
+                <Terminal className="size-3.5 mr-1.5 text-purple-500" />
                 Packet Inspector
               </Button>
             </Link>
@@ -300,11 +300,11 @@ export default function SimulatorPage() {
         </div>
 
         {/* Simulator Session Launcher Bar */}
-        <div className="p-4 rounded-2xl border border-white/10 bg-[#1e2228] shadow-xl">
+        <div className="p-4 rounded-2xl border border-border bg-card text-card-foreground shadow-sm">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 items-end">
             {/* Charger Selector */}
             <div className="lg:col-span-4 space-y-1.5">
-              <Label className="text-xs text-muted-foreground font-medium">
+              <Label className="text-xs text-muted-foreground font-semibold">
                 Target Simulated Charge Point
               </Label>
               <Select
@@ -312,10 +312,10 @@ export default function SimulatorPage() {
                 onValueChange={setSelectedChargerId}
                 disabled={activeSession !== null}
               >
-                <SelectTrigger className="h-9 text-xs bg-black/40 border-white/10 text-white rounded-xl">
+                <SelectTrigger className="h-9 text-xs bg-background border-border text-foreground rounded-xl">
                   <SelectValue placeholder="Select a Charger" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1e2228] border-white/10 text-white max-h-60">
+                <SelectContent className="max-h-60">
                   {chargers.map((c) => (
                     <SelectItem
                       key={c.charger_id}
@@ -330,7 +330,7 @@ export default function SimulatorPage() {
 
             {/* Protocol Selector */}
             <div className="lg:col-span-2 space-y-1.5">
-              <Label className="text-xs text-muted-foreground font-medium">
+              <Label className="text-xs text-muted-foreground font-semibold">
                 Protocol Version
               </Label>
               <Select
@@ -338,10 +338,10 @@ export default function SimulatorPage() {
                 onValueChange={setProtocol}
                 disabled={activeSession !== null}
               >
-                <SelectTrigger className="h-9 text-xs bg-black/40 border-white/10 text-white rounded-xl font-mono">
+                <SelectTrigger className="h-9 text-xs bg-background border-border text-foreground rounded-xl font-mono">
                   <SelectValue placeholder="Protocol" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1e2228] border-white/10 text-white font-mono">
+                <SelectContent className="font-mono">
                   <SelectItem value="ocpp1.6">OCPP 1.6-J</SelectItem>
                   <SelectItem value="ocpp2.0.1">OCPP 2.0.1</SelectItem>
                   <SelectItem value="ocpp2.1">OCPP 2.1 (Draft)</SelectItem>
@@ -351,7 +351,7 @@ export default function SimulatorPage() {
 
             {/* Custom WS URL */}
             <div className="lg:col-span-3 space-y-1.5">
-              <Label className="text-xs text-muted-foreground font-medium">
+              <Label className="text-xs text-muted-foreground font-semibold">
                 Custom WebSocket Endpoint (Optional)
               </Label>
               <Input
@@ -359,7 +359,7 @@ export default function SimulatorPage() {
                 value={customEndpoint}
                 onChange={(e) => setCustomEndpoint(e.target.value)}
                 disabled={activeSession !== null}
-                className="h-9 text-xs bg-black/40 border-white/10 text-white font-mono rounded-xl"
+                className="h-9 text-xs bg-background border-border text-foreground font-mono rounded-xl"
               />
             </div>
 
@@ -422,12 +422,12 @@ export default function SimulatorPage() {
             />
           </div>
         ) : (
-          <div className="p-12 rounded-2xl border border-dashed border-white/10 bg-black/20 text-center space-y-4">
-            <div className="size-16 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-muted-foreground">
+          <div className="p-12 rounded-2xl border border-dashed border-border bg-card/50 text-center space-y-4 shadow-sm">
+            <div className="size-16 rounded-3xl bg-muted/50 border border-border flex items-center justify-center mx-auto text-muted-foreground">
               <Zap className="size-8 text-[#54a8c7]" />
             </div>
             <div className="max-w-md mx-auto space-y-1.5">
-              <h3 className="text-lg font-bold text-white">
+              <h3 className="text-lg font-bold text-foreground font-heading">
                 No Virtual Charger Running
               </h3>
               <p className="text-xs text-muted-foreground">

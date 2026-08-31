@@ -875,9 +875,9 @@ export default function InvoicesPage() {
 
         {/* Generate Invoices Dialog */}
         <Dialog open={isGenerateOpen} onOpenChange={setIsGenerateOpen}>
-          <DialogContent className="max-w-md bg-card border-border text-foreground">
-            <DialogHeader>
-              <DialogTitle className="text-lg font-bold flex items-center gap-2">
+          <DialogContent className="sm:max-w-md p-0 flex flex-col overflow-hidden bg-card text-card-foreground border-border">
+            <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
+              <DialogTitle className="text-lg font-bold flex items-center gap-2 text-foreground font-heading">
                 <PlusCircle className="size-5 text-[#54a8c7]" />
                 Generate Monthly Invoices
               </DialogTitle>
@@ -886,15 +886,15 @@ export default function InvoicesPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 py-3 text-sm">
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground/80">Billing Month</label>
+                  <label className="text-xs font-semibold text-foreground">Billing Month</label>
                   <Select value={generateMonth} onValueChange={setGenerateMonth}>
-                    <SelectTrigger className="bg-muted/40 border-border/60 text-foreground">
+                    <SelectTrigger className="bg-background border-border text-foreground text-xs h-9">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-popover border-border text-popover-foreground">
+                    <SelectContent>
                       {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                         <SelectItem key={m} value={m.toString()}>
                           {new Date(2026, m - 1).toLocaleString("default", { month: "long" })}
@@ -905,12 +905,12 @@ export default function InvoicesPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground/80">Billing Year</label>
+                  <label className="text-xs font-semibold text-foreground">Billing Year</label>
                   <Select value={generateYear} onValueChange={setGenerateYear}>
-                    <SelectTrigger className="bg-muted/40 border-border/60 text-foreground">
+                    <SelectTrigger className="bg-background border-border text-foreground text-xs h-9">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-popover border-border text-popover-foreground">
+                    <SelectContent>
                       <SelectItem value="2026">2026</SelectItem>
                       <SelectItem value="2025">2025</SelectItem>
                       <SelectItem value="2024">2024</SelectItem>
@@ -919,23 +919,23 @@ export default function InvoicesPage() {
                 </div>
               </div>
 
-              <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-600 dark:text-blue-300">
-                <p className="font-semibold mb-1 flex items-center gap-1">
+              <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                <p className="font-semibold flex items-center gap-1.5">
                   <AlertCircle className="size-3.5" />
                   Automated Billing Information
                 </p>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground leading-relaxed">
                   Transactions with status <em>completed</em> that have not yet been assigned to an invoice will be bundled per Company or User. Fiscal invoice numbers and VAT breakdowns will be generated automatically.
                 </p>
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="px-6 py-4 shrink-0 border-t border-border bg-muted/20 flex flex-row items-center justify-end gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setIsGenerateOpen(false)}
-                className="border-border/70 text-foreground hover:bg-muted"
+                className="border-border text-foreground hover:bg-muted"
               >
                 Cancel
               </Button>
@@ -943,17 +943,17 @@ export default function InvoicesPage() {
                 size="sm"
                 disabled={generating}
                 onClick={handleGenerateInvoices}
-                className="bg-gradient-to-r from-[#54a8c7] to-[#3f78e0] hover:from-[#4596b4] hover:to-[#3568c8] text-white"
+                className="bg-gradient-to-r from-[#54a8c7] to-[#3f78e0] hover:brightness-110 text-white font-bold shadow-md shadow-[#54a8c7]/20"
               >
                 {generating ? (
                   <>
                     <RefreshCw className="size-4 mr-1.5 animate-spin" />
-                    Generating...
+                    Generating Invoices...
                   </>
                 ) : (
                   <>
-                    <Zap className="size-4 mr-1.5" />
-                    Run Billing Cycle
+                    <PlusCircle className="size-4 mr-1.5" />
+                    Create Monthly Invoices
                   </>
                 )}
               </Button>
@@ -963,9 +963,9 @@ export default function InvoicesPage() {
 
         {/* SEPA Direct Debit Export Dialog */}
         <Dialog open={isSepaExportOpen} onOpenChange={setIsSepaExportOpen}>
-          <DialogContent className="max-w-md bg-card border-border text-foreground">
-            <DialogHeader>
-              <DialogTitle className="text-lg font-bold flex items-center gap-2">
+          <DialogContent className="sm:max-w-md p-0 flex flex-col overflow-hidden bg-card text-card-foreground border-border">
+            <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
+              <DialogTitle className="text-lg font-bold flex items-center gap-2 text-foreground font-heading">
                 <FileCode2 className="size-5 text-emerald-500 dark:text-emerald-400" />
                 Export SEPA Direct Debit XML
               </DialogTitle>
@@ -974,15 +974,15 @@ export default function InvoicesPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 py-3 text-sm">
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground/80">Target Month</label>
+                  <label className="text-xs font-semibold text-foreground">Target Month</label>
                   <Select value={sepaMonth} onValueChange={setSepaMonth}>
-                    <SelectTrigger className="bg-muted/40 border-border/60 text-foreground">
+                    <SelectTrigger className="bg-background border-border text-foreground text-xs h-9">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-popover border-border text-popover-foreground">
+                    <SelectContent>
                       {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                         <SelectItem key={m} value={m.toString()}>
                           {new Date(2026, m - 1).toLocaleString("default", { month: "long" })}
@@ -993,12 +993,12 @@ export default function InvoicesPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground/80">Target Year</label>
+                  <label className="text-xs font-semibold text-foreground">Target Year</label>
                   <Select value={sepaYear} onValueChange={setSepaYear}>
-                    <SelectTrigger className="bg-muted/40 border-border/60 text-foreground">
+                    <SelectTrigger className="bg-background border-border text-foreground text-xs h-9">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-popover border-border text-popover-foreground">
+                    <SelectContent>
                       <SelectItem value="2026">2026</SelectItem>
                       <SelectItem value="2025">2025</SelectItem>
                       <SelectItem value="2024">2024</SelectItem>
@@ -1009,12 +1009,12 @@ export default function InvoicesPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground/80">Mandate Scheme</label>
+                  <label className="text-xs font-semibold text-foreground">Mandate Scheme</label>
                   <Select value={sepaScheme} onValueChange={(val: any) => setSepaScheme(val)}>
-                    <SelectTrigger className="bg-muted/40 border-border/60 text-foreground">
+                    <SelectTrigger className="bg-background border-border text-foreground text-xs h-9">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-popover border-border text-popover-foreground">
+                    <SelectContent>
                       <SelectItem value="CORE">CORE (Standard / B2C)</SelectItem>
                       <SelectItem value="B2B">B2B (Business-to-Business)</SelectItem>
                     </SelectContent>
@@ -1022,12 +1022,12 @@ export default function InvoicesPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground/80">Sequence Type</label>
+                  <label className="text-xs font-semibold text-foreground">Sequence Type</label>
                   <Select value={sepaSeqType} onValueChange={(val: any) => setSepaSeqType(val)}>
-                    <SelectTrigger className="bg-muted/40 border-border/60 text-foreground">
+                    <SelectTrigger className="bg-background border-border text-foreground text-xs h-9">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-popover border-border text-popover-foreground">
+                    <SelectContent>
                       <SelectItem value="RCUR">RCUR (Recurring)</SelectItem>
                       <SelectItem value="FRST">FRST (First Collection)</SelectItem>
                     </SelectContent>
@@ -1036,32 +1036,32 @@ export default function InvoicesPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground/80">Requested Collection Date</label>
+                <label className="text-xs font-semibold text-foreground">Requested Collection Date</label>
                 <Input
                   type="date"
                   value={sepaDate}
                   onChange={(e) => setSepaDate(e.target.value)}
-                  className="bg-muted/40 border-border/60 text-foreground h-9"
+                  className="bg-background border-border text-foreground h-9 text-xs"
                 />
               </div>
 
-              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-300">
-                <p className="font-semibold mb-1 flex items-center gap-1">
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-700 dark:text-emerald-300 space-y-1">
+                <p className="font-semibold flex items-center gap-1.5">
                   <ShieldCheck className="size-3.5" />
                   Banking Protocol Validation
                 </p>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground leading-relaxed">
                   Outputs valid XML conforming to ISO 20022 pain.008.001.02 with XML entity escaping and CDATA protection. Unpaid invoices linked to active SEPA mandates will be included.
                 </p>
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="px-6 py-4 shrink-0 border-t border-border bg-muted/20 flex flex-row items-center justify-end gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setIsSepaExportOpen(false)}
-                className="border-border/70 text-foreground hover:bg-muted"
+                className="border-border text-foreground hover:bg-muted"
               >
                 Cancel
               </Button>
@@ -1069,7 +1069,7 @@ export default function InvoicesPage() {
                 size="sm"
                 disabled={exportingSepa}
                 onClick={handleExportSepa}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
               >
                 {exportingSepa ? (
                   <>
@@ -1186,9 +1186,9 @@ export default function InvoicesPage() {
 
         {/* New Mandate Dialog */}
         <Dialog open={isNewMandateOpen} onOpenChange={setIsNewMandateOpen}>
-          <DialogContent className="max-w-md bg-card border-border text-foreground">
-            <DialogHeader>
-              <DialogTitle className="text-lg font-bold flex items-center gap-2">
+          <DialogContent className="sm:max-w-md p-0 flex flex-col overflow-hidden bg-card text-card-foreground border-border">
+            <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
+              <DialogTitle className="text-lg font-bold flex items-center gap-2 text-foreground font-heading">
                 <PlusCircle className="size-5 text-[#54a8c7]" />
                 Register SEPA Mandate
               </DialogTitle>
@@ -1197,61 +1197,63 @@ export default function InvoicesPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <form onSubmit={handleCreateMandate} className="space-y-4 py-2 text-sm">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground/80">Debtor / Account Holder Name *</label>
-                <Input
-                  required
-                  placeholder="e.g. Acme Fleet B.V."
-                  value={mandateDebtorName}
-                  onChange={(e) => setMandateDebtorName(e.target.value)}
-                  className="bg-muted/40 border-border/60 text-foreground h-9"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground/80">IBAN *</label>
-                <Input
-                  required
-                  placeholder="e.g. NL91ABNA0417164300"
-                  value={mandateIban}
-                  onChange={(e) => setMandateIban(e.target.value.toUpperCase())}
-                  className="font-mono bg-muted/40 border-border/60 text-foreground h-9"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleCreateMandate} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 text-sm">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground/80">BIC / SWIFT (Optional)</label>
+                  <label className="text-xs font-semibold text-foreground">Debtor / Account Holder Name *</label>
                   <Input
-                    placeholder="e.g. ABNANL2A"
-                    value={mandateBic}
-                    onChange={(e) => setMandateBic(e.target.value.toUpperCase())}
-                    className="font-mono bg-muted/40 border-border/60 text-foreground h-9"
+                    required
+                    placeholder="e.g. Acme Fleet B.V."
+                    value={mandateDebtorName}
+                    onChange={(e) => setMandateDebtorName(e.target.value)}
+                    className="bg-background border-border text-foreground h-9 text-xs"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground/80">Mandate Scheme</label>
-                  <Select value={mandateScheme} onValueChange={(val: any) => setMandateScheme(val)}>
-                    <SelectTrigger className="bg-muted/40 border-border/60 text-foreground">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover border-border text-popover-foreground">
-                      <SelectItem value="CORE">CORE (Standard)</SelectItem>
-                      <SelectItem value="B2B">B2B (Enterprise)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <label className="text-xs font-semibold text-foreground">IBAN *</label>
+                  <Input
+                    required
+                    placeholder="e.g. NL91ABNA0417164300"
+                    value={mandateIban}
+                    onChange={(e) => setMandateIban(e.target.value.toUpperCase())}
+                    className="font-mono bg-background border-border text-foreground h-9 text-xs"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">BIC / SWIFT (Optional)</label>
+                    <Input
+                      placeholder="e.g. ABNANL2A"
+                      value={mandateBic}
+                      onChange={(e) => setMandateBic(e.target.value.toUpperCase())}
+                      className="font-mono bg-background border-border text-foreground h-9 text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">Mandate Scheme</label>
+                    <Select value={mandateScheme} onValueChange={(val: any) => setMandateScheme(val)}>
+                      <SelectTrigger className="bg-background border-border text-foreground text-xs h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CORE">CORE (Standard)</SelectItem>
+                        <SelectItem value="B2B">B2B (Enterprise)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 
-              <DialogFooter className="pt-3">
+              <DialogFooter className="px-6 py-4 shrink-0 border-t border-border bg-muted/20 flex flex-row items-center justify-end gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => setIsNewMandateOpen(false)}
-                  className="border-border/70 text-foreground hover:bg-muted"
+                  className="border-border text-foreground hover:bg-muted"
                 >
                   Cancel
                 </Button>
@@ -1259,7 +1261,7 @@ export default function InvoicesPage() {
                   type="submit"
                   size="sm"
                   disabled={savingMandate}
-                  className="bg-[#54a8c7] hover:bg-[#4596b4] text-white"
+                  className="bg-[#54a8c7] hover:bg-[#4596b4] text-white font-bold"
                 >
                   {savingMandate ? "Saving..." : "Save Mandate"}
                 </Button>
