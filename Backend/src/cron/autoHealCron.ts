@@ -8,47 +8,30 @@ export function startAutoHealCron() {
   cron.schedule("*/5 * * * *", async () => {
     logger.info("Running auto-heal background worker...");
     try {
-      // 1. Existing Auto-Heal Logic based on Diagnostic Events
-      const rules = await prisma.autoHealRule.findMany({ where: { isActive: true } });
-      if (rules.length > 0) {
-        const faultEvents = await prisma.diagnosticEvent.findMany({
-          where: {
-            resolved: false,
-            type: "FaultedState", // or HighTemperature
-          },
-        });
+      // 1. Playbook & Diagnostic Event Auto-Remediation
+      const faultEvents = await prisma.diagnosticEvent.findMany({
+        where: {
+          resolved: false,
+          type: "FaultedState",
+        },
+        take: 20,
+      });
 
+      if (faultEvents.length > 0) {
+        const { AutoHealPlaybookService } = await import("../services/AutoHealPlaybookService.js");
         for (const event of faultEvents) {
-          for (const rule of rules) {
-             if (event.type === "FaultedState" && (rule.triggerCondition === "Status: Faulted" || rule.triggerCondition === "Status: SuspendedEVSE")) {
-               logger.info(`Triggering auto-heal for charger ${event.chargerId} due to rule ${rule.id}`);
-
-               try {
-                  if (rule.actionCommand === "Send SoftReset") {
-                     await resetCharger(event.chargerId, "Soft");
-                  } else if (rule.actionCommand === "Send UnlockConnector" && event.connectorId) {
-                     await unlockConnector(event.chargerId, event.connectorId);
-                  }
-
-                  await prisma.diagnosticEvent.create({
-                     data: {
-                       chargerId: event.chargerId,
-                       connectorId: event.connectorId,
-                       type: "AutoHealAttempt",
-                       description: `Triggered by rule ${rule.id}. Executed ${rule.actionCommand}.`
-                     }
-                  });
-
-                  // Assuming auto heal resolves it temporarily or we wait for next ping
-                  await prisma.diagnosticEvent.update({
-                    where: { id: event.id },
-                    data: { resolved: true }
-                  });
-
-               } catch (actionErr) {
-                  logger.error(`Autoheal action failed: ${actionErr}`);
-               }
-             }
+          logger.info(`[autoHealCron] Evaluating recovery playbook for unresolved fault event on charger ${event.chargerId}`);
+          try {
+            await AutoHealPlaybookService.handleFaultTrigger(
+              event.chargerId,
+              event.connectorId || 1,
+              "Faulted",
+              undefined,
+              undefined,
+              event.description
+            );
+          } catch (pbErr) {
+            logger.error(`[autoHealCron] Playbook auto-eval error: ${pbErr}`);
           }
         }
       }

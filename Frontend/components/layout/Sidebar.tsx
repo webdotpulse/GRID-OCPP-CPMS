@@ -30,6 +30,7 @@ import {
   FileText,
   CalendarClock,
   CalendarRange,
+  Sparkles,
 } from 'lucide-react';
 
 interface NavItem {
@@ -122,6 +123,7 @@ export function Sidebar({
       items: [
         { key: 'nav.customers', path: '/users', icon: Users, adminOnly: true },
         { key: 'nav.simulator', path: '/simulator', icon: Cpu, adminOnly: true },
+        { key: 'nav.autoHealPlaybooks', path: '/auto-heal-playbooks', icon: Sparkles },
         { key: 'nav.hardwareAtRisk', path: '/hardware-at-risk', icon: AlertCircle },
         { key: 'nav.ocppConsole', path: '/ocpp', icon: TerminalSquare, adminOnly: true },
         { key: 'nav.settings', path: '/settings', icon: Settings },

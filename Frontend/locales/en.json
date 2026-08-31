@@ -17,6 +17,7 @@
       "invoices": "Invoices",
       "reservations": "Reservations",
       "scheduledCharging": "Scheduled Charging",
+      "autoHealPlaybooks": "Auto-Heal Playbooks",
       "hardwareAtRisk": "Maintenance",
       "v2g": "V2G Orchestration",
       "vehicleIdentity": "Vehicle Management",

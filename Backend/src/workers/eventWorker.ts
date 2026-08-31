@@ -32,6 +32,20 @@ export async function processStatusEventJob(job: Job<StatusEventJobData>): Promi
             data: { consecutiveErrors: { increment: 1 } },
           });
         }
+
+        // Trigger Vendor-Specific Auto-Healing Playbook
+        import("../services/AutoHealPlaybookService.js")
+          .then(({ AutoHealPlaybookService }) => {
+            AutoHealPlaybookService.handleFaultTrigger(
+              chargerId,
+              connectorId,
+              status,
+              errorCode,
+              job.data.vendorErrorCode,
+              info
+            ).catch((err) => logger.error(`[eventWorker] AutoHeal playbook trigger failed: ${err}`));
+          })
+          .catch(() => {});
       } catch (e) {
         logger.error(`Error recording diagnostic event in statusWorker: ${e}`);
       }

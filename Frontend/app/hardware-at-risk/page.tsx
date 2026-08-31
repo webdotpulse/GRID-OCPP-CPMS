@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, CheckCircle2, Wrench, Activity, ShieldAlert, Sparkles, Zap } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import Link from "next/link";
 
@@ -67,18 +68,26 @@ export default function HardwareAtRiskPage() {
     <AppShell>
       <div className="space-y-6 max-w-7xl mx-auto">
         {/* Header */}
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <div className="size-9 rounded-xl bg-[#e2626b]/15 text-[#e2626b] flex items-center justify-center">
-              <ShieldAlert className="size-5" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <div className="size-9 rounded-xl bg-[#e2626b]/15 text-[#e2626b] flex items-center justify-center">
+                <ShieldAlert className="size-5" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight text-foreground">
+                {t('hardwareAtRisk.title', 'Hardware Health & Predictive Maintenance')}
+              </h1>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight text-foreground">
-              {t('hardwareAtRisk.title', 'Hardware Health & Predictive Maintenance')}
-            </h1>
+            <p className="text-sm text-muted-foreground">
+              {t('hardwareAtRisk.subtitle', 'Automated fault detection, self-healing reboot logs, and technician work orders.')}
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {t('hardwareAtRisk.subtitle', 'Automated fault detection, self-healing reboot logs, and technician work orders.')}
-          </p>
+          <Link href="/auto-heal-playbooks">
+            <Button className="bg-[#54a8c7] hover:bg-[#54a8c7]/90 text-white text-xs gap-1.5 shadow-md shadow-[#54a8c7]/20 font-semibold">
+              <Sparkles className="size-4" />
+              Vendor Auto-Heal Playbooks
+            </Button>
+          </Link>
         </div>
 
         {/* Status Grid */}

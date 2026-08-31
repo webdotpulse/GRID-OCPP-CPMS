@@ -52,6 +52,7 @@ import firmwareRoutes from "./api/firmware/firmware.routes.js";
 import productsRoutes from "./api/products/products.routes.js";
 import eichrechtRoutes from "./api/eichrecht/eichrecht.routes.js";
 import pushRoutes from "./api/push/push.routes.js";
+import autoHealPlaybooksRoutes from "./api/auto-heal-playbooks/autoHealPlaybooks.routes.js";
 
 // Import OCPP servers
 import { ocppServer } from "./ocpp/ocppServer.js";
@@ -156,6 +157,14 @@ export function createApp(): Application {
   app.use("/api/products", productsRoutes);
   app.use("/api/eichrecht", authenticateToken, eichrechtRoutes);
   app.use("/api/push", pushRoutes);
+  app.use("/api/auto-heal-playbooks", authenticateToken, autoHealPlaybooksRoutes);
+
+  // Auto-seed default vendor playbooks on boot
+  import("./services/AutoHealPlaybookService.js")
+    .then(({ AutoHealPlaybookService }) => {
+      AutoHealPlaybookService.seedDefaultPlaybooks().catch(() => {});
+    })
+    .catch(() => {});
 
   // Error handling
   app.use(notFoundHandler);

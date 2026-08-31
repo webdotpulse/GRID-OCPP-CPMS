@@ -581,6 +581,50 @@ CREATE TABLE "AutoHealRule" (
 );
 
 -- CreateTable
+CREATE TABLE "AutoHealPlaybook" (
+    "id" SERIAL NOT NULL,
+    "name" TEXT NOT NULL,
+    "vendor" TEXT NOT NULL,
+    "modelPattern" TEXT,
+    "errorCodePattern" TEXT NOT NULL,
+    "severity" TEXT NOT NULL DEFAULT 'HIGH',
+    "category" TEXT NOT NULL DEFAULT 'Hardware',
+    "description" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "priority" INTEGER NOT NULL DEFAULT 100,
+    "cooldownMinutes" INTEGER NOT NULL DEFAULT 15,
+    "maxRetries" INTEGER NOT NULL DEFAULT 3,
+    "steps" JSONB NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "AutoHealPlaybook_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AutoHealExecution" (
+    "id" SERIAL NOT NULL,
+    "playbookId" INTEGER,
+    "chargerId" INTEGER NOT NULL,
+    "connectorId" INTEGER,
+    "triggerReason" TEXT NOT NULL,
+    "matchedErrorCode" TEXT,
+    "vendor" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "currentStep" INTEGER NOT NULL DEFAULT 0,
+    "totalSteps" INTEGER NOT NULL DEFAULT 0,
+    "stepLogs" JSONB NOT NULL DEFAULT '[]',
+    "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "completedAt" TIMESTAMP(3),
+    "errorMessage" TEXT,
+    "isResolved" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "AutoHealExecution_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "VehicleEnergyProfile" (
     "id" SERIAL NOT NULL,
     "userId" INTEGER,

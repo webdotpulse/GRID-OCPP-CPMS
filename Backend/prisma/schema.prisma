@@ -211,6 +211,7 @@ model Charger {
   productId      Int?
   product        SubscriptionProduct?   @relation(fields: [productId], references: [id], onDelete: SetNull)
   eichrechtRecords EichrechtRecord[]
+  autoHealExecutions AutoHealExecution[]
 }
 
 model ChargerQuirkProfile {
@@ -703,6 +704,59 @@ model AutoHealRule {
   isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+// Vendor-Specific Auto-Healing Playbook Definition
+model AutoHealPlaybook {
+  id               Int                 @id @default(autoincrement())
+  name             String              @unique
+  vendor           String // "Alfen" | "EVBox" | "ABB" | "Schneider" | "Kempower" | "Generic"
+  modelPattern     String? // Optional glob/regex for specific hardware models
+  errorCodePattern String // Regex or error codes pattern (e.g. "Err_023|LockTimeout|GroundFailure")
+  severity         String              @default("HIGH") // "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  category         String              @default("Hardware") // "ConnectorLock" | "PowerElectronics" | "Communications" | "Thermal" | "GridFault" | "Firmware" | "General"
+  description      String?
+  isActive         Boolean             @default(true)
+  priority         Int                 @default(100) // Higher priority evaluates first
+  cooldownMinutes  Int                 @default(15) // Debounce period to prevent continuous re-triggering
+  maxRetries       Int                 @default(3)
+  steps            Json // Array of { stepNumber: number, action: string, params?: any, delayMs?: number, description?: string }
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  executions       AutoHealExecution[]
+
+  @@index([vendor])
+  @@index([isActive])
+}
+
+// Execution Record of an Auto-Healing Playbook
+model AutoHealExecution {
+  id               Int               @id @default(autoincrement())
+  playbookId       Int?
+  chargerId        Int
+  connectorId      Int?
+  triggerReason    String
+  matchedErrorCode String?
+  vendor           String?
+  status           String            @default("PENDING") // "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "ABORTED"
+  currentStep      Int               @default(0)
+  totalSteps       Int               @default(0)
+  stepLogs         Json              @default("[]") // Array of { stepNumber, action, timestamp, status, details, response }
+  startedAt        DateTime          @default(now())
+  completedAt      DateTime?
+  errorMessage     String?
+  isResolved       Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  playbook         AutoHealPlaybook? @relation(fields: [playbookId], references: [id], onDelete: SetNull)
+  charger          Charger           @relation(fields: [chargerId], references: [charger_id], onDelete: Cascade)
+
+  @@index([chargerId])
+  @@index([playbookId])
+  @@index([status])
+  @@index([startedAt])
 }
 
 model VehicleEnergyProfile {
