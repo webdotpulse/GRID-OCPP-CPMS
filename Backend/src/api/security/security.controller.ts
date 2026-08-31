@@ -51,6 +51,20 @@ export const getCertificates = async (req: AuthRequest, res: Response) => {
       where.chargerId = parseInt(chargerId as string, 10);
     }
 
+    if (req.userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: req.userId }, select: { companyId: true } });
+      const tenantCondition = currentUser?.companyId
+        ? {
+            OR: [
+              { owner_id: req.userId },
+              { owner: { companyId: currentUser.companyId } },
+              { chargingStation: { companyId: currentUser.companyId } },
+            ],
+          }
+        : { owner_id: req.userId };
+      where.charger = tenantCondition;
+    }
+
     const [installedCertificates, pendingRequests] = await Promise.all([
       prisma.installedCertificate.findMany({
         where,
@@ -95,13 +109,43 @@ export const signCsrRequest = async (req: AuthRequest, res: Response) => {
     if (requestId) {
       const request = await prisma.certificateRequest.findUnique({
         where: { id: Number(requestId) },
+        include: { charger: { include: { chargingStation: true, owner: true } } },
       });
       if (!request) {
         return res.status(404).json({ success: false, error: "Certificate request not found" });
       }
+      if (req.userRole !== "superadmin") {
+        const currentUser = await prisma.user.findUnique({ where: { id: req.userId }, select: { companyId: true } });
+        const isOwner = request.charger?.owner_id === req.userId;
+        const isSameCompany = currentUser?.companyId && (
+          request.charger?.chargingStation?.companyId === currentUser.companyId ||
+          request.charger?.owner?.companyId === currentUser.companyId
+        );
+        if (!isOwner && !isSameCompany) {
+          return res.status(403).json({ success: false, error: "Access denied: Charger not within your organization" });
+        }
+      }
       targetCsr = request.csr;
       targetChargerId = request.chargerId;
       targetCertType = request.certificateType;
+    }
+
+    if (targetChargerId && req.userRole !== "superadmin" && !requestId) {
+      const charger = await prisma.charger.findUnique({
+        where: { charger_id: targetChargerId },
+        include: { chargingStation: true, owner: true },
+      });
+      if (charger) {
+        const currentUser = await prisma.user.findUnique({ where: { id: req.userId }, select: { companyId: true } });
+        const isOwner = charger.owner_id === req.userId;
+        const isSameCompany = currentUser?.companyId && (
+          charger.chargingStation?.companyId === currentUser.companyId ||
+          charger.owner?.companyId === currentUser.companyId
+        );
+        if (!isOwner && !isSameCompany) {
+          return res.status(403).json({ success: false, error: "Access denied: Charger not within your organization" });
+        }
+      }
     }
 
     if (!targetCsr) {
@@ -171,6 +215,26 @@ export const installCertificateToCharger = async (req: AuthRequest, res: Respons
     }
 
     const cid = Number(chargerId);
+
+    if (req.userRole !== "superadmin") {
+      const charger = await prisma.charger.findUnique({
+        where: { charger_id: cid },
+        include: { chargingStation: true, owner: true },
+      });
+      if (!charger) {
+        return res.status(404).json({ success: false, error: "Charger not found" });
+      }
+      const currentUser = await prisma.user.findUnique({ where: { id: req.userId }, select: { companyId: true } });
+      const isOwner = charger.owner_id === req.userId;
+      const isSameCompany = currentUser?.companyId && (
+        charger.chargingStation?.companyId === currentUser.companyId ||
+        charger.owner?.companyId === currentUser.companyId
+      );
+      if (!isOwner && !isSameCompany) {
+        return res.status(403).json({ success: false, error: "Access denied: Charger not within your organization" });
+      }
+    }
+
     const rpcResult = await installCertificate(cid, certificateType, certificatePem);
 
     const hashData = PkiCertificateService.compute15118CertificateHashData(certificatePem);
@@ -213,10 +277,23 @@ export const deleteCertificateFromCharger = async (req: AuthRequest, res: Respon
 
     const cert = await prisma.installedCertificate.findUnique({
       where: { id: Number(id) },
+      include: { charger: { include: { chargingStation: true, owner: true } } },
     });
 
     if (!cert) {
       return res.status(404).json({ success: false, error: "Certificate not found" });
+    }
+
+    if (req.userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: req.userId }, select: { companyId: true } });
+      const isOwner = cert.charger?.owner_id === req.userId;
+      const isSameCompany = currentUser?.companyId && (
+        cert.charger?.chargingStation?.companyId === currentUser.companyId ||
+        cert.charger?.owner?.companyId === currentUser.companyId
+      );
+      if (!isOwner && !isSameCompany) {
+        return res.status(403).json({ success: false, error: "Access denied: Certificate charger not within your organization" });
+      }
     }
 
     let rpcResult = { status: "Accepted" };

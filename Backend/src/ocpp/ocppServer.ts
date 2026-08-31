@@ -2,6 +2,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import * as http from "http";
 import * as https from "https";
 import * as fs from "fs";
+import * as crypto from "crypto";
 import { config } from "../config/index.js";
 import { prisma } from "../config/database.js";
 import { logger } from "../utils/logger.js";
@@ -214,12 +215,18 @@ class OcppServer {
             return;
           }
 
-          const base64Credentials = authHeader.split(' ')[1];
+          const base64Credentials = authHeader.split(' ')[1] || '';
           const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
           const separatorIndex = credentials.indexOf(':');
           const password = separatorIndex !== -1 ? credentials.slice(separatorIndex + 1) : '';
 
-          if (password !== charger.authPassword) {
+          const expectedPassword = charger.authPassword || '';
+          const passwordBuf = Buffer.from(password, 'utf-8');
+          const expectedBuf = Buffer.from(expectedPassword, 'utf-8');
+
+          const isMatch = passwordBuf.length === expectedBuf.length && expectedBuf.length > 0 && crypto.timingSafeEqual(passwordBuf, expectedBuf);
+
+          if (!isMatch) {
             logger.warn(`Charger ${chargerIdStr} provided invalid auth password`);
             socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
             socket.destroy();

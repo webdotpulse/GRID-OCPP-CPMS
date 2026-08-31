@@ -12,8 +12,11 @@ import {
   sendRawFrame,
   getRfidTags,
 } from "./simulator.controller.js";
+import { requireAdmin } from "../../middleware/auth.js";
 
 const router = Router();
+
+router.use(requireAdmin as any);
 
 router.get("/templates", getTemplates);
 router.get("/sessions", getSessions);

@@ -15,13 +15,15 @@ export const getMandates = async (req: AuthRequest, res: Response) => {
 
     const where: any = {};
 
-    if (!isAdmin) {
+    if (req.userRole !== "superadmin") {
       const user = await prisma.user.findUnique({
         where: { id: req.userId },
         select: { id: true, companyId: true },
       });
 
-      if (user?.companyId) {
+      if (req.userRole === "admin" && user?.companyId) {
+        where.companyId = user.companyId;
+      } else if (user?.companyId) {
         where.OR = [{ userId: user.id }, { companyId: user.companyId }];
       } else {
         where.userId = req.userId;
@@ -266,6 +268,13 @@ export const exportDirectDebitXml = async (req: AuthRequest, res: Response) => {
     const where: any = {
       status: { in: ["issued", "pending"] },
     };
+
+    if (req.userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: req.userId }, select: { companyId: true } });
+      if (currentUser?.companyId) {
+        where.companyId = currentUser.companyId;
+      }
+    }
 
     if (invoiceIds && Array.isArray(invoiceIds) && invoiceIds.length > 0) {
       where.id = { in: invoiceIds.map((id: any) => Number(id)) };

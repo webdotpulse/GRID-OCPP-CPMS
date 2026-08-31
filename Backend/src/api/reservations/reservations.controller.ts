@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { AuthRequest } from "../../middleware/auth.js";
+import { prisma } from "../../config/database.js";
 import { ReservationService } from "../../services/ReservationService.js";
 import { AuditLogService } from "../../services/AuditLogService.js";
 import { logger } from "../../utils/logger.js";
@@ -98,6 +99,18 @@ export const cancelReservation = async (req: AuthRequest, res: Response) => {
     const reservationId = parseInt(idParam, 10);
     if (isNaN(reservationId)) {
       return res.status(400).json({ success: false, error: "Invalid reservation ID" });
+    }
+
+    if (req.userRole !== "admin" && req.userRole !== "superadmin") {
+      const reservation = await prisma.reservation.findUnique({
+        where: { reservationId },
+      });
+      if (!reservation) {
+        return res.status(404).json({ success: false, error: "Reservation not found" });
+      }
+      if (reservation.userId !== req.userId) {
+        return res.status(403).json({ success: false, error: "Access denied: You cannot cancel another user's reservation" });
+      }
     }
 
     const result = await ReservationService.cancelReservation(reservationId);

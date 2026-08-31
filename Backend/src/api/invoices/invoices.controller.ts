@@ -136,7 +136,7 @@ export const sendInvoiceEmail = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ success: false, error: "Invalid invoice ID" });
     }
 
-    const result = await InvoiceService.emailInvoice(id);
+    const result = await InvoiceService.emailInvoice(id, req.userRole, req.userId);
     res.json(result);
   } catch (error: any) {
     logger.error(`Error emailing invoice #${req.params.id}:`, error);
@@ -162,7 +162,7 @@ export const updateInvoiceStatus = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const updated = await InvoiceService.updateInvoiceStatus(id, status, notes, req.userRole);
+    const updated = await InvoiceService.updateInvoiceStatus(id, status, notes, req.userRole, req.userId);
     res.json({ success: true, data: updated });
   } catch (error: any) {
     logger.error(`Error updating status for invoice #${req.params.id}:`, error);

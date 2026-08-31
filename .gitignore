@@ -1,5 +1,30 @@
-node_modules
-Backend/node_modules
+node_modules/
+Backend/node_modules/
+Frontend/node_modules/
+
+# Logs
+*.log
+logs/
+Backend/logs/
+
+# Build artifacts
+dist/
+Backend/dist/
+.next/
+Frontend/.next/
+Frontend/out/
+Frontend/build/
+
+# Typescript & cache
+*.tsbuildinfo
+.eslintcache
+.DS_Store
+
+# Environment files
+.env
+.env*.local
+
+# Backup and temp files
 *.orig
 *.rej
 *.bak

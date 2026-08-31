@@ -217,6 +217,13 @@ export const getCompanyById = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ success: false, error: "Client not found" });
     }
 
+    if (req.userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: req.userId }, select: { companyId: true } });
+      if (!currentUser?.companyId || currentUser.companyId !== id) {
+        return res.status(403).json({ success: false, error: "Access denied: Cannot access external company profile" });
+      }
+    }
+
     let totalChargersCount = 0;
     let totalPowerCapacityKw = 0;
 
@@ -252,6 +259,10 @@ export const getCompanyById = async (req: AuthRequest, res: Response) => {
  */
 export const createCompany = async (req: AuthRequest, res: Response) => {
   try {
+    if (req.userRole !== "superadmin") {
+      return res.status(403).json({ success: false, error: "Superadmin access required to create company profiles" });
+    }
+
     const {
       name,
       clientNumber,

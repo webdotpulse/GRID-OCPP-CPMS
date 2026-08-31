@@ -255,10 +255,23 @@ export const attachChargerProduct = async (req: AuthRequest, res: Response) => {
 
     const charger = await prisma.charger.findUnique({
       where: { charger_id: chargerId },
+      include: { chargingStation: true, owner: true },
     });
 
     if (!charger) {
       return res.status(404).json({ success: false, error: "Charger not found" });
+    }
+
+    if (req.userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: req.userId }, select: { companyId: true } });
+      const isOwner = charger.owner_id === req.userId;
+      const isSameCompany = currentUser?.companyId && (
+        charger.chargingStation?.companyId === currentUser.companyId ||
+        charger.owner?.companyId === currentUser.companyId
+      );
+      if (!isOwner && !isSameCompany) {
+        return res.status(403).json({ success: false, error: "Access denied: Charger not in your organization" });
+      }
     }
 
     if (productId !== null && productId !== undefined && productId !== "") {

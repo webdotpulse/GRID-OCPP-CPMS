@@ -394,6 +394,16 @@ export const createCharger = async (req: Request, res: Response) => {
     // @ts-expect-error userId is attached by authenticateToken middleware
     const currentUserId = req.userId;
 
+    // Tenant check on station
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: currentUserId }, select: { companyId: true } });
+      const isOwner = station.owner_id === currentUserId;
+      const isSameCompany = currentUser?.companyId && station.companyId === currentUser.companyId;
+      if (!isOwner && !isSameCompany) {
+        return res.status(403).json({ success: false, error: "Access denied: Target charging station does not belong to your organization" });
+      }
+    }
+
     const owner_id = (userRole === "admin" || userRole === "superadmin") && data.owner_id ? data.owner_id : currentUserId;
 
     const { tariffId, ...chargerData } = data;
@@ -647,6 +657,36 @@ export const deleteCharger = async (req: Request, res: Response) => {
 export const createBulkConnectors = async (req: Request, res: Response) => {
   try {
     const connectors = req.body;
+
+    if (!Array.isArray(connectors) || connectors.length === 0) {
+      return res.status(400).json({ success: false, error: "Connectors array required" });
+    }
+
+    // @ts-expect-error userRole is attached by authenticateToken middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken middleware
+    const userId = req.userId;
+
+    if (userRole !== "superadmin") {
+      const evseIds = [...new Set(connectors.map((c: any) => c.evse_id).filter(Boolean))];
+      const evses = await prisma.evse.findMany({
+        where: { id: { in: evseIds } },
+        include: { charger: { include: { chargingStation: true, owner: true } } },
+      });
+
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+
+      for (const evse of evses) {
+        const isOwner = evse.charger?.owner_id === userId;
+        const isSameCompany = currentUser?.companyId && (
+          evse.charger?.chargingStation?.companyId === currentUser.companyId ||
+          evse.charger?.owner?.companyId === currentUser.companyId
+        );
+        if (!isOwner && !isSameCompany) {
+          return res.status(403).json({ success: false, error: "Access denied: One or more target EVSEs do not belong to your organization" });
+        }
+      }
+    }
 
     const created = await prisma.connector.createMany({
       data: connectors,

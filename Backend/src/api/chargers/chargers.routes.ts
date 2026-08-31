@@ -27,10 +27,10 @@ import { requireAdmin } from "../../middleware/auth.js";
 const router = Router();
 
 router.get("/", getAllChargers);
-router.post("/combine", combineChargers);
-router.post("/uncombine", uncombineChargers);
+router.post("/combine", requireAdmin, combineChargers);
+router.post("/uncombine", requireAdmin, uncombineChargers);
 router.get("/unrecognized", getUnrecognizedConnections);
-router.delete("/unrecognized", deleteUnrecognizedConnections);
+router.delete("/unrecognized", requireAdmin, deleteUnrecognizedConnections);
 
 // Local Authorization List routes
 router.get("/:id/local-auth-list", getLocalAuthList);
@@ -42,11 +42,11 @@ router.get("/:id/status", getChargerStatus);
 router.get("/:id/logs", getChargerLogs);
 router.get("/:id/configurations", getChargerConfigurations);
 router.get("/:id/combine-candidates", getCombineCandidates);
-router.post("/:id/phase-commutation", triggerPhaseCommutation);
-router.post("/", createCharger);
+router.post("/:id/phase-commutation", requireAdmin, triggerPhaseCommutation);
+router.post("/", requireAdmin, createCharger);
 router.put("/:id", updateCharger);
 router.delete("/:id", deleteCharger);
-router.post("/connectors", createBulkConnectors);
+router.post("/connectors", requireAdmin, createBulkConnectors);
 
 router.get("/:id/predictive-schedule", getPredictiveSchedule);
 

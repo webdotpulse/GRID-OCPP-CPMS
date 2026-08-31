@@ -45,7 +45,8 @@ export const config = {
 
 export const logLevels = ["error", "warn", "info", "debug"] as const;
 
-if (process.env.NODE_ENV === "production" && (!process.env.JWT_SECRET || process.env.JWT_SECRET === "your-jwt-secret-key-change-in-production")) {
-  console.warn("⚠️ SECURITY WARNING: Insecure default JWT_SECRET is configured in production mode. Set a strong JWT_SECRET environment variable immediately.");
+if (process.env.NODE_ENV === "production" && (!process.env.JWT_SECRET || process.env.JWT_SECRET === "your-jwt-secret-key-change-in-production" || process.env.JWT_SECRET.length < 32)) {
+  throw new Error("FATAL SECURITY CONFIGURATION ERROR: Insecure or missing JWT_SECRET in production mode. Set a strong JWT_SECRET environment variable (minimum 32 characters).");
 }
+
 

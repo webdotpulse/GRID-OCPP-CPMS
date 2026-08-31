@@ -15,8 +15,11 @@ import {
   exportPlaybooks,
   importPlaybooks,
 } from "./autoHealPlaybooks.controller.js";
+import { requireAdmin } from "../../middleware/auth.js";
 
 const router = Router();
+
+router.use(requireAdmin as any);
 
 // Collections & Analytics
 router.get("/stats", getPlaybookStats);

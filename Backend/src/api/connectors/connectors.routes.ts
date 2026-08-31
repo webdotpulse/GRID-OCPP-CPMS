@@ -6,13 +6,14 @@ import {
   updateConnector,
   deleteConnector,
 } from "./connectors.controller.js";
+import { requireAdmin } from "../../middleware/auth.js";
 
 const router = Router();
 
 router.get("/", getAllConnectors);
 router.get("/:id", getConnectorById);
-router.post("/", createConnector);
-router.put("/:id", updateConnector);
-router.delete("/:id", deleteConnector);
+router.post("/", requireAdmin, createConnector);
+router.put("/:id", requireAdmin, updateConnector);
+router.delete("/:id", requireAdmin, deleteConnector);
 
 export default router;

@@ -770,13 +770,12 @@ export class InvoiceService {
     if (!invoice) return null;
 
     // Tenant check
-    const isAdmin = userRole === "admin" || userRole === "superadmin";
-    if (!isAdmin && userId) {
-      if (invoice.userId !== userId) {
-        const user = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
-        if (!user?.companyId || user.companyId !== invoice.companyId) {
-          throw new Error("Access denied: You do not have permission to view this invoice.");
-        }
+    if (userRole !== "superadmin" && userId) {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      const isOwner = invoice.userId === userId;
+      const isSameCompany = user?.companyId && invoice.companyId === user.companyId;
+      if (!isOwner && !isSameCompany) {
+        throw new Error("Access denied: You do not have permission to view this invoice.");
       }
     }
 
@@ -786,10 +785,21 @@ export class InvoiceService {
   /**
    * Updates status of an invoice (e.g. mark as paid).
    */
-  static async updateInvoiceStatus(id: number, status: string, notes?: string, userRole?: string) {
+  static async updateInvoiceStatus(id: number, status: string, notes?: string, userRole?: string, userId?: number) {
     const isAdmin = userRole === "admin" || userRole === "superadmin";
     if (!isAdmin) {
       throw new Error("Permission denied: Only administrators can update invoice status.");
+    }
+
+    if (userRole !== "superadmin" && userId) {
+      const existing = await prisma.invoice.findUnique({ where: { id }, select: { companyId: true, userId: true } });
+      if (!existing) {
+        throw new Error("Invoice not found");
+      }
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      if (!user?.companyId || user.companyId !== existing.companyId) {
+        throw new Error("Permission denied: You do not have permission to modify this invoice.");
+      }
     }
 
     const data: any = { status };
@@ -811,7 +821,7 @@ export class InvoiceService {
   /**
    * Email invoice PDF to recipient via MailService / mailer.
    */
-  static async emailInvoice(invoiceId: number): Promise<{ success: boolean; message: string }> {
+  static async emailInvoice(invoiceId: number, userRole?: string, userId?: number): Promise<{ success: boolean; message: string }> {
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: { user: true, company: true },
@@ -819,6 +829,13 @@ export class InvoiceService {
 
     if (!invoice) {
       throw new Error(`Invoice #${invoiceId} not found.`);
+    }
+
+    if (userRole && userRole !== "superadmin" && userId) {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      if (!user?.companyId || user.companyId !== invoice.companyId) {
+        throw new Error("Access denied: Cannot email invoice from another organization.");
+      }
     }
 
     const recipientEmail = invoice.recipientEmail || invoice.user?.email;

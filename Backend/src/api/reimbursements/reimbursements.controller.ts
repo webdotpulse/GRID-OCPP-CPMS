@@ -225,10 +225,24 @@ export const markLedgerPaid = async (req: AuthRequest, res: Response) => {
 
     const ledger = await prisma.reimbursementLedger.findUnique({
       where: { id: ledgerId },
+      include: {
+        contract: {
+          include: {
+            user: { select: { id: true, companyId: true } },
+          },
+        },
+      },
     });
 
     if (!ledger) {
       return res.status(404).json({ success: false, error: "Reimbursement ledger not found" });
+    }
+
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: req.userId }, select: { companyId: true } });
+      if (!currentUser?.companyId || currentUser.companyId !== ledger.contract?.user?.companyId) {
+        return res.status(403).json({ success: false, error: "Access denied: Ledger not within your organization" });
+      }
     }
 
     const updated = await prisma.reimbursementLedger.update({

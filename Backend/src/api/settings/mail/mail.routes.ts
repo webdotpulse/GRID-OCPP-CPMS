@@ -1,12 +1,10 @@
 import { Router } from "express";
 import { getMailConfig, updateMailConfig } from "./mail.controller.js";
-import { requireAdmin } from "../../../middleware/auth.js";
+import { requireAdmin, requireSuperAdmin } from "../../../middleware/auth.js";
 
 const router = Router();
 
-router.use(requireAdmin as any);
-
-router.get("/", getMailConfig);
-router.put("/", updateMailConfig);
+router.get("/", requireAdmin, getMailConfig);
+router.put("/", requireSuperAdmin, updateMailConfig);
 
 export default router;

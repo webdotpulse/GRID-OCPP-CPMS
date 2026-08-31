@@ -448,6 +448,32 @@ export const getParkingSpots = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Invalid station ID" });
     }
 
+    // @ts-expect-error userRole is attached by authenticateToken middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken middleware
+    const userId = req.userId;
+
+    const station = await prisma.chargingStation.findUnique({
+      where: { id: stationId },
+      include: { owner: true },
+    });
+
+    if (!station) {
+      return res.status(404).json({ success: false, error: "Station not found" });
+    }
+
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      const isOwner = station.owner_id === userId;
+      const isSameCompany = currentUser?.companyId && (
+        station.companyId === currentUser.companyId ||
+        station.owner?.companyId === currentUser.companyId
+      );
+      if (!isOwner && !isSameCompany) {
+        return res.status(403).json({ success: false, error: "Access denied: Station not within your organization" });
+      }
+    }
+
     const parkingSpots = await prisma.parkingSpot.findMany({
       where: { stationId },
       include: {
@@ -479,6 +505,32 @@ export const updateParkingSpots = async (req: Request, res: Response) => {
     const stationId = parseId(req.params.id);
     if (!stationId) {
       return res.status(400).json({ success: false, error: "Invalid station ID" });
+    }
+
+    // @ts-expect-error userRole is attached by authenticateToken middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken middleware
+    const userId = req.userId;
+
+    const station = await prisma.chargingStation.findUnique({
+      where: { id: stationId },
+      include: { owner: true },
+    });
+
+    if (!station) {
+      return res.status(404).json({ success: false, error: "Station not found" });
+    }
+
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      const isOwner = station.owner_id === userId;
+      const isSameCompany = currentUser?.companyId && (
+        station.companyId === currentUser.companyId ||
+        station.owner?.companyId === currentUser.companyId
+      );
+      if (!isOwner && !isSameCompany) {
+        return res.status(403).json({ success: false, error: "Access denied: Station not within your organization" });
+      }
     }
 
     const spots = req.body.spots || [];

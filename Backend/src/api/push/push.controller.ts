@@ -21,7 +21,11 @@ export const getVapidPublicKey = async (req: Request, res: Response) => {
 export const subscribePush = async (req: Request, res: Response) => {
   try {
     // @ts-expect-error userId attached by authenticateToken
-    const userId = req.userId || (req.body.userId ? Number(req.body.userId) : 1);
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
     const { endpoint, keys } = req.body;
 
     if (!endpoint || !keys?.p256dh || !keys?.auth) {
@@ -60,7 +64,11 @@ export const unsubscribePush = async (req: Request, res: Response) => {
 export const sendTestPush = async (req: Request, res: Response) => {
   try {
     // @ts-expect-error userId attached by authenticateToken
-    const userId = req.userId || (req.body.userId ? Number(req.body.userId) : 1);
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
     const { title, body } = req.body;
 
     const result = await WebPushService.sendNotificationToUser(userId, {

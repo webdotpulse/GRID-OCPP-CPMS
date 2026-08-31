@@ -3,11 +3,11 @@ import {
   getEntsoeApiKey,
   updateEntsoeApiKey,
 } from "./tariffs.controller.js";
-import { requireAdmin } from "../../../middleware/auth.js";
+import { requireAdmin, requireSuperAdmin } from "../../../middleware/auth.js";
 
 const router = Router();
 
 router.get("/entsoe-key", requireAdmin, getEntsoeApiKey);
-router.post("/entsoe-key", requireAdmin, updateEntsoeApiKey);
+router.post("/entsoe-key", requireSuperAdmin, updateEntsoeApiKey);
 
 export default router;

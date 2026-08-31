@@ -603,6 +603,9 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
         return res.status(403).json({ success: false, error: "Forbidden: Cannot delete superadmin account" });
       }
       if (req.userId !== id) {
+        if (req.userRole !== "admin" && req.userRole !== "client_admin") {
+          return res.status(403).json({ success: false, error: "Forbidden: Insufficient permissions to delete other users" });
+        }
         const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
         if (!currentUser?.companyId || currentUser.companyId !== targetUser.companyId) {
           return res.status(403).json({ success: false, error: "Access denied: User not in your organization" });

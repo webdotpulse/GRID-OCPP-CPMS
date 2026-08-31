@@ -11,11 +11,15 @@ export const getEntsoeApiKey = async (req: Request, res: Response) => {
       where: { key: "ENTSOE_API_KEY" }
     });
 
+    const maskedKey = setting?.value && setting.value.length > 8
+      ? `${setting.value.slice(0, 4)}...${setting.value.slice(-4)}`
+      : setting?.value ? "********" : "";
+
     res.status(200).json({
       success: true,
       data: {
         hasKey: !!setting?.value,
-        key: setting?.value || "" // send it if you want to allow them to see it or obscure it
+        key: maskedKey
       }
     });
   } catch (error) {
@@ -33,6 +37,10 @@ export const updateEntsoeApiKey = async (req: Request, res: Response) => {
 
     if (key === undefined) {
       return res.status(400).json({ success: false, error: "Missing key in body" });
+    }
+
+    if (typeof key === "string" && (key.includes("...") || key === "********")) {
+      return res.status(200).json({ success: true, message: "API key unchanged" });
     }
 
     await prisma.systemSetting.upsert({

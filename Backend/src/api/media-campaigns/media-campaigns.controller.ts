@@ -27,6 +27,21 @@ export const createCampaign = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Missing required fields" });
     }
 
+    // @ts-expect-error userRole attached by middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId attached by middleware
+    const userId = req.userId;
+
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      if (stationId) {
+        const station = await prisma.chargingStation.findUnique({ where: { id: parseInt(stationId) } });
+        if (!station || (station.owner_id !== userId && (!currentUser?.companyId || station.companyId !== currentUser.companyId))) {
+          return res.status(403).json({ success: false, error: "Access denied: Station not in your organization" });
+        }
+      }
+    }
+
     // @ts-ignore
     const campaign = await (prisma as any).mediaCampaign.create({
       data: {
@@ -77,6 +92,11 @@ export const pushCampaign = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, error: "Campaign not found" });
     }
 
+    // @ts-expect-error userRole attached by middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId attached by middleware
+    const userId = req.userId;
+
     // Find targeted chargers
     let targetChargers: any[] = [];
 
@@ -86,6 +106,12 @@ export const pushCampaign = async (req: Request, res: Response) => {
         include: { chargers: true }
       });
       if (station) {
+        if (userRole !== "superadmin") {
+          const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+          if (station.owner_id !== userId && (!currentUser?.companyId || station.companyId !== currentUser.companyId)) {
+            return res.status(403).json({ success: false, error: "Access denied: Station not in your organization" });
+          }
+        }
         targetChargers = [...targetChargers, ...station.chargers];
       }
     }

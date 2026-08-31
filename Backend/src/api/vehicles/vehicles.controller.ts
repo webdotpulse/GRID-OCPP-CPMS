@@ -7,14 +7,28 @@ import { parseId, parsePagination } from "../../utils/validation.js";
 /**
  * List all ISO 15118 Vehicle Contract Certificates with pagination
  */
-export const getCertificates = async (req: Request, res: Response): Promise<void> => {
+export const getCertificates = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { page, limit } = parsePagination(req.query.page, req.query.limit);
     const skip = (page - 1) * limit;
 
+    const userRole = req.userRole;
+    const userId = req.userId;
+
+    const where: any = {};
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      if (userRole === "admin" && currentUser?.companyId) {
+        where.user = { companyId: currentUser.companyId };
+      } else {
+        where.userId = userId;
+      }
+    }
+
     const [total, certificates] = await Promise.all([
-      prisma.vehicleContractCertificate.count(),
+      prisma.vehicleContractCertificate.count({ where }),
       prisma.vehicleContractCertificate.findMany({
+        where,
         skip,
         take: limit,
         include: {
@@ -46,7 +60,7 @@ export const getAll = getCertificates;
 /**
  * Get a specific Vehicle Contract Certificate by ID
  */
-export const getCertificateById = async (req: Request, res: Response): Promise<void> => {
+export const getCertificateById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = parseId(req.params.id);
     if (!id) {
@@ -54,10 +68,13 @@ export const getCertificateById = async (req: Request, res: Response): Promise<v
       return;
     }
 
+    const userRole = req.userRole;
+    const userId = req.userId;
+
     const cert = await prisma.vehicleContractCertificate.findUnique({
       where: { id },
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, companyId: true } },
         rfidUser: { select: { rfid_user_id: true, rfid_tag: true } },
       },
     });
@@ -65,6 +82,16 @@ export const getCertificateById = async (req: Request, res: Response): Promise<v
     if (!cert) {
       res.status(404).json({ success: false, error: "Certificate not found" });
       return;
+    }
+
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      const isOwner = cert.userId === userId;
+      const isSameCompany = currentUser?.companyId && cert.user?.companyId === currentUser.companyId;
+      if (!isOwner && !isSameCompany) {
+        res.status(403).json({ success: false, error: "Access denied: Certificate not in your organization" });
+        return;
+      }
     }
 
     res.json({ success: true, data: cert });
@@ -77,13 +104,27 @@ export const getCertificateById = async (req: Request, res: Response): Promise<v
 /**
  * Create a new ISO 15118 Vehicle Contract Certificate
  */
-export const createCertificate = async (req: Request, res: Response): Promise<void> => {
+export const createCertificate = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { emaid, macAddress, contractCert, status, expirationDate, userId, rfidUserId } = req.body;
 
-    if (!emaid || !userId) {
+    const userRole = req.userRole;
+    const authUserId = req.userId;
+
+    const targetUserId = userId ? Number(userId) : authUserId;
+
+    if (!emaid || !targetUserId) {
       res.status(400).json({ success: false, error: "emaid and userId are required" });
       return;
+    }
+
+    if (userRole !== "superadmin" && targetUserId !== authUserId) {
+      const currentUser = await prisma.user.findUnique({ where: { id: authUserId }, select: { companyId: true } });
+      const targetUser = await prisma.user.findUnique({ where: { id: targetUserId }, select: { companyId: true } });
+      if (userRole !== "admin" || !currentUser?.companyId || currentUser.companyId !== targetUser?.companyId) {
+        res.status(403).json({ success: false, error: "Access denied: Cannot register certificate for another user" });
+        return;
+      }
     }
 
     let expDate = expirationDate ? new Date(expirationDate) : undefined;
@@ -99,7 +140,7 @@ export const createCertificate = async (req: Request, res: Response): Promise<vo
         contractCert: contractCert || null,
         status: status || "Valid",
         expirationDate: expDate,
-        userId: Number(userId),
+        userId: Number(targetUserId),
         rfidUserRfid_user_id: rfidUserId ? Number(rfidUserId) : null,
       },
     });
@@ -120,12 +161,35 @@ export const create = createCertificate;
 /**
  * Update an existing Vehicle Contract Certificate
  */
-export const updateCertificate = async (req: Request, res: Response): Promise<void> => {
+export const updateCertificate = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = parseId(req.params.id);
     if (!id) {
       res.status(400).json({ success: false, error: "Invalid certificate ID" });
       return;
+    }
+
+    const userRole = req.userRole;
+    const authUserId = req.userId;
+
+    const existingCert = await prisma.vehicleContractCertificate.findUnique({
+      where: { id },
+      include: { user: { select: { id: true, companyId: true } } },
+    });
+
+    if (!existingCert) {
+      res.status(404).json({ success: false, error: "Certificate not found" });
+      return;
+    }
+
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: authUserId }, select: { companyId: true } });
+      const isOwner = existingCert.userId === authUserId;
+      const isSameCompany = currentUser?.companyId && existingCert.user?.companyId === currentUser.companyId;
+      if (!isOwner && !isSameCompany) {
+        res.status(403).json({ success: false, error: "Access denied: Certificate not in your organization" });
+        return;
+      }
     }
 
     const { status, macAddress, contractCert, expirationDate } = req.body;
@@ -152,12 +216,35 @@ export const update = updateCertificate;
 /**
  * Delete a Vehicle Contract Certificate
  */
-export const deleteCertificate = async (req: Request, res: Response): Promise<void> => {
+export const deleteCertificate = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = parseId(req.params.id);
     if (!id) {
       res.status(400).json({ success: false, error: "Invalid certificate ID" });
       return;
+    }
+
+    const userRole = req.userRole;
+    const authUserId = req.userId;
+
+    const existingCert = await prisma.vehicleContractCertificate.findUnique({
+      where: { id },
+      include: { user: { select: { id: true, companyId: true } } },
+    });
+
+    if (!existingCert) {
+      res.status(404).json({ success: false, error: "Certificate not found" });
+      return;
+    }
+
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: authUserId }, select: { companyId: true } });
+      const isOwner = existingCert.userId === authUserId;
+      const isSameCompany = currentUser?.companyId && existingCert.user?.companyId === currentUser.companyId;
+      if (!isOwner && !isSameCompany) {
+        res.status(403).json({ success: false, error: "Access denied: Certificate not in your organization" });
+        return;
+      }
     }
 
     await prisma.vehicleContractCertificate.delete({ where: { id } });

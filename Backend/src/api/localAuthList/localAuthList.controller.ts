@@ -1,8 +1,25 @@
 import { Response } from "express";
 import { AuthRequest } from "../../middleware/auth.js";
+import { prisma } from "../../config/database.js";
 import { LocalAuthListService } from "../../services/LocalAuthListService.js";
 import { AuditLogService } from "../../services/AuditLogService.js";
 import { logger } from "../../utils/logger.js";
+
+async function verifyChargerAccess(chargerId: number, req: AuthRequest): Promise<boolean> {
+  if (req.userRole === "superadmin") return true;
+  const charger = await prisma.charger.findUnique({
+    where: { charger_id: chargerId },
+    include: { chargingStation: true, owner: true },
+  });
+  if (!charger) return false;
+  const currentUser = await prisma.user.findUnique({ where: { id: req.userId }, select: { companyId: true } });
+  const isOwner = charger.owner_id === req.userId;
+  const isSameCompany = currentUser?.companyId && (
+    charger.chargingStation?.companyId === currentUser.companyId ||
+    charger.owner?.companyId === currentUser.companyId
+  );
+  return !!(isOwner || isSameCompany);
+}
 
 /**
  * GET /api/chargers/:id/local-auth-list
@@ -13,6 +30,11 @@ export const getLocalAuthList = async (req: AuthRequest, res: Response) => {
     const chargerId = parseInt(idParam, 10);
     if (isNaN(chargerId)) {
       return res.status(400).json({ success: false, error: "Invalid charger ID" });
+    }
+
+    const hasAccess = await verifyChargerAccess(chargerId, req);
+    if (!hasAccess) {
+      return res.status(403).json({ success: false, error: "Access denied: Charger not in your organization" });
     }
 
     const localList = await LocalAuthListService.getLocalAuthList(chargerId);
@@ -34,6 +56,11 @@ export const syncLocalAuthList = async (req: AuthRequest, res: Response) => {
 
     if (isNaN(chargerId)) {
       return res.status(400).json({ success: false, error: "Invalid charger ID" });
+    }
+
+    const hasAccess = await verifyChargerAccess(chargerId, req);
+    if (!hasAccess) {
+      return res.status(403).json({ success: false, error: "Access denied: Charger not in your organization" });
     }
 
     const result = await LocalAuthListService.syncLocalAuthList(
@@ -68,6 +95,11 @@ export const queryLocalListVersion = async (req: AuthRequest, res: Response) => 
     const chargerId = parseInt(idParam, 10);
     if (isNaN(chargerId)) {
       return res.status(400).json({ success: false, error: "Invalid charger ID" });
+    }
+
+    const hasAccess = await verifyChargerAccess(chargerId, req);
+    if (!hasAccess) {
+      return res.status(403).json({ success: false, error: "Access denied: Charger not in your organization" });
     }
 
     const result = await LocalAuthListService.queryChargerListVersion(chargerId);

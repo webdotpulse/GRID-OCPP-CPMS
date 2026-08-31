@@ -106,6 +106,30 @@ export const createChargeGroup = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "users must be an array" });
     }
 
+    // @ts-expect-error userRole is attached by authenticateToken middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken middleware
+    const userId = req.userId;
+
+    if (userRole !== "superadmin" && chargerIds && chargerIds.length > 0) {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      const targetChargers = await prisma.charger.findMany({
+        where: { charger_id: { in: chargerIds } },
+        include: { chargingStation: true, owner: true },
+      });
+
+      for (const ch of targetChargers) {
+        const isOwner = ch.owner_id === userId;
+        const isSameCompany = currentUser?.companyId && (
+          ch.chargingStation?.companyId === currentUser.companyId ||
+          ch.owner?.companyId === currentUser.companyId
+        );
+        if (!isOwner && !isSameCompany) {
+          return res.status(403).json({ success: false, error: `Access denied: Charger #${ch.charger_id} does not belong to your organization` });
+        }
+      }
+    }
+
     const group = await prisma.chargeGroup.create({
       data: {
         name,
@@ -157,6 +181,30 @@ export const updateChargeGroup = async (req: Request, res: Response) => {
 
     if (users && !Array.isArray(users)) {
       return res.status(400).json({ success: false, error: "users must be an array" });
+    }
+
+    // @ts-expect-error userRole is attached by authenticateToken middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken middleware
+    const userId = req.userId;
+
+    if (userRole !== "superadmin" && chargerIds && chargerIds.length > 0) {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      const targetChargers = await prisma.charger.findMany({
+        where: { charger_id: { in: chargerIds } },
+        include: { chargingStation: true, owner: true },
+      });
+
+      for (const ch of targetChargers) {
+        const isOwner = ch.owner_id === userId;
+        const isSameCompany = currentUser?.companyId && (
+          ch.chargingStation?.companyId === currentUser.companyId ||
+          ch.owner?.companyId === currentUser.companyId
+        );
+        if (!isOwner && !isSameCompany) {
+          return res.status(403).json({ success: false, error: `Access denied: Charger #${ch.charger_id} does not belong to your organization` });
+        }
+      }
     }
 
     // We do a transaction to clear existing relations and recreate them
