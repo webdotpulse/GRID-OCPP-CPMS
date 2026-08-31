@@ -55,6 +55,22 @@ export async function getSessionById(req: Request, res: Response): Promise<void>
 }
 
 /**
+ * Get all available simulated charger templates
+ */
+export async function getTemplates(req: Request, res: Response): Promise<void> {
+  try {
+    const templates = simulatorService.getTemplates();
+    res.json({
+      success: true,
+      data: templates,
+    });
+  } catch (error: any) {
+    logger.error(`Error fetching simulator templates: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
  * 1-Click Quick Provision a test charger & station in DB
  */
 export async function quickProvision(req: Request, res: Response): Promise<void> {
@@ -81,6 +97,7 @@ export async function quickProvision(req: Request, res: Response): Promise<void>
 export async function startSession(req: Request, res: Response): Promise<void> {
   try {
     const {
+      templateId,
       chargerId,
       chargerName,
       protocol = "ocpp1.6",
@@ -90,8 +107,26 @@ export async function startSession(req: Request, res: Response): Promise<void> {
       firmwareVersion,
     } = req.body;
 
+    const userId = (req as any).userId || 1;
+
+    // 1. Template-based launch (Recommended)
+    if (templateId) {
+      const instance = await simulatorService.startTemplateInstance(templateId, {
+        protocol: protocol as OcppProtocol,
+        endpoint,
+        ownerId: userId,
+      });
+
+      res.json({
+        success: true,
+        message: `Simulator for template '${templateId}' started`,
+        data: instance.toJSON(),
+      });
+      return;
+    }
+
     if (!chargerId && !chargerName) {
-      res.status(400).json({ success: false, error: "chargerId or chargerName is required" });
+      res.status(400).json({ success: false, error: "templateId, chargerId, or chargerName is required" });
       return;
     }
 

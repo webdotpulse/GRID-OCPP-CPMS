@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getSessions,
   getSessionById,
+  getTemplates,
   quickProvision,
   startSession,
   stopSession,
@@ -14,6 +15,7 @@ import {
 
 const router = Router();
 
+router.get("/templates", getTemplates);
 router.get("/sessions", getSessions);
 router.get("/sessions/:id", getSessionById);
 router.post("/quick-provision", quickProvision);

@@ -207,7 +207,7 @@ describe("SimulatorService & SimulatedChargerInstance", () => {
       expect(report.suiteId).toBe("happy_path");
       expect(report.passed).toBe(true);
       expect(report.steps.length).toBeGreaterThanOrEqual(6);
-      expect(report.steps.every((s) => s.status === "passed")).toBe(true);
+      expect(report.steps.every((s: any) => s.status === "passed")).toBe(true);
     });
 
     it("should run Smart Charging test suite", async () => {
@@ -221,6 +221,28 @@ describe("SimulatorService & SimulatedChargerInstance", () => {
       const report = await simulatorService.runTestSuite(50, "smart_charging");
       expect(report.suiteId).toBe("smart_charging");
       expect(report.passed).toBe(true);
+    });
+  });
+
+  describe("Charger Templates", () => {
+    it("should return the catalog of 8 realistic hardware templates", () => {
+      const templates = simulatorService.getTemplates();
+      expect(templates.length).toBe(8);
+
+      const alfen = simulatorService.getTemplateById("alfen-eve-single");
+      expect(alfen).toBeDefined();
+      expect(alfen?.vendor).toBe("Alfen");
+      expect(alfen?.powerCapacityKw).toBe(22.0);
+
+      const alpitronic = simulatorService.getTemplateById("alpitronic-hyc300-hpc");
+      expect(alpitronic).toBeDefined();
+      expect(alpitronic?.vendor).toBe("Alpitronic");
+      expect(alpitronic?.powerCapacityKw).toBe(300.0);
+      expect(alpitronic?.defaultProtocol).toBe("ocpp2.1");
+
+      const v2g = simulatorService.getTemplateById("wallbox-quasar2-v2g");
+      expect(v2g).toBeDefined();
+      expect(v2g?.category).toBe("V2G_BIDIRECTIONAL");
     });
   });
 });

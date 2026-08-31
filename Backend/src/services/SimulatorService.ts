@@ -83,6 +83,299 @@ export interface TestSuiteResult {
   steps: TestSuiteStep[];
 }
 
+export interface SimulatedConnectorConfig {
+  id: number;
+  connectorName: string;
+  type: string; // "Type2" | "CCS2" | "CHAdeMO"
+  format: string; // "SOCKET" | "CABLE"
+  maxPowerW: number;
+  maxCurrentAmps: number;
+  maxVoltageVolts: number;
+  currentType: "AC" | "DC";
+  phaseConnection: string;
+}
+
+export interface ChargerTemplate {
+  id: string;
+  name: string;
+  vendor: string;
+  model: string;
+  firmwareVersion: string;
+  category: "AC_WALLBOX" | "AC_DUAL" | "DC_FAST" | "DC_HPC" | "V2G_BIDIRECTIONAL" | "SOLAR_OPTIMIZED";
+  powerCapacityKw: number;
+  defaultProtocol: OcppProtocol;
+  supportedProtocols: OcppProtocol[];
+  description: string;
+  features: string[];
+  connectors: SimulatedConnectorConfig[];
+}
+
+export const CHARGER_TEMPLATES: ChargerTemplate[] = [
+  {
+    id: "alfen-eve-single",
+    name: "Alfen Eve Single Pro-line",
+    vendor: "Alfen",
+    model: "Eve Single Pro-line",
+    firmwareVersion: "v5.14.0-sim",
+    category: "AC_WALLBOX",
+    powerCapacityKw: 22.0,
+    defaultProtocol: "ocpp1.6",
+    supportedProtocols: ["ocpp1.6", "ocpp2.0.1", "ocpp2.1"],
+    description: "Standard residential & commercial smart wallbox with OCPP 1.6-J and dynamic load balancing.",
+    features: ["22 kW AC", "Type 2 Socket", "Smart Charging", "RFID Reader", "EPEX Spot Pricing"],
+    connectors: [
+      {
+        id: 1,
+        connectorName: "Channel 1 (22kW AC)",
+        type: "Type2",
+        format: "SOCKET",
+        maxPowerW: 22000,
+        maxCurrentAmps: 32,
+        maxVoltageVolts: 400,
+        currentType: "AC",
+        phaseConnection: "L1-L2-L3",
+      },
+    ],
+  },
+  {
+    id: "evbox-businessline-dual",
+    name: "EVBox BusinessLine G4 Dual",
+    vendor: "EVBox",
+    model: "BusinessLine G4",
+    firmwareVersion: "v2.5.1-sim",
+    category: "AC_DUAL",
+    powerCapacityKw: 44.0,
+    defaultProtocol: "ocpp1.6",
+    supportedProtocols: ["ocpp1.6", "ocpp2.0.1", "ocpp2.1"],
+    description: "Commercial destination dual-socket station with master-satellite load sharing.",
+    features: ["2x 22 kW AC", "Dual Type 2 Sockets", "Hub / Satellite", "Concurrent Charging", "RFID"],
+    connectors: [
+      {
+        id: 1,
+        connectorName: "EVSE 1 (22kW AC)",
+        type: "Type2",
+        format: "SOCKET",
+        maxPowerW: 22000,
+        maxCurrentAmps: 32,
+        maxVoltageVolts: 400,
+        currentType: "AC",
+        phaseConnection: "L1-L2-L3",
+      },
+      {
+        id: 2,
+        connectorName: "EVSE 2 (22kW AC)",
+        type: "Type2",
+        format: "SOCKET",
+        maxPowerW: 22000,
+        maxCurrentAmps: 32,
+        maxVoltageVolts: 400,
+        currentType: "AC",
+        phaseConnection: "L1-L2-L3",
+      },
+    ],
+  },
+  {
+    id: "abb-terra-184-dc",
+    name: "ABB Terra 184 DC Fast Charger",
+    vendor: "ABB",
+    model: "Terra 184",
+    firmwareVersion: "v4.1.2-sim",
+    category: "DC_FAST",
+    powerCapacityKw: 180.0,
+    defaultProtocol: "ocpp2.0.1",
+    supportedProtocols: ["ocpp1.6", "ocpp2.0.1", "ocpp2.1"],
+    description: "High-power DC fast charger supporting simultaneous CCS2 and CHAdeMO vehicle charging.",
+    features: ["180 kW DC", "CCS2 + CHAdeMO", "OCPP 2.0.1", "Dynamic Power Sharing", "800V Architecture"],
+    connectors: [
+      {
+        id: 1,
+        connectorName: "CCS2 Cable (150kW DC)",
+        type: "CCS2",
+        format: "CABLE",
+        maxPowerW: 150000,
+        maxCurrentAmps: 250,
+        maxVoltageVolts: 800,
+        currentType: "DC",
+        phaseConnection: "DC",
+      },
+      {
+        id: 2,
+        connectorName: "CHAdeMO Cable (50kW DC)",
+        type: "CHAdeMO",
+        format: "CABLE",
+        maxPowerW: 50000,
+        maxCurrentAmps: 125,
+        maxVoltageVolts: 500,
+        currentType: "DC",
+        phaseConnection: "DC",
+      },
+    ],
+  },
+  {
+    id: "alpitronic-hyc300-hpc",
+    name: "Alpitronic Hypercharger HYC300",
+    vendor: "Alpitronic",
+    model: "Hypercharger HYC300",
+    firmwareVersion: "v6.2.0-sim",
+    category: "DC_HPC",
+    powerCapacityKw: 300.0,
+    defaultProtocol: "ocpp2.1",
+    supportedProtocols: ["ocpp1.6", "ocpp2.0.1", "ocpp2.1"],
+    description: "Ultra-fast highway HPC hub with dual liquid-cooled CCS2 cables and native OCPP 2.1 protocol.",
+    features: ["300 kW Ultra-Fast", "Dual Liquid-Cooled CCS2", "OCPP 2.1 Native", "1000V Matrix", "ISO 15118 PnC"],
+    connectors: [
+      {
+        id: 1,
+        connectorName: "HPC Plug A (300kW CCS2)",
+        type: "CCS2",
+        format: "CABLE",
+        maxPowerW: 300000,
+        maxCurrentAmps: 500,
+        maxVoltageVolts: 1000,
+        currentType: "DC",
+        phaseConnection: "DC",
+      },
+      {
+        id: 2,
+        connectorName: "HPC Plug B (300kW CCS2)",
+        type: "CCS2",
+        format: "CABLE",
+        maxPowerW: 300000,
+        maxCurrentAmps: 500,
+        maxVoltageVolts: 1000,
+        currentType: "DC",
+        phaseConnection: "DC",
+      },
+    ],
+  },
+  {
+    id: "wallbox-quasar2-v2g",
+    name: "Wallbox Quasar 2 V2G / V2H",
+    vendor: "Wallbox",
+    model: "Quasar 2 V2G",
+    firmwareVersion: "v2.0.0-v2g",
+    category: "V2G_BIDIRECTIONAL",
+    powerCapacityKw: 22.0,
+    defaultProtocol: "ocpp2.1",
+    supportedProtocols: ["ocpp1.6", "ocpp2.0.1", "ocpp2.1"],
+    description: "Bidirectional vehicle-to-grid charger capable of EV battery discharging for grid frequency stabilization.",
+    features: ["22 kW Bidirectional", "V2G / V2H Discharging", "Peak Shaving", "ISO 15118-20 V2G", "Blackout Backup"],
+    connectors: [
+      {
+        id: 1,
+        connectorName: "V2G Plug (22kW Bidirectional)",
+        type: "CCS2",
+        format: "CABLE",
+        maxPowerW: 22000,
+        maxCurrentAmps: 32,
+        maxVoltageVolts: 500,
+        currentType: "DC",
+        phaseConnection: "DC",
+      },
+    ],
+  },
+  {
+    id: "kempower-satellite-t800",
+    name: "Kempower Satellite T800 Depot",
+    vendor: "Kempower",
+    model: "Satellite T800",
+    firmwareVersion: "v5.4.0-sim",
+    category: "DC_FAST",
+    powerCapacityKw: 200.0,
+    defaultProtocol: "ocpp1.6",
+    supportedProtocols: ["ocpp1.6", "ocpp2.0.1", "ocpp2.1"],
+    description: "Depot & fleet modular DC charging satellite with dynamic 25kW power-granularity routing.",
+    features: ["200 kW Dynamic DC", "Dual CCS2", "Granular Dynamic Balancing", "Fleet Telematics"],
+    connectors: [
+      {
+        id: 1,
+        connectorName: "Depot Sat 1 (200kW CCS2)",
+        type: "CCS2",
+        format: "CABLE",
+        maxPowerW: 200000,
+        maxCurrentAmps: 300,
+        maxVoltageVolts: 800,
+        currentType: "DC",
+        phaseConnection: "DC",
+      },
+      {
+        id: 2,
+        connectorName: "Depot Sat 2 (200kW CCS2)",
+        type: "CCS2",
+        format: "CABLE",
+        maxPowerW: 200000,
+        maxCurrentAmps: 300,
+        maxVoltageVolts: 800,
+        currentType: "DC",
+        phaseConnection: "DC",
+      },
+    ],
+  },
+  {
+    id: "easee-charge-max-solar",
+    name: "Easee Charge Max (Solar & Phase Switching)",
+    vendor: "Easee",
+    model: "Charge Max",
+    firmwareVersion: "v3.3.1-sim",
+    category: "SOLAR_OPTIMIZED",
+    powerCapacityKw: 22.0,
+    defaultProtocol: "ocpp1.6",
+    supportedProtocols: ["ocpp1.6", "ocpp2.0.1", "ocpp2.1"],
+    description: "Intelligent residential & workplace charging with automatic 1-phase / 3-phase solar tracking.",
+    features: ["1-Phase / 3-Phase Switching", "Solar Surplus Tracking", "11kW - 22kW AC", "Eco Mode"],
+    connectors: [
+      {
+        id: 1,
+        connectorName: "Solar Smart Socket (22kW AC)",
+        type: "Type2",
+        format: "SOCKET",
+        maxPowerW: 22000,
+        maxCurrentAmps: 32,
+        maxVoltageVolts: 400,
+        currentType: "AC",
+        phaseConnection: "L1-L2-L3",
+      },
+    ],
+  },
+  {
+    id: "mennekes-amedio-pro",
+    name: "Mennekes Amedio Professional",
+    vendor: "Mennekes",
+    model: "Amedio Professional 22",
+    firmwareVersion: "v4.2.0-sim",
+    category: "AC_DUAL",
+    powerCapacityKw: 44.0,
+    defaultProtocol: "ocpp1.6",
+    supportedProtocols: ["ocpp1.6", "ocpp2.0.1", "ocpp2.1"],
+    description: "Heavy-duty commercial charging pillar with calibrated billing-grade MID metering.",
+    features: ["2x 22 kW AC", "Dual Type 2", "Eichrecht / MID Certified", "Corporate Fleet Whitelist"],
+    connectors: [
+      {
+        id: 1,
+        connectorName: "Point A (22kW Type2)",
+        type: "Type2",
+        format: "SOCKET",
+        maxPowerW: 22000,
+        maxCurrentAmps: 32,
+        maxVoltageVolts: 400,
+        currentType: "AC",
+        phaseConnection: "L1-L2-L3",
+      },
+      {
+        id: 2,
+        connectorName: "Point B (22kW Type2)",
+        type: "Type2",
+        format: "SOCKET",
+        maxPowerW: 22000,
+        maxCurrentAmps: 32,
+        maxVoltageVolts: 400,
+        currentType: "AC",
+        phaseConnection: "L1-L2-L3",
+      },
+    ],
+  },
+];
+
 export class SimulatedChargerInstance {
   public id: string; // session ID
   public chargerId: number;
@@ -1271,6 +1564,174 @@ export class SimulatorServiceManager {
 
   public getInstances(): SimulatedChargerInstance[] {
     return Array.from(this.instances.values());
+  }
+
+  public getTemplates(): ChargerTemplate[] {
+    return CHARGER_TEMPLATES;
+  }
+
+  public getTemplateById(templateId: string): ChargerTemplate | undefined {
+    return CHARGER_TEMPLATES.find((t) => t.id === templateId);
+  }
+
+  /**
+   * Ensure sandbox test RFID tags exist in database
+   */
+  public async ensureTestRfidTags(ownerId: number = 1): Promise<void> {
+    const testTags = [
+      { tag: "SIM-RFID-PASS-01", name: "Test Driver (Active Pass)", active: true },
+      { tag: "SIM-RFID-BLOCKED-02", name: "Blocked Driver (Expired Pass)", active: false },
+    ];
+
+    for (const t of testTags) {
+      const existing = await prisma.rfidUser.findUnique({ where: { rfid_tag: t.tag } });
+      if (!existing) {
+        await prisma.rfidUser.create({
+          data: {
+            rfid_tag: t.tag,
+            name: t.name,
+            active: t.active,
+            email: "tester@grid-ocpp.internal",
+            owner_id: ownerId,
+          },
+        });
+      }
+    }
+  }
+
+  /**
+   * Start a simulated charger instance based on a predefined template
+   */
+  public async startTemplateInstance(
+    templateId: string,
+    options: {
+      protocol?: OcppProtocol;
+      endpoint?: string;
+      ownerId?: number;
+    } = {}
+  ): Promise<SimulatedChargerInstance> {
+    const template = this.getTemplateById(templateId);
+    if (!template) {
+      throw new Error(`Unknown charger template: '${templateId}'`);
+    }
+
+    const ownerId = options.ownerId || 1;
+    const protocol = options.protocol || template.defaultProtocol;
+
+    // 1. Ensure Test Station exists
+    let station = await prisma.chargingStation.findFirst({
+      where: { station_name: "Virtual Test Lab Station" },
+    });
+
+    if (!station) {
+      station = await prisma.chargingStation.create({
+        data: {
+          station_name: "Virtual Test Lab Station",
+          street_name: "Innovation Way 42",
+          city: "Amsterdam",
+          state: "Noord-Holland",
+          postal_code: "1012AB",
+          country: "Netherlands",
+          latitude: 52.3702,
+          longitude: 4.8952,
+          maxPower: 500.0,
+          owner_id: ownerId,
+          isGroundPlanEnabled: true,
+        },
+      });
+    }
+
+    // 2. Consistent Virtual Charger Name for this template
+    const chargerName = `SIM-${template.id.toUpperCase()}`;
+
+    // 3. Find or Create Charger in DB
+    let dbCharger = await prisma.charger.findUnique({
+      where: { name: chargerName },
+      include: { evses: { include: { connectors: true } } },
+    });
+
+    if (!dbCharger) {
+      dbCharger = await prisma.charger.create({
+        data: {
+          name: chargerName,
+          model: template.model,
+          manufacturer: template.vendor,
+          serial_number: `SN-${chargerName}`,
+          power_capacity: template.powerCapacityKw,
+          firmware_version: template.firmwareVersion,
+          service_contacts: "lab@grid-ocpp.internal",
+          charging_station_id: station.id,
+          owner_id: ownerId,
+          status: "offline",
+        },
+        include: { evses: { include: { connectors: true } } },
+      });
+
+      // Create EVSEs and Connectors
+      for (const connConfig of template.connectors) {
+        const evse = await prisma.evse.create({
+          data: {
+            charger_id: dbCharger.charger_id,
+            evse_id: connConfig.id,
+          },
+        });
+
+        await prisma.connector.create({
+          data: {
+            connector_name: connConfig.connectorName,
+            status: "Available",
+            current_type: connConfig.currentType,
+            max_power: connConfig.maxPowerW / 1000,
+            max_current: connConfig.maxCurrentAmps,
+            max_voltage: connConfig.maxVoltageVolts,
+            phaseConnection: connConfig.phaseConnection,
+            format: connConfig.format,
+            evse_id: evse.id,
+          },
+        });
+      }
+    }
+
+    // Ensure sandbox test tags exist
+    await this.ensureTestRfidTags(ownerId);
+
+    // 4. Stop existing instance for this charger if already running
+    const existing = this.getInstance(dbCharger.charger_id);
+    if (existing) {
+      existing.disconnect();
+      this.instances.delete(existing.id);
+    }
+
+    const instance = new SimulatedChargerInstance({
+      chargerId: dbCharger.charger_id,
+      chargerName: dbCharger.name,
+      protocol,
+      endpoint: options.endpoint,
+      vendor: template.vendor,
+      model: template.model,
+      firmwareVersion: template.firmwareVersion,
+      connectors: template.connectors.map((c) => ({
+        id: c.id,
+        name: c.connectorName,
+        maxPowerW: c.maxPowerW,
+        type: c.type,
+        format: c.format,
+      })),
+    });
+
+    this.instances.set(instance.id, instance);
+
+    try {
+      await instance.connect();
+      await instance.sendBootNotification();
+      for (const conn of instance.connectors.values()) {
+        await instance.sendStatusNotification(conn.id, "Available", "NoError");
+      }
+    } catch (err) {
+      logger.warn(`Initial auto-boot for template simulator ${chargerName}: ${err}`);
+    }
+
+    return instance;
   }
 
   public getInstance(idOrName: string | number): SimulatedChargerInstance | undefined {

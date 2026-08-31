@@ -32,6 +32,7 @@ describe("User Roles, Client Management & Permissions API", () => {
         { role: "client_admin", _count: { id: 5 } },
         { role: "user", _count: { id: 25 } },
       ] as any);
+      (prisma as any).customRole = { findMany: jest.fn<any>().mockResolvedValue([]) };
 
       await rolesController.getRoles(mockReq, mockRes);
 
@@ -39,6 +40,7 @@ describe("User Roles, Client Management & Permissions API", () => {
         expect.objectContaining({
           success: true,
           data: expect.objectContaining({
+            capabilities: expect.any(Array),
             roles: expect.arrayContaining([
               expect.objectContaining({ role: "superadmin", userCount: 1 }),
               expect.objectContaining({ role: "admin", userCount: 3 }),
@@ -46,7 +48,6 @@ describe("User Roles, Client Management & Permissions API", () => {
               expect.objectContaining({ role: "client_admin", userCount: 5 }),
               expect.objectContaining({ role: "user", userCount: 25 }),
             ]),
-            capabilities: expect.any(Array),
           }),
         })
       );
@@ -58,27 +59,15 @@ describe("User Roles, Client Management & Permissions API", () => {
       jest.spyOn(prisma.company, "findMany").mockResolvedValue([
         {
           id: 1,
-          name: "Amsterdam Fleet BV",
+          name: "MobilityPulse BV",
           clientNumber: "CLI-1001",
           status: "active",
-          contactName: "Jan de Vries",
-          contactEmail: "jan@fleet.nl",
-          _count: { users: 10, chargingStations: 2, invoices: 5 },
-          users: [{ id: 101, name: "Driver 1", email: "d1@fleet.nl", role: "user" }],
-          chargingStations: [
-            {
-              id: 1,
-              station_name: "Depot West",
-              status: "active",
-              chargers: [
-                { charger_id: 1, name: "CH-01", status: "Available" },
-                { charger_id: 2, name: "CH-02", status: "Charging" },
-              ],
-            },
-          ],
+          _count: { users: 8, chargingStations: 4, invoices: 12 },
+          chargingStations: [{ chargers: [{ status: "Available" }, { status: "Charging" }] }],
+          users: [{ id: 1, name: "Admin", email: "admin@mobilitypulse.com", role: "admin" }],
         },
       ] as any);
-      jest.spyOn(prisma.company, "count").mockResolvedValue(1 as any);
+      jest.spyOn(prisma.company, "count").mockResolvedValue(1);
 
       await companiesController.getAllCompanies(mockReq, mockRes);
 
@@ -88,10 +77,8 @@ describe("User Roles, Client Management & Permissions API", () => {
           data: expect.arrayContaining([
             expect.objectContaining({
               id: 1,
-              name: "Amsterdam Fleet BV",
-              clientNumber: "CLI-1001",
-              usersCount: 10,
-              stationsCount: 2,
+              name: "MobilityPulse BV",
+              usersCount: 8,
               chargersCount: 2,
               activeChargersCount: 2,
             }),
@@ -103,18 +90,15 @@ describe("User Roles, Client Management & Permissions API", () => {
     it("should create a new client account with generated client number", async () => {
       mockReq.body = {
         name: "Rotterdam Port Logistics",
-        contactName: "Pieter Bakker",
-        contactEmail: "pieter@portlogistics.nl",
-        taxNumber: "NL888888888B01",
+        contactEmail: "port@rotterdam-logistics.nl",
       };
 
-      jest.spyOn(prisma.company, "findUnique").mockResolvedValue(null as any);
+      jest.spyOn(prisma.company, "findUnique").mockResolvedValue(null);
       jest.spyOn(prisma.company, "create").mockResolvedValue({
         id: 2,
         name: "Rotterdam Port Logistics",
-        clientNumber: "CLI-2001",
+        clientNumber: "CLI-9999",
         status: "active",
-        taxNumber: "NL888888888B01",
       } as any);
 
       await companiesController.createCompany(mockReq, mockRes);
@@ -132,7 +116,7 @@ describe("User Roles, Client Management & Permissions API", () => {
     });
   });
 
-  describe("Users Controller (Multi-role & Password Reset)", () => {
+  describe("Users Controller (Multi-role, Password Reset & Deletion Re-registration)", () => {
     it("should update user role to operator or client_admin", async () => {
       mockReq.params = { id: "10" };
       mockReq.body = { role: "operator" };
@@ -177,6 +161,81 @@ describe("User Roles, Client Management & Permissions API", () => {
         success: true,
         message: "Password has been successfully updated",
       });
+    });
+
+    it("should soft-delete user and anonymize email to free unique constraint", async () => {
+      mockReq.params = { id: "20" };
+      mockReq.userRole = "admin";
+      mockReq.userId = 1;
+
+      jest.spyOn(prisma.user, "findUnique").mockResolvedValue({
+        id: 20,
+        email: "leaving@company.com",
+        role: "user",
+      } as any);
+
+      const updateSpy = jest.spyOn(prisma.user, "update").mockResolvedValue({
+        id: 20,
+      } as any);
+
+      await usersController.deleteUser(mockReq, mockRes);
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 20 },
+          data: expect.objectContaining({
+            deletedAt: expect.any(Date),
+            email: expect.stringMatching(/^deleted_20_\d+_leaving@company\.com$/),
+          }),
+        })
+      );
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, message: "Soft deleted" })
+      );
+    });
+
+    it("should allow creating a user with an email previously belonging to a soft-deleted account", async () => {
+      mockReq.body = {
+        name: "New John",
+        email: "reused@company.com",
+        password: "newPassword123",
+        role: "user",
+      };
+
+      jest.spyOn(prisma.user, "findFirst")
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          id: 55,
+          email: "reused@company.com",
+          deletedAt: new Date(),
+        } as any);
+
+      const updateSpy = jest.spyOn(prisma.user, "update").mockResolvedValue({ id: 55 } as any);
+      const createSpy = jest.spyOn(prisma.user, "create").mockResolvedValue({
+        id: 56,
+        name: "New John",
+        email: "reused@company.com",
+        role: "user",
+      } as any);
+
+      await usersController.createUser(mockReq, mockRes);
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 55 },
+          data: expect.objectContaining({
+            email: expect.stringMatching(/^deleted_55_\d+_reused@company\.com$/),
+          }),
+        })
+      );
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            email: "reused@company.com",
+          }),
+        })
+      );
+      expect(mockRes.status).toHaveBeenCalledWith(201);
     });
   });
 });

@@ -266,9 +266,18 @@ export const createUser = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ success: false, error: "Insufficient permissions to assign this role" });
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await prisma.user.findFirst({ where: { email, deletedAt: null } });
     if (existing) {
       return res.status(400).json({ success: false, error: "Email already exists" });
+    }
+
+    // Free up any legacy soft-deleted user record occupying this email
+    const legacyDeleted = await prisma.user.findFirst({ where: { email, deletedAt: { not: null } } });
+    if (legacyDeleted) {
+      await prisma.user.update({
+        where: { id: legacyDeleted.id },
+        data: { email: `deleted_${legacyDeleted.id}_${Date.now()}_${legacyDeleted.email}` },
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -368,6 +377,25 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
         success: false,
         error: `Valid role is required (${VALID_ROLES.join(", ")})`,
       });
+    }
+
+    if (updateData.email) {
+      const existingActive = await prisma.user.findFirst({
+        where: { email: updateData.email, id: { not: userId }, deletedAt: null },
+      });
+      if (existingActive) {
+        return res.status(400).json({ success: false, error: "Email already in use" });
+      }
+
+      const legacyDeleted = await prisma.user.findFirst({
+        where: { email: updateData.email, id: { not: userId }, deletedAt: { not: null } },
+      });
+      if (legacyDeleted) {
+        await prisma.user.update({
+          where: { id: legacyDeleted.id },
+          data: { email: `deleted_${legacyDeleted.id}_${Date.now()}_${legacyDeleted.email}` },
+        });
+      }
     }
 
     const parsedCompanyId = updateData.companyId ? parseInt(updateData.companyId, 10) : null;
@@ -525,9 +553,13 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
       await prisma.user.delete({ where: { id } });
       res.json({ success: true, message: "Hard deleted" });
     } else {
+      const anonymizedEmail = `deleted_${user.id}_${Date.now()}_${user.email}`;
       await prisma.user.update({
         where: { id },
-        data: { deletedAt: new Date() },
+        data: {
+          deletedAt: new Date(),
+          email: anonymizedEmail,
+        },
       });
       res.json({ success: true, message: "Soft deleted" });
     }

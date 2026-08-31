@@ -53,6 +53,22 @@ describe("Simulator Controller Unit Tests (/api/simulator)", () => {
     });
   });
 
+  describe("getTemplates", () => {
+    it("should return the catalog of predefined charger templates", async () => {
+      await simulatorController.getTemplates(mockReq, mockRes);
+
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: expect.arrayContaining([
+            expect.objectContaining({ id: "alfen-eve-single" }),
+            expect.objectContaining({ id: "abb-terra-184-dc" }),
+          ]),
+        })
+      );
+    });
+  });
+
   describe("getSessionById", () => {
     it("should return 404 when session not found", async () => {
       mockReq.params = { id: "non-existent-id" };
@@ -135,6 +151,29 @@ describe("Simulator Controller Unit Tests (/api/simulator)", () => {
         expect.objectContaining({
           success: true,
           data: expect.objectContaining({ chargerId: 42, chargerName: "TEST-CP-42" }),
+        })
+      );
+    });
+
+    it("should start simulator instance directly from templateId", async () => {
+      mockReq.body = { templateId: "alfen-eve-single", protocol: "ocpp1.6" };
+
+      const mockInstance = new SimulatedChargerInstance({
+        chargerId: 77,
+        chargerName: "SIM-ALFEN-EVE-SINGLE",
+      });
+
+      jest.spyOn(simulatorService, "startTemplateInstance").mockResolvedValue(mockInstance);
+
+      await simulatorController.startSession(mockReq, mockRes);
+
+      expect(simulatorService.startTemplateInstance).toHaveBeenCalledWith("alfen-eve-single", expect.objectContaining({
+        protocol: "ocpp1.6",
+      }));
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({ chargerName: "SIM-ALFEN-EVE-SINGLE" }),
         })
       );
     });

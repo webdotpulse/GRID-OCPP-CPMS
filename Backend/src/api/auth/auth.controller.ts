@@ -25,15 +25,29 @@ export const register = async (req: Request, res: Response) => {
       });
     }
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
+    // Check if active user already exists
+    const existingUser = await prisma.user.findFirst({
+      where: { email, deletedAt: null },
     });
 
     if (existingUser) {
       return res.status(400).json({
         success: false,
         error: "User with this email already exists",
+      });
+    }
+
+    // Free up any legacy soft-deleted user record occupying this email
+    const legacyDeletedUser = await prisma.user.findFirst({
+      where: { email, deletedAt: { not: null } },
+    });
+
+    if (legacyDeletedUser) {
+      await prisma.user.update({
+        where: { id: legacyDeletedUser.id },
+        data: {
+          email: `deleted_${legacyDeletedUser.id}_${Date.now()}_${legacyDeletedUser.email}`,
+        },
       });
     }
 
@@ -156,11 +170,25 @@ export const updateMe = async (req: AuthRequest, res: Response) => {
 
     const { name, email, userType, companyName, address, phone, taxNumber } = req.body;
 
-    // Check if email is being changed and if it's already in use
+    // Check if email is being changed and if it's already in use by another active account
     if (email) {
-      const existingUser = await prisma.user.findUnique({ where: { email } });
-      if (existingUser && existingUser.id !== userId) {
+      const existingUser = await prisma.user.findFirst({
+        where: { email, id: { not: userId }, deletedAt: null },
+      });
+      if (existingUser) {
         return res.status(400).json({ success: false, error: "Email already in use" });
+      }
+
+      const legacyDeletedUser = await prisma.user.findFirst({
+        where: { email, id: { not: userId }, deletedAt: { not: null } },
+      });
+      if (legacyDeletedUser) {
+        await prisma.user.update({
+          where: { id: legacyDeletedUser.id },
+          data: {
+            email: `deleted_${legacyDeletedUser.id}_${Date.now()}_${legacyDeletedUser.email}`,
+          },
+        });
       }
     }
 
@@ -241,9 +269,9 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { email },
+    // Find active user
+    const user = await prisma.user.findFirst({
+      where: { email, deletedAt: null },
     });
 
     if (!user) {
@@ -610,7 +638,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Email is required" });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findFirst({ where: { email, deletedAt: null } });
 
     if (!user) {
       // Don't reveal that the user doesn't exist, just send a success response
@@ -817,8 +845,8 @@ export const resendVerification = async (req: Request, res: Response) => {
       });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: email.trim().toLowerCase() },
+    const user = await prisma.user.findFirst({
+      where: { email: email.trim().toLowerCase(), deletedAt: null },
     });
 
     if (user && !user.emailVerified) {
