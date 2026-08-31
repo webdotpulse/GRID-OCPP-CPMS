@@ -4,6 +4,7 @@ import rateLimit from "express-rate-limit";
 import RedisStore from "rate-limit-redis";
 import { config } from "./config/index.js";
 import { logger } from "./utils/logger.js";
+import { isOriginAllowed } from "./utils/cors.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 
 import { authenticateToken } from "./middleware/auth.js";
@@ -88,23 +89,13 @@ export function createApp(): Application {
   });
 
   // Security CORS configuration
-  const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
-    : [
-        process.env.FRONTEND_URL || "http://localhost:3002",
-        "http://localhost:3000",
-        "http://127.0.0.1:3002",
-        "http://127.0.0.1:3000",
-      ];
-
   app.use(
     cors({
       origin: (origin, callback) => {
-        // Allow requests with no origin (e.g. mobile apps, curl, OCPP gateways)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== "production") {
+        if (isOriginAllowed(origin)) {
           return callback(null, true);
         }
+        logger.warn(`CORS policy blocked REST request from origin: ${origin}`);
         return callback(new Error("CORS policy violation: origin not allowed"));
       },
       credentials: true,

@@ -183,8 +183,17 @@ export function ChannelLogs({ chargerId, connectorId }: ChannelLogsProps) {
     fetchHistoricalLogs();
 
     // Set up WebSocket connection for live logs
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    let wsUrl = `${wsProtocol}//${window.location.host}/api/ocpp-logs`;
+    let wsUrl = process.env.NEXT_PUBLIC_OCPP_LOGS_WS_URL;
+    if (!wsUrl && typeof window !== 'undefined') {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+      const isAbsolute = apiUrl.startsWith('http');
+      const isHttps = isAbsolute ? apiUrl.startsWith('https:') : window.location.protocol === 'https:';
+      const wsProtocol = isHttps ? 'wss:' : 'ws:';
+      const host = isAbsolute ? new URL(apiUrl).host : window.location.host;
+      wsUrl = `${wsProtocol}//${host}/api/ocpp-logs`;
+    } else if (!wsUrl) {
+      wsUrl = 'ws://localhost:3000/api/ocpp-logs';
+    }
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     if (token) {
       wsUrl += `?token=${encodeURIComponent(token)}`;

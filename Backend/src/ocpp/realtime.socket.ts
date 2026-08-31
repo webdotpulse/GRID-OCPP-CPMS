@@ -4,30 +4,24 @@ import jwt from "jsonwebtoken";
 import { config } from "../config/index.js";
 import { redisSubscriber } from "../config/redis.js";
 import { logger } from "../utils/logger.js";
+import { isOriginAllowed } from "../utils/cors.js";
 
 let io: SocketIOServer | null = null;
 
 export function setupRealtimeSocket(server: http.Server): void {
-  const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
-    : [
-        process.env.FRONTEND_URL || "http://localhost:3002",
-        "http://localhost:3000",
-        "http://127.0.0.1:3002",
-        "http://127.0.0.1:3000",
-      ];
-
   io = new SocketIOServer(server, {
     path: "/api/realtime",
     cors: {
       origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== "production") {
+        if (isOriginAllowed(origin)) {
           return callback(null, true);
         }
-        return callback(new Error("CORS policy violation on realtime socket"));
+        logger.warn(`CORS policy blocked realtime socket from origin: ${origin}`);
+        return callback(null, false);
       },
-      methods: ["GET", "POST"],
+      methods: ["GET", "POST", "OPTIONS"],
       credentials: true,
+      allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
     },
   });
 
@@ -35,8 +29,8 @@ export function setupRealtimeSocket(server: http.Server): void {
   io.use((socket, next) => {
     const rawToken =
       socket.handshake.auth?.token ||
-      socket.handshake.headers?.authorization ||
-      socket.handshake.query?.token;
+      socket.handshake.query?.token ||
+      socket.handshake.headers?.authorization;
 
     if (!rawToken) {
       // In non-production, allow unauthenticated for local developer convenience if needed, otherwise reject

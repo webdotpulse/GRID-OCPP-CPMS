@@ -124,10 +124,11 @@ export function OcppLogViewer() {
     let wsUrl = process.env.NEXT_PUBLIC_OCPP_LOGS_WS_URL;
 
     if (!wsUrl && typeof window !== 'undefined') {
-      const isHttps = window.location.protocol === 'https:';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+      const isAbsolute = apiUrl.startsWith('http');
+      const isHttps = isAbsolute ? apiUrl.startsWith('https:') : window.location.protocol === 'https:';
       const wsProtocol = isHttps ? 'wss://' : 'ws://';
-      // Route through the Next.js API proxy or directly to the backend
-      const host = window.location.host;
+      const host = isAbsolute ? new URL(apiUrl).host : window.location.host;
       wsUrl = `${wsProtocol}${host}/api/ocpp-logs`;
     } else if (!wsUrl) {
       wsUrl = 'ws://localhost:3000/api/ocpp-logs';
