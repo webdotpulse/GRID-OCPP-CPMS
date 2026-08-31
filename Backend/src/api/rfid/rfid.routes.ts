@@ -10,6 +10,11 @@ import {
   toggleRfidUserStatus,
   deleteRfidUser,
 } from "./rfid.controller.js";
+import {
+  downloadAppleWalletPass,
+  getGoogleWalletUrl,
+  getMyWalletPasses,
+} from "./wallet.controller.js";
 
 const router = Router();
 
@@ -40,6 +45,9 @@ const rfidCreationLimiter = rateLimit({
 });
 
 router.get("/", getAllRfidUsers);
+router.get("/my-passes", getMyWalletPasses);
+router.get("/:id/apple-wallet", downloadAppleWalletPass);
+router.get("/:id/google-wallet", getGoogleWalletUrl);
 router.get("/:id", getRfidUserById);
 router.post("/", rfidCreationLimiter, createRfidUser);
 router.put("/:id", updateRfidUser);

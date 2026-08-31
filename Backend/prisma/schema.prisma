@@ -51,6 +51,7 @@ model User {
   reservations                Reservation[]
   webhookSubscriptions        WebhookSubscription[]
   scheduledChargings          ScheduledCharging[]
+  pushSubscriptions           PushSubscription[]
 }
 
 model Company {
@@ -202,8 +203,14 @@ model Charger {
   reservations          Reservation[]
   scheduledChargings    ScheduledCharging[]
 
+  // Phase Commutation (1-Phase ⇄ 3-Phase Dynamic Switching)
+  phaseCommutationSupported    Boolean           @default(false)
+  currentPhaseMode             String            @default("3-Phase") // "1-Phase" | "3-Phase"
+  lastPhaseSwitchAt            DateTime?
+
   productId      Int?
   product        SubscriptionProduct?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+  eichrechtRecords EichrechtRecord[]
 }
 
 model ChargerQuirkProfile {
@@ -242,6 +249,7 @@ model Connector {
   format         String   @default("SOCKET")
   max_voltage    Float    @default(400)
   phaseConnection String   @default("L1-L2-L3")
+  supportsPhaseSwitching Boolean @default(false)
   evse_id        Int
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -330,6 +338,7 @@ model Transaction {
   totalCost         Float?
   invoiceId         Int?
   invoice           Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  eichrechtRecord   EichrechtRecord?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -1187,6 +1196,68 @@ model SubscriptionProduct {
   @@index([category])
   @@index([isActive])
 }
+
+// 15-Minute Intraday Continuous & Real-Time Imbalance Settlement Prices
+model EnergyMarketPrice {
+  id             Int      @id @default(autoincrement())
+  timestamp      DateTime
+  country        String   // "NL", "BE", "DE", "FR"
+  marketType     String   // "DAY_AHEAD", "INTRADAY_15MIN", "IMBALANCE_REALTIME"
+  priceType      String   @default("settled") // "settled", "forecast", "imbalance_pos", "imbalance_neg"
+  pricePerMwh    Float
+  provider       String   @default("EnergyZero") // "EnergyZero", "ENTSO-E", "TenneT", "Elia"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([timestamp, country, marketType, provider])
+  @@index([country, marketType, timestamp])
+  @@index([timestamp])
+}
+
+// Eichrecht / OCMF Legal Metrology Signed Meter Records (German/Austrian MessEG compliance)
+model EichrechtRecord {
+  id                 Int       @id @default(autoincrement())
+  transactionDbId    Int       @unique
+  transactionId      String    // OCPP Transaction ID string
+  chargerId          Int
+  meterSerialNumber  String
+  publicKey          String    @db.Text
+  ocmfPayload        String    @db.Text
+  meterStartKwh      Float
+  meterStopKwh       Float
+  totalKwh           Float
+  signature          String    @db.Text
+  signatureAlgorithm String    @default("ECDSA-secp256r1-SHA256")
+  isVerified         Boolean   @default(false)
+  verificationError  String?
+  verifiedAt         DateTime?
+  xmlProof           String?   @db.Text
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  transaction        Transaction @relation(fields: [transactionDbId], references: [id], onDelete: Cascade)
+  charger            Charger     @relation(fields: [chargerId], references: [charger_id], onDelete: Cascade)
+
+  @@index([chargerId])
+  @@index([transactionId])
+  @@index([meterSerialNumber])
+  @@index([isVerified])
+}
+
+// Web Push VAPID Subscriptions for Mobile PWA & Push Notifications
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String   @db.Text
+  auth      String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
 
 
 

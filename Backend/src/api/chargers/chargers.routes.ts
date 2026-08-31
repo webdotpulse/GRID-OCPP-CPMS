@@ -14,7 +14,8 @@ import {
   getPredictiveSchedule,
   combineChargers,
   uncombineChargers,
-  getCombineCandidates
+  getCombineCandidates,
+  triggerPhaseCommutation
 } from "./chargers.controller.js";
 import {
   getLocalAuthList,
@@ -41,6 +42,7 @@ router.get("/:id/status", getChargerStatus);
 router.get("/:id/logs", getChargerLogs);
 router.get("/:id/configurations", getChargerConfigurations);
 router.get("/:id/combine-candidates", getCombineCandidates);
+router.post("/:id/phase-commutation", triggerPhaseCommutation);
 router.post("/", createCharger);
 router.put("/:id", updateCharger);
 router.delete("/:id", deleteCharger);

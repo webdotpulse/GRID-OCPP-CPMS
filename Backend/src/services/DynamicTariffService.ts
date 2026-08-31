@@ -68,10 +68,25 @@ export class DynamicTariffService {
 
     let energyFee = 0;
 
-    if (tariff?.tariffType === "DYNAMIC_EPEX" && tariff.country) {
+    const isDynamic = tariff?.tariffType === "DYNAMIC_EPEX" || tariff?.tariffType === "INTRADAY_15MIN" || tariff?.tariffType === "IMBALANCE_ARBITRAGE";
+
+    if (isDynamic && tariff?.country) {
       const markup = tariff.markupPerKwh || 0;
       const taxRate = tariff.taxPercentage ? tariff.taxPercentage / 100 : 0;
       const provider = tariff.dynamicProvider || "EnergyZero";
+      const marketType = tariff.tariffType === "IMBALANCE_ARBITRAGE"
+        ? "IMBALANCE_REALTIME"
+        : (tariff.tariffType === "INTRADAY_15MIN" ? "INTRADAY_15MIN" : "DAY_AHEAD");
+
+      const { IntradayImbalanceService } = await import("./IntradayImbalanceService.js");
+
+      const fetchPrice = async (ts: Date) => {
+        if (marketType === "IMBALANCE_REALTIME" || marketType === "INTRADAY_15MIN") {
+          const mktPrice = await IntradayImbalanceService.getPriceForTimestamp(tariff.country!, ts, marketType as any);
+          if (mktPrice !== null) return mktPrice;
+        }
+        return await EpexSpotService.getPriceForTimestamp(tariff.country!, ts, provider);
+      };
 
       // 1. Check if intermediate meter values exist
       let meterValues: Array<{ energy: number | null; timestamp: Date }> = [];
@@ -93,7 +108,7 @@ export class DynamicTariffService {
           const energyDeltaKwh = Math.max(0, currentEnergy - previousEnergy) / 1000;
 
           if (energyDeltaKwh > 0) {
-            const spotPriceMwh = await EpexSpotService.getPriceForTimestamp(tariff.country, mv.timestamp, provider);
+            const spotPriceMwh = await fetchPrice(mv.timestamp);
             const spotPriceKwh = spotPriceMwh ? spotPriceMwh / 1000 : 0;
             const hourlyCostKwh = (spotPriceKwh + markup) * (1 + taxRate);
             energyFee += energyDeltaKwh * hourlyCostKwh * 100;
@@ -103,30 +118,26 @@ export class DynamicTariffService {
 
         const finalDeltaKwh = Math.max(0, meterStop - previousEnergy) / 1000;
         if (finalDeltaKwh > 0) {
-          const spotPriceMwh = await EpexSpotService.getPriceForTimestamp(tariff.country, endTime, provider);
+          const spotPriceMwh = await fetchPrice(endTime);
           const spotPriceKwh = spotPriceMwh ? spotPriceMwh / 1000 : 0;
           const hourlyCostKwh = (spotPriceKwh + markup) * (1 + taxRate);
           energyFee += finalDeltaKwh * hourlyCostKwh * 100;
         }
       } else {
-        // 2. If no intermediate meter values, slice duration into hourly slices
+        // 2. If no intermediate meter values, slice duration into 15-minute or hourly slices
+        const sliceDurationMs = (marketType === "INTRADAY_15MIN" || marketType === "IMBALANCE_REALTIME") ? 15 * 60 * 1000 : 60 * 60 * 1000;
         const totalDurationMs = Math.max(1, endTimeMs - startTimeMs);
         let chunkStart = new Date(startTime);
 
         while (chunkStart.getTime() < endTimeMs) {
-          // Align to next hour boundary
-          const nextHour = new Date(chunkStart);
-          nextHour.setMinutes(0, 0, 0);
-          nextHour.setHours(nextHour.getHours() + 1);
-
-          const chunkEndMs = Math.min(endTimeMs, nextHour.getTime());
+          const chunkEndMs = Math.min(endTimeMs, chunkStart.getTime() + sliceDurationMs);
           const chunkDurationMs = chunkEndMs - chunkStart.getTime();
 
           const chunkFraction = chunkDurationMs / totalDurationMs;
           const chunkKwh = totalKwh * chunkFraction;
 
           if (chunkKwh > 0) {
-            const spotPriceMwh = await EpexSpotService.getPriceForTimestamp(tariff.country, chunkStart, provider);
+            const spotPriceMwh = await fetchPrice(chunkStart);
             const spotPriceKwh = spotPriceMwh ? spotPriceMwh / 1000 : 0;
             const hourlyCostKwh = (spotPriceKwh + markup) * (1 + taxRate);
             energyFee += chunkKwh * hourlyCostKwh * 100;

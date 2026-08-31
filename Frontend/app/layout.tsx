@@ -8,6 +8,27 @@ import { Toaster } from "@/components/ui/sonner";
 import { I18nProvider } from "@/components/I18nProvider";
 import { WebSocketProvider } from "@/components/WebSocketProvider";
 
+import { Metadata, Viewport } from "next";
+
+export const metadata: Metadata = {
+  title: "GRID CPMS - Enterprise EV Charging",
+  description: "Enterprise EV Charging, Smart Energy Flexibility, Roaming & Driver Companion",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "GRID Driver",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1e2228",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 const urbanist = Urbanist({
   subsets: ['latin'],
   variable: '--font-urbanist',

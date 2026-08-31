@@ -102,16 +102,24 @@ export class PredictiveBalancingService {
         const minAmps = 6;
 
         let predictedAmps = minAmps;
+        let numberPhases: 1 | 3 = 3;
 
         // Calculate total available renewable/local power
         const totalAvailableLocalKw = solarKw;
 
         if (epexPrice < 50) {
           predictedAmps = maxAmps;
-        } else if (totalAvailableLocalKw > 1.4) {
-           // 1.4kW is approx 6A at 230V
-           const localAmps = (totalAvailableLocalKw * 1000) / 230;
-           predictedAmps = Math.min(maxAmps, Math.max(minAmps, localAmps));
+          numberPhases = 3;
+        } else if (totalAvailableLocalKw >= 4.14) {
+          // 3-Phase Solar Surplus Charging (>= 4.14 kW)
+          const localAmps = Math.floor((totalAvailableLocalKw * 1000) / (3 * 230));
+          predictedAmps = Math.min(maxAmps, Math.max(minAmps, localAmps));
+          numberPhases = 3;
+        } else if (totalAvailableLocalKw >= 1.38) {
+          // 1-Phase Dynamic Commutation Solar Surplus Charging (1.38 kW - 4.14 kW)
+          const localAmps = Math.floor((totalAvailableLocalKw * 1000) / 230);
+          predictedAmps = Math.min(32, Math.max(minAmps, localAmps));
+          numberPhases = 1;
         } else if (epexPrice > 150) {
           predictedAmps = 0;
         }
@@ -126,7 +134,8 @@ export class PredictiveBalancingService {
 
         chargingSchedule.chargingSchedulePeriod.push({
           startPeriod: startPeriodSeconds,
-          limit: parseFloat(predictedAmps.toFixed(1))
+          limit: parseFloat(predictedAmps.toFixed(1)),
+          numberPhases: numberPhases
         });
 
         startPeriodSeconds += 3600; // 1 hour

@@ -1,0 +1,30 @@
+{
+  "name": "GRID CPMS - EV Driver Companion",
+  "short_name": "GRID Driver",
+  "description": "Enterprise EV Charging, Live Session Telemetry, NFC Wallet Passes & Smart Energy Orchestration",
+  "start_url": "/mobile/dashboard",
+  "display": "standalone",
+  "background_color": "#1e2228",
+  "theme_color": "#3f78e0",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["utilities", "productivity", "transportation"],
+  "shortcuts": [
+    {
+      "name": "Live Sessions",
+      "url": "/mobile/dashboard",
+      "description": "View real-time EV charging session progress"
+    },
+    {
+      "name": "Find Chargers",
+      "url": "/mobile/map",
+      "description": "Locate available charging hubs"
+    }
+  ]
+}

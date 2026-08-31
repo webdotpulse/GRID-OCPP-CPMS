@@ -94,6 +94,9 @@ export default function MobileSettings() {
   const [setupCode, setSetupCode] = useState("");
   const [is2FALoading, setIs2FALoading] = useState(false);
   const [emergencyContact, setEmergencyContact] = useState<{ phone: string; email: string; name: string } | null>(null);
+  const [walletPasses, setWalletPasses] = useState<any[]>([]);
+  const [isPushSubscribed, setIsPushSubscribed] = useState(false);
+  const [isPushLoading, setIsPushLoading] = useState(false);
 
   const fetchProfile = async () => {
     try {
@@ -115,6 +118,15 @@ export default function MobileSettings() {
     }
   };
 
+  const fetchWalletPasses = async () => {
+    try {
+      const res = await api.get("/rfid/my-passes");
+      setWalletPasses(res.data?.data || []);
+    } catch (e) {
+      logger.warn("Could not fetch wallet passes", e);
+    }
+  };
+
   const fetchEmergencyContact = async () => {
     try {
       const response = await api.get("/auth/emergency-contact");
@@ -131,6 +143,11 @@ export default function MobileSettings() {
     if (user) {
       fetchProfile();
       fetchEmergencyContact();
+      fetchWalletPasses();
+    }
+    // Check Web Push Notification status
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setIsPushSubscribed(Notification.permission === "granted");
     }
     // Load notification preferences from localStorage
     try {
@@ -142,6 +159,59 @@ export default function MobileSettings() {
       // Ignore localStorage errors
     }
   }, [user]);
+
+  const handleToggleWebPush = async () => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("Notification" in window)) {
+      toast.error("Web Push is not supported in this browser");
+      return;
+    }
+
+    setIsPushLoading(true);
+    try {
+      if (Notification.permission !== "granted") {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          toast.error("Push notification permission was denied");
+          setIsPushSubscribed(false);
+          setIsPushLoading(false);
+          return;
+        }
+      }
+
+      const reg = await navigator.serviceWorker.ready;
+      const keyRes = await api.get("/push/vapid-public-key");
+      const vapidPublicKey = keyRes.data?.data?.publicKey;
+
+      if (!vapidPublicKey) {
+        toast.error("Failed to retrieve server VAPID key");
+        setIsPushLoading(false);
+        return;
+      }
+
+      // Convert VAPID base64 to Uint8Array
+      const padding = "=".repeat((4 - (vapidPublicKey.length % 4)) % 4);
+      const base64 = (vapidPublicKey + padding).replace(/\-/g, "+").replace(/_/g, "/");
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+
+      const subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: outputArray,
+      });
+
+      await api.post("/push/subscribe", subscription.toJSON());
+      setIsPushSubscribed(true);
+      toast.success("Web Push Notifications enabled! You'll receive alerts for 80% SoC, charging complete & idle fees.");
+    } catch (err: any) {
+      logger.error("Failed to enable Web Push", err);
+      toast.error(err.message || "Failed to subscribe to Web Push");
+    } finally {
+      setIsPushLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -369,6 +439,80 @@ export default function MobileSettings() {
           </Button>
         </section>
       )}
+
+      {/* Digital Wallet & NFC Passes Section */}
+      <section className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gray-900 text-white flex items-center justify-center font-bold text-sm">
+              📲
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-gray-900">Mobile Wallet & NFC Passes</h3>
+              <p className="text-[11px] text-gray-500">Tap phone to authorize at charger</p>
+            </div>
+          </div>
+        </div>
+
+        {walletPasses.length === 0 ? (
+          <div className="text-center py-3 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+            <p className="text-xs text-gray-500">No active RFID passes registered to your account.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {walletPasses.map((pass) => (
+              <div key={pass.rfid_user_id} className="p-3 bg-gray-50 border border-gray-100 rounded-xl flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-xs text-gray-900 block">{pass.name}</span>
+                  <span className="text-[10px] font-mono text-gray-500">{pass.rfid_tag}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => window.open(pass.appleWalletUrl, "_blank")}
+                    className="h-8 text-[11px] font-semibold rounded-lg bg-black text-white hover:bg-gray-800 hover:text-white border-0"
+                  >
+                    🍏 Apple Wallet
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => window.open(pass.googleWalletUrl, "_blank")}
+                    className="h-8 text-[11px] font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white border-0"
+                  >
+                    💳 Google Wallet
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Web Push Milestone Notifications */}
+      <section className="bg-gradient-to-br from-purple-50 to-blue-50/50 p-4 rounded-2xl border border-purple-100/80 flex items-center justify-between">
+        <div className="space-y-0.5 pr-3">
+          <div className="flex items-center gap-1.5">
+            <Bell className="w-4 h-4 text-purple-600" />
+            <h3 className="font-bold text-xs text-gray-900">Push Milestone Alerts</h3>
+          </div>
+          <p className="text-[11px] text-gray-600">
+            80% SoC reached, charging complete & idle fee alerts
+          </p>
+        </div>
+        <Button
+          size="sm"
+          disabled={isPushLoading}
+          onClick={handleToggleWebPush}
+          className={`h-8 text-xs font-semibold rounded-xl ${
+            isPushSubscribed ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-purple-600 hover:bg-purple-700 text-white"
+          }`}
+        >
+          {isPushLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+          {isPushSubscribed ? "Active ✓" : "Enable Push"}
+        </Button>
+      </section>
 
       {/* Settings Groups */}
       {settingsGroups.map((group, groupIdx) => (

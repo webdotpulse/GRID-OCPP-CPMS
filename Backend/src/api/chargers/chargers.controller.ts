@@ -468,7 +468,9 @@ export const updateCharger = async (req: Request, res: Response) => {
       "isCombined",
       "pairedChargerId",
       "pairedRole",
-      "productId"
+      "productId",
+      "phaseCommutationSupported",
+      "currentPhaseMode"
     ];
 
     if (userRole === "superadmin") {
@@ -920,4 +922,59 @@ export const getCombineCandidates = async (req: Request, res: Response) => {
     });
   }
 };
+
+/**
+ * POST /api/chargers/:id/phase-commutation - Evaluate and trigger dynamic phase switching
+ */
+export const triggerPhaseCommutation = async (req: Request, res: Response) => {
+  try {
+    const chargerId = parseId(req.params.id);
+    if (!chargerId) {
+      return res.status(400).json({ success: false, error: "Invalid charger ID" });
+    }
+
+    const { availablePowerKw, mode, limitAmps, forceSwitch } = req.body;
+    const { PhaseCommutationService } = await import("../../services/PhaseCommutationService.js");
+
+    if (mode === "1-Phase" || mode === "3-Phase") {
+      const result = await PhaseCommutationService.setManualPhaseMode(
+        chargerId,
+        mode,
+        limitAmps ? Number(limitAmps) : 16
+      );
+      return res.json({ success: true, data: result });
+    }
+
+    if (availablePowerKw !== undefined) {
+      const result = await PhaseCommutationService.evaluatePhaseCommutation({
+        chargerId,
+        availablePowerKw: Number(availablePowerKw),
+        forceSwitch: forceSwitch === true,
+      });
+      return res.json({ success: true, data: result });
+    }
+
+    // Default: evaluate using current active transactions or power capacity
+    const charger = await prisma.charger.findUnique({
+      where: { charger_id: chargerId },
+      include: { transactions: { where: { status: "charging" } } },
+    });
+
+    const activePowerKw = charger?.transactions?.[0]?.currentPower
+      ? charger.transactions[0].currentPower / 1000
+      : charger?.power_capacity || 11.0;
+
+    const result = await PhaseCommutationService.evaluatePhaseCommutation({
+      chargerId,
+      availablePowerKw: activePowerKw,
+      forceSwitch: forceSwitch === true,
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    logger.error(`Error triggering phase commutation: ${error}`);
+    res.status(500).json({ success: false, error: error.message || "Failed to trigger phase commutation" });
+  }
+};
+
 

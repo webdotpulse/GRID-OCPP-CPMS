@@ -220,6 +220,37 @@ export default function RfidPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {/* Apple Wallet Button */}
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Add to Apple Wallet (NFC Pass)"
+                          onClick={() => window.open(`/api/rfid/${tag.rfid_user_id}/apple-wallet`, '_blank')}
+                          className="rounded-lg text-foreground hover:bg-muted/80"
+                        >
+                          <span className="text-[10px] font-bold">🍏</span>
+                        </Button>
+
+                        {/* Google Wallet Button */}
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Add to Google Wallet (NFC Pass)"
+                          onClick={async () => {
+                            try {
+                              const res = await api.get(`/rfid/${tag.rfid_user_id}/google-wallet`);
+                              if (res.data?.data?.saveUrl) {
+                                window.open(res.data.data.saveUrl, '_blank');
+                              }
+                            } catch (e) {
+                              logger.error("Error opening Google Wallet link", e);
+                            }
+                          }}
+                          className="rounded-lg text-emerald-500 hover:bg-emerald-500/10"
+                        >
+                          <span className="text-[10px] font-bold">💳</span>
+                        </Button>
+
                         <Link href={`/rfid/${tag.rfid_user_id}`}>
                           <Button variant="ghost" size="icon-sm" className="rounded-lg text-muted-foreground hover:text-foreground">
                             <CreditCard className="size-3.5" />

@@ -22,6 +22,14 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   const { theme, setTheme, resolvedTheme } = useTheme();
   const { t, i18n } = useTranslation();
 
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch((err) => {
+        console.warn("ServiceWorker registration failed:", err);
+      });
+    }
+  }, []);
+
   const getPageTitle = () => {
     if (pathname?.startsWith("/mobile/dashboard")) return "Dashboard";
     if (pathname?.startsWith("/mobile/chargers")) return "Chargers";

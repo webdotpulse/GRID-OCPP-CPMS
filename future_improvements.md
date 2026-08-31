@@ -12,9 +12,9 @@ This document outlines strategic enhancements, next-generation capabilities, and
 * **BESS (Battery Energy Storage System) & Solar Hybrid Buffering**
   * Support on-site stationary battery storage tracking alongside solar arrays.
   * Implement smart dispatch algorithms: charge BESS from solar / negative EPEX prices and discharge BESS to buffer ultra-fast DC charging spikes without exceeding grid transformer connection limits.
-* **1-Phase ⇄ 3-Phase Dynamic Commutation (Phase-Switching)**
+* **1-Phase ⇄ 3-Phase Dynamic Commutation (Phase-Switching)** *(Completed)*
   * Dynamically switch compatible EVSEs between single-phase (1.4 kW minimum threshold) and 3-phase (4.1 kW minimum threshold) during low solar irradiance or high grid congestion to keep charging continuous without hard stops.
-* **Intraday & Real-Time Imbalance Price Arbitrage**
+* **Intraday & Real-Time Imbalance Price Arbitrage** *(Completed)*
   * Extend current Day-Ahead EPEX spot pricing to include 15-minute Intraday continuous trading and national real-time settled imbalance markets for maximum energy cost optimization.
 
 ---
@@ -27,7 +27,7 @@ This document outlines strategic enhancements, next-generation capabilities, and
   * Automate X.509 certificate lifecycle management for OCPP Security Profile 3 (mTLS) and ISO 15118 Plug & Charge (CSMS Root, V2G Root, OEM Sub-CAs, and EVSE certificates) via EST/ACME protocols.
 * **Canary & Staged Firmware Rollout Engine**
   * Support progressive fleet firmware updates (e.g., 5% Canary $\rightarrow$ 25% Staging $\rightarrow$ 100% Production) with automatic rollback triggers if error/fault rates exceed defined thresholds.
-* **Eichrecht & OCMF (Open Charge Metering Format) Legal Metrology**
+* **Eichrecht & OCMF (Open Charge Metering Format) Legal Metrology** *(Completed)*
   * Ingest and cryptographically verify signed meter data public keys (OCMF / SML format) to guarantee tamper-proof billing compliance for German/Austrian legal metrology standards.
 * **Built-in Virtual OCPP Charger Simulator / Test Lab** *(Completed)*
   * Add an in-dashboard interactive simulator to emulate physical chargers for OCPP 1.6-J and 2.0.1 testing (cable disconnects, meter value drift, offline transaction buffering, power drops).
@@ -60,10 +60,10 @@ This document outlines strategic enhancements, next-generation capabilities, and
 
 ## 5. 📱 Driver Experience & Frictionless Charging
 
-* **PWA & Native Mobile Companion App**
-  * Push notifications for key milestones (e.g., *Reached 80% SoC*, *Charging completed*, *Idle fee alert in 15 minutes*, *Solar green energy boost active*).
-* **Apple Wallet & Google Wallet NFC Passes**
-  * Digital RFID charging cards stored in mobile wallets for one-tap NFC authorization at the charger without carrying plastic cards.
+* **PWA & Native Mobile Companion App** *(Completed)*
+  * Web App Manifest, Service Worker offline caching, and push notifications for key milestones (e.g., *Reached 80% SoC*, *Charging completed*, *Idle fee alert in 15 minutes*, *Solar green energy boost active*).
+* **Apple Wallet & Google Wallet NFC Passes** *(Completed)*
+  * Digital RFID charging cards stored in mobile wallets for one-tap NFC authorization at the charger without carrying plastic cards (.pkpass bundle & Google Pay Save URL).
 * **Virtual Waiting Queue & Smart Bay Reservations**
   * When all chargers at a hub are occupied, drivers join a virtual queue via QR/PWA. Once a connector frees up, the driver gets an automatic 10-minute hold reservation to plug in.
 * **Multi-Currency & Dynamic VAT Localization**
@@ -95,12 +95,16 @@ This document outlines strategic enhancements, next-generation capabilities, and
 
 ## Roadmap Priority Matrix
 
-| Feature Area | Priority | Complexity | Regulatory / Business Driver |
-| :--- | :--- | :--- | :--- |
-| **EU AFIR Compliance & Open Data** | Critical | High | Mandatory EU Regulation (2024/2026) |
-| **Fleet Depot & Telematics** | High | High | B2B Fleet Electrification & Cost Reduction |
-| **Virtual OCPP Test Lab** | High | Medium | Rapid Hardware QA & Protocol Conformance |
-| **Outbound Webhooks Subscriptions** | High | Medium | Third-Party ERP/TMS Integrations |
-| **OpenADR & BESS Orchestration** | Medium | High | Grid Flexibility Markets & Peak Shaving |
-| **Mobile PWA & NFC Wallet Passes** | Medium | Medium | End-user convenience & Appless charging |
-| **AI Anomaly & 3D Digital Twin** | Long-Term | High | Predictive Maintenance & Asset Management |
+| Feature Area | Priority | Complexity | Regulatory / Business Driver | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **EU AFIR Compliance & Open Data** | Critical | High | Mandatory EU Regulation (2024/2026) | In Execution |
+| **Eichrecht & OCMF Legal Metrology** | Critical | High | German MessEG / Austrian Metrology | **Completed** |
+| **1-Phase ⇄ 3-Phase Phase Switching** | High | Medium | Grid Flexibility & Continuous Solar PV | **Completed** |
+| **Intraday & Imbalance Arbitrage** | High | High | Energy Flexibility & Cost Optimization | **Completed** |
+| **Mobile PWA & NFC Wallet Passes** | Medium | Medium | Appless Charging & Driver Experience | **Completed** |
+| **Fleet Depot & Telematics** | High | High | B2B Fleet Electrification & Cost Reduction | In Execution |
+| **Virtual OCPP Test Lab** | High | Medium | Rapid Hardware QA & Protocol Conformance | **Completed** |
+| **Outbound Webhooks Subscriptions** | High | Medium | Third-Party ERP/TMS Integrations | **Completed** |
+| **OpenADR & BESS Orchestration** | Medium | High | Grid Flexibility Markets & Peak Shaving | Planned |
+| **AI Anomaly & 3D Digital Twin** | Long-Term | High | Predictive Maintenance & Asset Management | Planned |
+

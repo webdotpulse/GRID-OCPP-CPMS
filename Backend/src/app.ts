@@ -50,6 +50,8 @@ import scheduledChargingRoutes from "./api/scheduled-charging/scheduledCharging.
 import simulatorRoutes from "./api/simulator/simulator.routes.js";
 import firmwareRoutes from "./api/firmware/firmware.routes.js";
 import productsRoutes from "./api/products/products.routes.js";
+import eichrechtRoutes from "./api/eichrecht/eichrecht.routes.js";
+import pushRoutes from "./api/push/push.routes.js";
 
 // Import OCPP servers
 import { ocppServer } from "./ocpp/ocppServer.js";
@@ -152,6 +154,8 @@ export function createApp(): Application {
   app.use("/api/scheduled-charging", authenticateToken, scheduledChargingRoutes);
   app.use("/api/firmware", firmwareRoutes);
   app.use("/api/products", productsRoutes);
+  app.use("/api/eichrecht", authenticateToken, eichrechtRoutes);
+  app.use("/api/push", pushRoutes);
 
   // Error handling
   app.use(notFoundHandler);
