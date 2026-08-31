@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { config } from "../config/index.js";
+import { prisma } from "../config/database.js";
 import { logger } from "../utils/logger.js";
 
 export interface AuthRequest extends Request {
@@ -130,9 +131,6 @@ export function requireResourceAccess(resourceType: ResourceType) {
           error: "Authentication required",
         });
       }
-
-      // Import prisma dynamically or use configured instance
-      const { prisma } = await import("../config/database.js");
 
       // Query authenticated user context
       const user = await prisma.user.findUnique({
@@ -351,8 +349,6 @@ export function requirePermission(permissionKey: string) {
           error: "Authentication required",
         });
       }
-
-      const { prisma } = await import("../config/database.js");
 
       // 2. Fetch user along with customRole
       const user = await prisma.user.findUnique({

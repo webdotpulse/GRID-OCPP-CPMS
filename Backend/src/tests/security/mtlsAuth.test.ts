@@ -1,31 +1,12 @@
 import { jest } from "@jest/globals";
 import { config } from "../../config/index.js";
+import { prisma } from "../../config/database.js";
 
-const mockPrismaUserFindUnique = jest.fn() as any;
-const mockPrismaStationFindUnique = jest.fn() as any;
-const mockPrismaChargerFindFirst = jest.fn() as any;
-const mockPrismaTransactionFindFirst = jest.fn() as any;
-const mockPrismaVehicleFindFirst = jest.fn() as any;
-
-jest.mock("../../config/database.js", () => ({
-  prisma: {
-    user: {
-      findUnique: mockPrismaUserFindUnique,
-    },
-    chargingStation: {
-      findUnique: mockPrismaStationFindUnique,
-    },
-    charger: {
-      findFirst: mockPrismaChargerFindFirst,
-    },
-    transaction: {
-      findFirst: mockPrismaTransactionFindFirst,
-    },
-    vehicleEnergyProfile: {
-      findFirst: mockPrismaVehicleFindFirst,
-    },
-  },
-}));
+const mockPrismaUserFindUnique = jest.spyOn(prisma.user, "findUnique") as any;
+const mockPrismaStationFindUnique = jest.spyOn(prisma.chargingStation, "findUnique") as any;
+const mockPrismaChargerFindFirst = jest.spyOn(prisma.charger, "findFirst") as any;
+const mockPrismaTransactionFindFirst = jest.spyOn(prisma.transaction, "findFirst") as any;
+const mockPrismaVehicleFindFirst = jest.spyOn(prisma.vehicleEnergyProfile, "findFirst") as any;
 
 jest.mock("../../config/redis.js", () => ({
   redisPublisher: {

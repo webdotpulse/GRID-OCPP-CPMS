@@ -317,6 +317,14 @@ export const updateCompany = async (req: AuthRequest, res: Response) => {
     const id = parseId(req.params.id);
     if (!id) return res.status(400).json({ success: false, error: "Invalid client ID" });
 
+    // Non-superadmins can only update their own company
+    if (req.userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+      if (currentUser?.companyId !== id) {
+        return res.status(403).json({ success: false, error: "Access denied: Cannot modify external company profiles" });
+      }
+    }
+
     const {
       name,
       clientNumber,
@@ -354,7 +362,7 @@ export const updateCompany = async (req: AuthRequest, res: Response) => {
         ...(taxNumber !== undefined ? { taxNumber: taxNumber?.trim() || null } : {}),
         ...(kvkNumber !== undefined ? { kvkNumber: kvkNumber?.trim() || null } : {}),
         ...(billingEmail !== undefined ? { billingEmail: billingEmail?.trim() || null } : {}),
-        ...(status ? { status } : {}),
+        ...(status && req.userRole === "superadmin" ? { status } : {}),
         ...(notes !== undefined ? { notes: notes?.trim() || null } : {}),
       },
     });
@@ -373,6 +381,11 @@ export const deleteCompany = async (req: AuthRequest, res: Response) => {
   try {
     const id = parseId(req.params.id);
     if (!id) return res.status(400).json({ success: false, error: "Invalid client ID" });
+
+    // Only superadmin can delete or deactivate a company
+    if (req.userRole !== "superadmin") {
+      return res.status(403).json({ success: false, error: "Superadmin access required to delete companies" });
+    }
 
     // Verify relations before deleting
     const company = await prisma.company.findUnique({

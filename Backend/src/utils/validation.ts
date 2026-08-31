@@ -48,3 +48,20 @@ export const parseId = (id: any): number | null => {
   }
   return parsed;
 };
+
+/**
+ * Sanitizes a string cell to prevent CSV Formula Injection (DDE injection).
+ * If a value begins with =, +, -, @, \t, or \r, prepend a single quote so spreadsheets treat it as literal text.
+ */
+export const sanitizeCsvField = (value: any): string => {
+  if (value === null || value === undefined) return "";
+  const rawStr = String(value);
+  const trimmed = rawStr.replace(/^[ ]+/, "");
+  const sanitized = /^[=+\-@\t\r]/.test(trimmed) ? `'${trimmed}` : trimmed;
+  // If the cell contains commas or double quotes or newlines, escape quotes and wrap in double quotes
+  if (sanitized.includes(",") || sanitized.includes('"') || sanitized.includes("\n")) {
+    return `"${sanitized.replace(/"/g, '""')}"`;
+  }
+  return sanitized;
+};
+

@@ -72,28 +72,85 @@ import "./cron/predictiveBalancingCron.js";
 export function createApp(): Application {
   const app = express();
 
-  // Security middleware
-  app.use(cors());
+  // Disable identifying header
+  app.disable("x-powered-by");
 
-  // Rate Limiting
+  // Security Headers Middleware
+  app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    if (process.env.NODE_ENV === "production") {
+      res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+    }
+    next();
+  });
+
+  // Security CORS configuration
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
+    : [
+        process.env.FRONTEND_URL || "http://localhost:3002",
+        "http://localhost:3000",
+        "http://127.0.0.1:3002",
+        "http://127.0.0.1:3000",
+      ];
+
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        // Allow requests with no origin (e.g. mobile apps, curl, OCPP gateways)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== "production") {
+          return callback(null, true);
+        }
+        return callback(new Error("CORS policy violation: origin not allowed"));
+      },
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "stripe-signature"],
+    })
+  );
+
+  // General Rate Limiting
   const limiter = rateLimit({
     store: new RedisStore({
       // @ts-expect-error - Known typing issue with rate-limit-redis and ioredis
       sendCommand: (...args: string[]) => redisClient.call(args[0], ...args.slice(1)),
     }),
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 1000, // Limit each IP to 1000 requests per `window` (here, per 15 minutes)
-    message: "Too many requests from this IP, please try again after 15 minutes",
-    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    max: 1000, // Limit each IP to 1000 requests per window
+    message: { success: false, error: "Too many requests from this IP, please try again after 15 minutes" },
+    standardHeaders: true,
+    legacyHeaders: false,
   });
   app.use(limiter);
 
-  // Serve uploaded media files
-  app.use("/uploads", express.static("uploads"));
+  // Dedicated Brute-force Auth Rate Limiter
+  const authLimiter = rateLimit({
+    store: new RedisStore({
+      // @ts-expect-error - Known typing issue with rate-limit-redis and ioredis
+      sendCommand: (...args: string[]) => redisClient.call(args[0], ...args.slice(1)),
+    }),
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 30, // Limit each IP to 30 authentication attempts per 15 minutes
+    message: { success: false, error: "Too many login/auth attempts from this IP, please try again after 15 minutes" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
 
-  // Body parser
-  app.use(express.json());
+  // Serve uploaded media files safely
+  app.use("/uploads", express.static("uploads", { dotfiles: "ignore", maxAge: "1d" }));
+
+  // Body parser with rawBody capture for webhook HMAC signature verification
+  app.use(
+    express.json({
+      verify: (req: any, _res, buf) => {
+        req.rawBody = buf;
+      },
+    })
+  );
   app.use(express.urlencoded({ extended: true }));
 
   // Request logging
@@ -113,7 +170,12 @@ export function createApp(): Application {
   });
 
   // API Routes
+  app.use("/api/auth/login", authLimiter);
+  app.use("/api/auth/register", authLimiter);
+  app.use("/api/auth/forgot-password", authLimiter);
+  app.use("/api/auth/reset-password", authLimiter);
   app.use("/api/auth", authRoutes);
+
   app.use("/api/chargers", authenticateToken, chargersRoutes);
   app.use("/api/stations", authenticateToken, stationsRoutes);
   app.use("/api/connectors", authenticateToken, connectorsRoutes);
@@ -126,7 +188,7 @@ export function createApp(): Application {
   app.use("/api/companies", authenticateToken, companiesRoutes);
   app.use("/api/charge-groups", authenticateToken, chargeGroupsRoutes);
   app.use("/api/payments", paymentsRoutes); // Auth handled within router to permit public webhooks
-  app.use("/api/ocpi", ocpiRoutes); // Removed auth for initial testing
+  app.use("/api/ocpi", ocpiRoutes); // Handled within router (authenticateOcpiToken on roaming, JWT on admin endpoints)
   app.use("/api/oicp", authenticateToken, oicpRoutes);
   app.use("/api/roaming", authenticateToken, roamingRoutes);
   app.use("/api/config-profiles", authenticateToken, configProfilesRoutes);
@@ -136,14 +198,14 @@ export function createApp(): Application {
   app.use("/api/settings/mail", authenticateToken, settingsMailRoutes);
   app.use("/api/settings/hardware-at-risk", authenticateToken, settingsHardwareAtRiskRoutes);
   app.use("/api/settings/payments", authenticateToken, settingsPaymentsRoutes);
-  app.use("/api/diagnostics", diagnosticsRoutes);
+  app.use("/api/diagnostics", authenticateToken, diagnosticsRoutes);
   app.use("/api/media-campaigns", authenticateToken, mediaCampaignsRoutes);
   app.use("/api/vehicles", authenticateToken, vehiclesRoutes);
   app.use("/api/energy-profile", authenticateToken, energyProfileRouter);
   app.use("/api/vcc", authenticateToken, vehiclesRoutes);
-  app.use("/api/analytics", analyticsRoutes);
-  app.use("/api/reimbursements", reimbursementsRoutes);
-  app.use("/api/audit", auditRoutes);
+  app.use("/api/analytics", authenticateToken, analyticsRoutes);
+  app.use("/api/reimbursements", authenticateToken, reimbursementsRoutes);
+  app.use("/api/audit", authenticateToken, auditRoutes);
   app.use("/api/invoices", authenticateToken, invoicesRoutes);
   app.use("/api/sepa", authenticateToken, sepaRoutes);
   app.use("/api/chargers", authenticateToken, localAuthListRoutes);
@@ -153,8 +215,8 @@ export function createApp(): Application {
   app.use("/api/simulator", authenticateToken, simulatorRoutes);
   app.use("/api/webhooks", authenticateToken, webhooksRoutes);
   app.use("/api/scheduled-charging", authenticateToken, scheduledChargingRoutes);
-  app.use("/api/firmware", firmwareRoutes);
-  app.use("/api/products", productsRoutes);
+  app.use("/api/firmware", authenticateToken, firmwareRoutes);
+  app.use("/api/products", authenticateToken, productsRoutes);
   app.use("/api/eichrecht", authenticateToken, eichrechtRoutes);
   app.use("/api/push", pushRoutes);
   app.use("/api/auto-heal-playbooks", authenticateToken, autoHealPlaybooksRoutes);

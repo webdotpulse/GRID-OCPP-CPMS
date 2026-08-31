@@ -21,19 +21,36 @@ export const getAllStations = async (req: Request, res: Response) => {
     const skip = (page - 1) * limit;
     const take = limit;
 
-    const where: any = {};
+    let where: any = {};
     if (status) {
       where.status = status;
     }
 
-    if (userRole !== "admin" && userRole !== "superadmin") {
+    if (userRole === "superadmin") {
+      // Superadmin can view all stations
+    } else if (userRole === "admin" || userRole === "client_admin" || userRole === "operator") {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      if (currentUser?.companyId) {
+        where.OR = [
+          { companyId: currentUser.companyId },
+          { owner_id: userId },
+        ];
+      } else {
+        where.owner_id = userId;
+      }
+    } else {
       where.owner_id = userId;
     }
 
     if (search) {
-      where.OR = [
-        { station_name: { contains: search as string, mode: "insensitive" } },
-        { city: { contains: search as string, mode: "insensitive" } }
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { station_name: { contains: search as string, mode: "insensitive" } },
+            { city: { contains: search as string, mode: "insensitive" } }
+          ]
+        }
       ];
     }
 
@@ -99,15 +116,10 @@ export const getStationById = async (req: Request, res: Response) => {
     // @ts-expect-error userId is attached by authenticateToken middleware
     const userId = req.userId;
 
-    const where: any = { id: stationId };
-    if (userRole !== "admin" && userRole !== "superadmin") {
-      where.owner_id = userId;
-    }
-
-    const station = await prisma.chargingStation.findFirst({
-      where,
+    const station = await prisma.chargingStation.findUnique({
+      where: { id: stationId },
       include: {
-        owner: { select: { id: true, email: true } },
+        owner: { select: { id: true, email: true, companyId: true } },
         parkingSpots: true,
         chargers: {
           include: { evses: { include: { connectors: true } } },
@@ -120,6 +132,19 @@ export const getStationById = async (req: Request, res: Response) => {
         success: false,
         error: "Station not found",
       });
+    }
+
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      const isOwner = station.owner_id === userId;
+      const isSameCompany = currentUser?.companyId && (
+        station.companyId === currentUser.companyId ||
+        station.owner?.companyId === currentUser.companyId
+      );
+
+      if (!isOwner && !isSameCompany) {
+        return res.status(403).json({ success: false, error: "Access denied: Station is not within your organization" });
+      }
     }
 
     // Sanitize owner field just in case
@@ -165,13 +190,27 @@ export const getStationChargers = async (req: Request, res: Response) => {
     // @ts-expect-error userId is attached by authenticateToken middleware
     const userId = req.userId;
 
-    const where: any = { charging_station_id: stationId };
-    if (userRole !== "admin" && userRole !== "superadmin") {
-      where.owner_id = userId;
+    const station = await prisma.chargingStation.findUnique({
+      where: { id: stationId },
+      select: { id: true, owner_id: true, companyId: true },
+    });
+
+    if (!station) {
+      return res.status(404).json({ success: false, error: "Station not found" });
+    }
+
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      const isOwner = station.owner_id === userId;
+      const isSameCompany = currentUser?.companyId && station.companyId === currentUser.companyId;
+
+      if (!isOwner && !isSameCompany) {
+        return res.status(403).json({ success: false, error: "Access denied: Station is not within your organization" });
+      }
     }
 
     const chargers = await prisma.charger.findMany({
-      where,
+      where: { charging_station_id: stationId },
       include: { evses: { include: { connectors: true } } },
       orderBy: { createdAt: "desc" },
     });
@@ -193,17 +232,18 @@ export const createStation = async (req: Request, res: Response) => {
   try {
     const data = req.body as CreateStationDto;
 
-    // Validate required fields
-    if (!data.owner_id) {
-      return res.status(400).json({
-        success: false,
-        error: "owner_id is required",
-      });
-    }
+    // @ts-expect-error userRole is attached by authenticateToken middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken middleware
+    const userId = req.userId;
+
+    // Default owner_id to current user if not provided or non-superadmin
+    const targetOwnerId = (userRole === "superadmin" && data.owner_id) ? data.owner_id : (data.owner_id || userId);
 
     // Verify owner exists
     const owner = await prisma.user.findUnique({
-      where: { id: data.owner_id },
+      where: { id: targetOwnerId },
+      select: { id: true, companyId: true },
     });
 
     if (!owner) {
@@ -213,8 +253,18 @@ export const createStation = async (req: Request, res: Response) => {
       });
     }
 
+    let companyId = (data as any).companyId || owner.companyId || null;
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      companyId = currentUser?.companyId || owner.companyId || null;
+    }
+
     const station = await prisma.chargingStation.create({
-      data,
+      data: {
+        ...data,
+        owner_id: targetOwnerId,
+        companyId,
+      } as any,
       include: { owner: true, chargers: true },
     });
 
@@ -247,9 +297,42 @@ export const updateStation = async (req: Request, res: Response) => {
       });
     }
 
+    // @ts-expect-error userRole is attached by authenticateToken middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken middleware
+    const userId = req.userId;
+
+    const existingStation = await prisma.chargingStation.findUnique({
+      where: { id: stationId },
+      include: { owner: true },
+    });
+
+    if (!existingStation) {
+      return res.status(404).json({ success: false, error: "Station not found" });
+    }
+
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      const isOwner = existingStation.owner_id === userId;
+      const isSameCompany = currentUser?.companyId && (
+        existingStation.companyId === currentUser.companyId ||
+        existingStation.owner?.companyId === currentUser.companyId
+      );
+
+      if (!isOwner && !isSameCompany) {
+        return res.status(403).json({ success: false, error: "Access denied: You do not have permission to modify this station" });
+      }
+    }
+
+    const updatePayload = { ...req.body };
+    if (userRole !== "superadmin") {
+      delete updatePayload.companyId;
+      delete updatePayload.owner_id;
+    }
+
     const station = await prisma.chargingStation.update({
       where: { id: stationId },
-      data: req.body,
+      data: updatePayload,
       include: { owner: true, chargers: true },
     });
 
@@ -281,9 +364,14 @@ export const deleteStation = async (req: Request, res: Response) => {
       });
     }
 
+    // @ts-expect-error userRole is attached by authenticateToken middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken middleware
+    const userId = req.userId;
+
     const station = await prisma.chargingStation.findUnique({
       where: { id: stationId },
-      include: { chargers: { select: { charger_id: true } } },
+      include: { chargers: { select: { charger_id: true } }, owner: true },
     });
 
     if (!station) {
@@ -291,6 +379,19 @@ export const deleteStation = async (req: Request, res: Response) => {
         success: false,
         error: "Station not found",
       });
+    }
+
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      const isOwner = station.owner_id === userId;
+      const isSameCompany = currentUser?.companyId && (
+        station.companyId === currentUser.companyId ||
+        station.owner?.companyId === currentUser.companyId
+      );
+
+      if (!isOwner && !isSameCompany) {
+        return res.status(403).json({ success: false, error: "Access denied: You do not have permission to delete this station" });
+      }
     }
 
     const chargerIds = station.chargers.map((c) => c.charger_id);

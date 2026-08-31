@@ -261,9 +261,14 @@ export const createUser = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Only superadmin can create superadmins or admins
-    if ((targetRole === "superadmin" || targetRole === "admin") && req.userRole !== "superadmin" && req.userRole !== "admin") {
-      return res.status(403).json({ success: false, error: "Insufficient permissions to assign this role" });
+    // Only superadmin can create superadmin accounts
+    if (targetRole === "superadmin" && req.userRole !== "superadmin") {
+      return res.status(403).json({ success: false, error: "Superadmin access required to create superadmin accounts" });
+    }
+
+    // Only superadmin can create admin accounts
+    if (targetRole === "admin" && req.userRole !== "superadmin") {
+      return res.status(403).json({ success: false, error: "Superadmin access required to create admin accounts" });
     }
 
     const existing = await prisma.user.findFirst({ where: { email, deletedAt: null } });
@@ -281,7 +286,13 @@ export const createUser = async (req: AuthRequest, res: Response) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const parsedCompanyId = companyId ? parseInt(companyId, 10) : null;
+    
+    // Multi-tenant scoping for companyId assignment
+    let parsedCompanyId = companyId ? parseInt(companyId, 10) : null;
+    if (req.userRole !== "superadmin" && req.userId) {
+      const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+      parsedCompanyId = currentUser?.companyId || null;
+    }
 
     let resolvedCompanyName = companyName || null;
     if (parsedCompanyId && !resolvedCompanyName) {
@@ -360,16 +371,35 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    if (req.userId !== userId && req.userRole !== "superadmin" && req.userRole !== "admin") {
-      return res.status(403).json({
-        success: false,
-        error: "Forbidden",
-      });
+    const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: "User not found" });
     }
 
-    // Standard users cannot change role
-    if (req.userRole !== "superadmin" && req.userRole !== "admin" && updateData.role) {
-      delete updateData.role;
+    // Permission and tenant boundary checks
+    if (req.userRole !== "superadmin") {
+      if (targetUser.role === "superadmin" && req.userId !== userId) {
+        return res.status(403).json({ success: false, error: "Forbidden: Cannot modify superadmin accounts" });
+      }
+
+      if (req.userId !== userId) {
+        if (req.userRole !== "admin" && req.userRole !== "client_admin") {
+          return res.status(403).json({ success: false, error: "Forbidden" });
+        }
+        const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+        if (!currentUser?.companyId || currentUser.companyId !== targetUser.companyId) {
+          return res.status(403).json({ success: false, error: "Access denied: User is not within your organization" });
+        }
+      }
+    }
+
+    // Non-superadmins cannot assign superadmin or admin roles
+    if (updateData.role && updateData.role !== targetUser.role) {
+      if (req.userRole !== "superadmin") {
+        if (updateData.role === "superadmin" || updateData.role === "admin" || req.userId === userId) {
+          delete updateData.role;
+        }
+      }
     }
 
     if (updateData.role && !VALID_ROLES.includes(updateData.role)) {
@@ -413,12 +443,12 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
         ...(updateData.role ? { role: updateData.role } : {}),
         ...(updateData.userType ? { userType: updateData.userType } : {}),
         ...(updateData.companyName !== undefined || resolvedCompanyName ? { companyName: resolvedCompanyName } : {}),
-        ...(updateData.companyId !== undefined ? { companyId: parsedCompanyId } : {}),
+        ...(updateData.companyId !== undefined && req.userRole === "superadmin" ? { companyId: parsedCompanyId } : {}),
         ...(updateData.address !== undefined ? { address: updateData.address } : {}),
         ...(updateData.phone !== undefined ? { phone: updateData.phone } : {}),
         ...(updateData.taxNumber !== undefined ? { taxNumber: updateData.taxNumber } : {}),
         ...(updateData.language ? { language: updateData.language } : {}),
-        ...("emailVerified" in updateData ? { emailVerified: updateData.emailVerified } : {}),
+        ...("emailVerified" in updateData && req.userRole === "superadmin" ? { emailVerified: updateData.emailVerified } : {}),
       },
       select: {
         id: true,
@@ -468,6 +498,27 @@ export const updateUserRole = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    // Role elevation checks
+    if (role === "superadmin" && req.userRole !== "superadmin") {
+      return res.status(403).json({ success: false, error: "Superadmin access required to promote to superadmin" });
+    }
+
+    if (targetUser.role === "superadmin" && req.userRole !== "superadmin") {
+      return res.status(403).json({ success: false, error: "Forbidden: Cannot alter superadmin user roles" });
+    }
+
+    if (req.userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+      if (!currentUser?.companyId || currentUser.companyId !== targetUser.companyId) {
+        return res.status(403).json({ success: false, error: "Access denied: User not in your organization" });
+      }
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: { role },
@@ -504,8 +555,18 @@ export const resetUserPassword = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ success: false, error: "Password must be at least 6 characters" });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return res.status(404).json({ success: false, error: "User not found" });
+    const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!targetUser) return res.status(404).json({ success: false, error: "User not found" });
+
+    if (req.userRole !== "superadmin") {
+      if (targetUser.role === "superadmin") {
+        return res.status(403).json({ success: false, error: "Forbidden: Cannot reset superadmin password" });
+      }
+      const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+      if (!currentUser?.companyId || currentUser.companyId !== targetUser.companyId) {
+        return res.status(403).json({ success: false, error: "Access denied: User not in your organization" });
+      }
+    }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await prisma.user.update({
@@ -528,20 +589,25 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
     const id = parseId(req.params.id);
     if (!id) return res.status(400).json({ success: false, error: "Invalid ID" });
 
-    if (req.userId !== id && req.userRole !== "superadmin" && req.userRole !== "admin") {
-      return res.status(403).json({
-        success: false,
-        error: "Forbidden",
-      });
-    }
-
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) {
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) {
       return res.status(404).json({ success: false, error: "User not found" });
     }
 
-    if (user.role === "superadmin" && user.id === 1) {
+    if (targetUser.role === "superadmin" && targetUser.id === 1) {
       return res.status(400).json({ success: false, error: "Cannot delete primary root superadmin" });
+    }
+
+    if (req.userRole !== "superadmin") {
+      if (targetUser.role === "superadmin") {
+        return res.status(403).json({ success: false, error: "Forbidden: Cannot delete superadmin account" });
+      }
+      if (req.userId !== id) {
+        const currentUser = await prisma.user.findUnique({ where: { id: req.userId } });
+        if (!currentUser?.companyId || currentUser.companyId !== targetUser.companyId) {
+          return res.status(403).json({ success: false, error: "Access denied: User not in your organization" });
+        }
+      }
     }
 
     const isHardDelete = req.query.hard === "true";
@@ -553,7 +619,7 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
       await prisma.user.delete({ where: { id } });
       res.json({ success: true, message: "Hard deleted" });
     } else {
-      const anonymizedEmail = `deleted_${user.id}_${Date.now()}_${user.email}`;
+      const anonymizedEmail = `deleted_${targetUser.id}_${Date.now()}_${targetUser.email}`;
       await prisma.user.update({
         where: { id },
         data: {
@@ -568,3 +634,4 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ success: false, error: "Failed to delete user" });
   }
 };
+

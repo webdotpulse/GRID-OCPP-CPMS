@@ -149,12 +149,35 @@ export const getAllChargers = async (req: Request, res: Response) => {
     const skip = (page - 1) * limit;
     const take = limit;
 
-    const where: any = (userRole === "admin" || userRole === "superadmin") ? {} : { owner_id: userId };
+    let where: any = {};
+    if (userRole === "superadmin") {
+      where = {};
+    } else if (userRole === "admin" || userRole === "client_admin" || userRole === "operator") {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      if (currentUser?.companyId) {
+        where = {
+          OR: [
+            { chargingStation: { companyId: currentUser.companyId } },
+            { owner: { companyId: currentUser.companyId } },
+            { owner_id: userId },
+          ],
+        };
+      } else {
+        where = { owner_id: userId };
+      }
+    } else {
+      where = { owner_id: userId };
+    }
 
     if (search) {
-      where.OR = [
-        { name: { contains: search as string, mode: "insensitive" } },
-        { serial_number: { contains: search as string, mode: "insensitive" } }
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { name: { contains: search as string, mode: "insensitive" } },
+            { serial_number: { contains: search as string, mode: "insensitive" } }
+          ]
+        }
       ];
     }
 
@@ -214,19 +237,14 @@ export const getChargerById = async (req: Request, res: Response) => {
     // @ts-expect-error userId is attached by authenticateToken middleware
     const userId = req.userId;
 
-    const where: any = { charger_id: chargerId };
-    if (userRole !== "admin" && userRole !== "superadmin") {
-      where.owner_id = userId;
-    }
-
-    const charger = await prisma.charger.findFirst({
-      where,
+    const charger = await prisma.charger.findUnique({
+      where: { charger_id: chargerId },
       include: {
         chargingStation: true,
         pairedCharger: true,
         evses: { include: { connectors: true } },
         transactions: { take: 10, orderBy: { createdAt: "desc" } },
-        owner: { select: { id: true, email: true } },
+        owner: { select: { id: true, email: true, companyId: true } },
         tariffs: true,
         product: true,
       },
@@ -237,6 +255,20 @@ export const getChargerById = async (req: Request, res: Response) => {
         success: false,
         error: "Charger not found",
       });
+    }
+
+    // Multi-tenant check
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      const isOwner = charger.owner_id === userId;
+      const isSameCompany = currentUser?.companyId && (
+        charger.chargingStation?.companyId === currentUser.companyId ||
+        charger.owner?.companyId === currentUser.companyId
+      );
+
+      if (!isOwner && !isSameCompany) {
+        return res.status(403).json({ success: false, error: "Access denied: Charger is not within your organization" });
+      }
     }
 
     if (charger.owner) {
@@ -446,6 +478,30 @@ export const updateCharger = async (req: Request, res: Response) => {
 
     // @ts-expect-error userRole is attached by authenticateToken middleware
     const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken middleware
+    const userId = req.userId;
+
+    const existingCharger = await prisma.charger.findUnique({
+      where: { charger_id: chargerId },
+      include: { chargingStation: true, owner: true },
+    });
+
+    if (!existingCharger) {
+      return res.status(404).json({ success: false, error: "Charger not found" });
+    }
+
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      const isOwner = existingCharger.owner_id === userId;
+      const isSameCompany = currentUser?.companyId && (
+        existingCharger.chargingStation?.companyId === currentUser.companyId ||
+        existingCharger.owner?.companyId === currentUser.companyId
+      );
+
+      if (!isOwner && !isSameCompany) {
+        return res.status(403).json({ success: false, error: "Access denied: You do not have permission to modify this charger" });
+      }
+    }
 
     const allowedFields = [
       "chargeGroupId",
@@ -528,8 +584,14 @@ export const deleteCharger = async (req: Request, res: Response) => {
       });
     }
 
+    // @ts-expect-error userRole is attached by authenticateToken middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken middleware
+    const userId = req.userId;
+
     const charger = await prisma.charger.findUnique({
       where: { charger_id: chargerId },
+      include: { chargingStation: true, owner: true },
     });
 
     if (!charger) {
@@ -537,6 +599,19 @@ export const deleteCharger = async (req: Request, res: Response) => {
         success: false,
         error: "Charger not found",
       });
+    }
+
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      const isOwner = charger.owner_id === userId;
+      const isSameCompany = currentUser?.companyId && (
+        charger.chargingStation?.companyId === currentUser.companyId ||
+        charger.owner?.companyId === currentUser.companyId
+      );
+
+      if (!isOwner && !isSameCompany) {
+        return res.status(403).json({ success: false, error: "Access denied: You do not have permission to delete this charger" });
+      }
     }
 
     await prisma.$transaction(async (tx) => {

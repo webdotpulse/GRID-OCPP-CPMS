@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { prisma } from "../config/database.js";
 import { logger } from "../utils/logger.js";
+import { isSafeExternalUrl } from "../api/oicp/oicp.controller.js";
 
 export interface WebhookEventDefinition {
   topic: string;
@@ -261,34 +262,40 @@ export class WebhookService {
     let errorMessage: string | null = null;
     let isSuccess = false;
 
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+    const urlCheck = isSafeExternalUrl(subscription.targetUrl);
+    if (!urlCheck.valid) {
+      errorMessage = `SSRF Protection: ${urlCheck.reason || "Target URL is not permitted"}`;
+      responseCode = 400;
+    } else {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
 
-      const response = await fetch(subscription.targetUrl, {
-        method: "POST",
-        headers: requestHeaders,
-        body: payloadString,
-        signal: controller.signal,
-      });
+        const response = await fetch(subscription.targetUrl, {
+          method: "POST",
+          headers: requestHeaders,
+          body: payloadString,
+          signal: controller.signal,
+        });
 
-      clearTimeout(timeoutId);
-      responseCode = response.status;
-      const text = await response.text();
-      responseBody = text.slice(0, 4000); // Cap response body to 4KB
+        clearTimeout(timeoutId);
+        responseCode = response.status;
+        const text = await response.text();
+        responseBody = text.slice(0, 4000); // Cap response body to 4KB
 
-      if (response.ok) {
-        isSuccess = true;
-      } else {
-        errorMessage = `HTTP error: ${response.status} ${response.statusText}`;
-      }
-    } catch (err: any) {
-      if (err.name === "AbortError") {
-        errorMessage = "Request timed out after 8000ms";
-        responseCode = 408;
-      } else {
-        errorMessage = err.message || "Failed to reach target URL";
-        responseCode = 502;
+        if (response.ok) {
+          isSuccess = true;
+        } else {
+          errorMessage = `HTTP error: ${response.status} ${response.statusText}`;
+        }
+      } catch (err: any) {
+        if (err.name === "AbortError") {
+          errorMessage = "Request timed out after 8000ms";
+          responseCode = 408;
+        } else {
+          errorMessage = err.message || "Failed to reach target URL";
+          responseCode = 502;
+        }
       }
     }
 

@@ -1,6 +1,7 @@
 import { jest } from "@jest/globals";
 import { isSafeExternalUrl } from "../../api/oicp/oicp.controller.js";
 import { verifyChargerOwnership } from "../../api/ocpp/ocpp.controller.js";
+import { sanitizeCsvField } from "../../utils/validation.js";
 import { prisma } from "../../config/database.js";
 import { config } from "../../config/index.js";
 import jwt from "jsonwebtoken";
@@ -145,4 +146,73 @@ describe("Security Remediation Suite (SEC-01 through SEC-06)", () => {
       }).toThrow();
     });
   });
+
+  describe("SEC-CSV: CSV Formula Injection Sanitization (sanitizeCsvField)", () => {
+    it("should sanitize cells starting with formula trigger characters (=, +, -, @, \\t, \\r)", () => {
+      expect(sanitizeCsvField("=SUM(A1:A10)")).toBe("'=SUM(A1:A10)");
+      expect(sanitizeCsvField("+123456789")).toBe("'+123456789");
+      expect(sanitizeCsvField("-500")).toBe("'-500");
+      expect(sanitizeCsvField("@cmd|'/C calc'!A0")).toBe("'@cmd|'/C calc'!A0");
+      expect(sanitizeCsvField("\tTabPrefixed")).toBe("'\tTabPrefixed");
+    });
+
+    it("should leave benign alphanumeric strings untouched", () => {
+      expect(sanitizeCsvField("Charger-01")).toBe("Charger-01");
+      expect(sanitizeCsvField("Alfen Eve Single")).toBe("Alfen Eve Single");
+      expect(sanitizeCsvField("123.45")).toBe("123.45");
+      expect(sanitizeCsvField("")).toBe("");
+      expect(sanitizeCsvField(null)).toBe("");
+      expect(sanitizeCsvField(undefined)).toBe("");
+    });
+
+    it("should escape quotes and wrap in double quotes if commas or quotes are present", () => {
+      expect(sanitizeCsvField('Hello, "World"')).toBe('"Hello, ""World"""');
+    });
+  });
+
+  describe("SEC-OCPI: OCPI Roaming Token Authentication (authenticateOcpiToken)", () => {
+    it("should reject requests with missing authorization header with 401", async () => {
+      const { authenticateOcpiToken } = await import("../../middleware/ocpiAuth.js");
+      const req: any = { headers: {}, method: "POST", originalUrl: "/api/ocpi/2.2.1/commands/UNLOCK_CONNECTOR" };
+      const res: any = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+      const next = jest.fn();
+
+      await authenticateOcpiToken(req, res, next);
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ status_code: 2001, status_message: "Missing Authorization header" })
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it("should authenticate valid partner token", async () => {
+      const { authenticateOcpiToken } = await import("../../middleware/ocpiAuth.js");
+      const mockFind = jest.spyOn(prisma.ocpiEndpoint, "findFirst").mockResolvedValue({
+        id: 1,
+        token: "valid-ocpi-token-12345",
+        status: "active",
+      } as any);
+
+      const req: any = {
+        headers: { authorization: "Token valid-ocpi-token-12345" },
+        method: "POST",
+        originalUrl: "/api/ocpi/2.2.1/commands/START_SESSION",
+      };
+      const res: any = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+      const next = jest.fn();
+
+      await authenticateOcpiToken(req, res, next);
+      expect(next).toHaveBeenCalled();
+      expect(req.ocpiEndpoint).toBeDefined();
+
+      mockFind.mockRestore();
+    });
+  });
 });
+

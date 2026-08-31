@@ -11,15 +11,24 @@ export const getContracts = async (req: AuthRequest, res: Response) => {
   try {
     const { userId, userRole } = req;
 
-    let whereClause = {};
-    if (!isAdminOrSuperAdmin(userRole)) {
+    let whereClause: any = {};
+    if (userRole === "superadmin") {
+      whereClause = {};
+    } else if (isAdminOrSuperAdmin(userRole)) {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      if (currentUser?.companyId) {
+        whereClause = { user: { companyId: currentUser.companyId } };
+      } else {
+        whereClause = { userId: userId };
+      }
+    } else {
       whereClause = { userId: userId };
     }
 
     const contracts = await prisma.reimbursementContract.findMany({
       where: whereClause,
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, companyId: true } },
         rfidUser: { select: { rfid_user_id: true, rfid_tag: true, name: true } },
         station: { select: { id: true, station_name: true } },
         tariff: { select: { tariff_id: true, tariff_name: true, electricity_rate: true, tariffType: true } },
@@ -46,6 +55,14 @@ export const createOrUpdateContract = async (req: AuthRequest, res: Response) =>
 
     if (!targetUserId || !rfidUserId || !stationId || !tariffId || !iban) {
       return res.status(400).json({ success: false, error: "Missing required fields" });
+    }
+
+    if (userRole !== "superadmin" && targetUserId !== userId) {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      const targetUser = await prisma.user.findUnique({ where: { id: targetUserId }, select: { companyId: true } });
+      if (!currentUser?.companyId || currentUser.companyId !== targetUser?.companyId) {
+        return res.status(403).json({ success: false, error: "Access denied: User not in your organization" });
+      }
     }
 
     const contract = await prisma.reimbursementContract.upsert({
@@ -80,8 +97,17 @@ export const getLedgers = async (req: AuthRequest, res: Response) => {
   try {
     const { userId, userRole } = req;
 
-    let whereClause = {};
-    if (!isAdminOrSuperAdmin(userRole)) {
+    let whereClause: any = {};
+    if (userRole === "superadmin") {
+      whereClause = {};
+    } else if (isAdminOrSuperAdmin(userRole)) {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      if (currentUser?.companyId) {
+        whereClause = { contract: { user: { companyId: currentUser.companyId } } };
+      } else {
+        whereClause = { contract: { userId: userId } };
+      }
+    } else {
       whereClause = { contract: { userId: userId } };
     }
 
@@ -90,7 +116,7 @@ export const getLedgers = async (req: AuthRequest, res: Response) => {
       include: {
         contract: {
           include: {
-            user: { select: { name: true, email: true } },
+            user: { select: { name: true, email: true, companyId: true } },
             rfidUser: { select: { rfid_tag: true } },
             station: { select: { station_name: true } },
             tariff: { select: { tariff_name: true } },
@@ -112,7 +138,7 @@ export const getLedgers = async (req: AuthRequest, res: Response) => {
 
 export const exportSepa = async (req: AuthRequest, res: Response) => {
   try {
-    const { userRole } = req;
+    const { userId, userRole } = req;
 
     if (!isAdminOrSuperAdmin(userRole)) {
       return res.status(403).json({ success: false, error: "Forbidden" });
@@ -123,12 +149,23 @@ export const exportSepa = async (req: AuthRequest, res: Response) => {
       ? { in: ["pending", "exported"] }
       : "pending";
 
+    let whereClause: any = { status: statusFilter };
+    if (userRole !== "superadmin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      if (currentUser?.companyId) {
+        whereClause = {
+          status: statusFilter,
+          contract: { user: { companyId: currentUser.companyId } },
+        };
+      }
+    }
+
     const ledgersToExport = await prisma.reimbursementLedger.findMany({
-      where: { status: statusFilter },
+      where: whereClause,
       include: {
         contract: {
           include: {
-            user: { select: { name: true, email: true } },
+            user: { select: { name: true, email: true, companyId: true } },
           },
         },
       },

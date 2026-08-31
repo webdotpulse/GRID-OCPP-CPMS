@@ -26,7 +26,7 @@ router.get("/emergency-contact", getEmergencyContact);
 router.post("/register", register);
 router.post("/login", login);
 router.post("/verify-2fa-login", verify2FALogin);
-router.post("/refresh", refresh);
+router.post("/refresh", authenticateToken, refresh);
 
 // Email verification routes
 router.get("/verify-email", verifyEmail);

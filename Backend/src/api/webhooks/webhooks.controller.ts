@@ -106,6 +106,8 @@ export const getWebhookById = async (req: AuthRequest, res: Response) => {
   }
 };
 
+import { isSafeExternalUrl } from "../oicp/oicp.controller.js";
+
 /**
  * POST /api/webhooks - Create a new webhook subscription
  */
@@ -121,13 +123,9 @@ export const createWebhook = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ success: false, error: "Target URL is required" });
     }
 
-    try {
-      const parsedUrl = new URL(targetUrl.trim());
-      if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
-        return res.status(400).json({ success: false, error: "Target URL must start with http:// or https://" });
-      }
-    } catch {
-      return res.status(400).json({ success: false, error: "Invalid Target URL format" });
+    const urlValidation = isSafeExternalUrl(targetUrl.trim());
+    if (!urlValidation.valid) {
+      return res.status(400).json({ success: false, error: urlValidation.reason || "Invalid or restricted target URL" });
     }
 
     const selectedEvents = Array.isArray(events) && events.length > 0 ? events : ["*"];
@@ -195,15 +193,11 @@ export const updateWebhook = async (req: AuthRequest, res: Response) => {
     const updateData: any = {};
     if (name) updateData.name = name.trim();
     if (targetUrl) {
-      try {
-        const parsedUrl = new URL(targetUrl.trim());
-        if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
-          return res.status(400).json({ success: false, error: "Target URL must start with http:// or https://" });
-        }
-        updateData.targetUrl = targetUrl.trim();
-      } catch {
-        return res.status(400).json({ success: false, error: "Invalid Target URL format" });
+      const urlValidation = isSafeExternalUrl(targetUrl.trim());
+      if (!urlValidation.valid) {
+        return res.status(400).json({ success: false, error: urlValidation.reason || "Invalid or restricted target URL" });
       }
+      updateData.targetUrl = targetUrl.trim();
     }
     if (Array.isArray(events)) updateData.events = events;
     if (isActive !== undefined) updateData.isActive = Boolean(isActive);

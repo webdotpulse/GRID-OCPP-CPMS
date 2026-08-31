@@ -39,6 +39,8 @@ export const getAnalyticsSummary = async (req: AuthRequest, res: Response) => {
   }
 };
 
+import { sanitizeCsvField } from "../../utils/validation.js";
+
 /**
  * Export detailed transactions & revenue analytics as CSV
  */
@@ -55,14 +57,16 @@ export const exportAnalyticsCsv = async (req: AuthRequest, res: Response) => {
     let csvContent = "Transaction ID,Charger Name,Charger Model,Status,Energy (kWh),Current Power (kW),Start Time,End Time\n";
 
     transactions.forEach((tx) => {
-      const chargerName = (tx.charger?.name || "Unknown").replace(/,/g, " ");
-      const chargerModel = (tx.charger?.model || "Unknown").replace(/,/g, " ");
-      const energy = (tx.energyConsumed || 0).toFixed(2);
-      const power = (tx.currentPower || 0).toFixed(2);
-      const startTime = tx.startTime ? (typeof tx.startTime === 'string' ? tx.startTime : tx.startTime.toISOString()) : "";
-      const endTime = tx.endTime ? (typeof tx.endTime === 'string' ? tx.endTime : tx.endTime.toISOString()) : "";
+      const txId = sanitizeCsvField(tx.transactionId);
+      const chargerName = sanitizeCsvField(tx.charger?.name || "Unknown");
+      const chargerModel = sanitizeCsvField(tx.charger?.model || "Unknown");
+      const status = sanitizeCsvField(tx.status);
+      const energy = sanitizeCsvField((tx.energyConsumed || 0).toFixed(2));
+      const power = sanitizeCsvField((tx.currentPower || 0).toFixed(2));
+      const startTime = sanitizeCsvField(tx.startTime ? (typeof tx.startTime === "string" ? tx.startTime : tx.startTime.toISOString()) : "");
+      const endTime = sanitizeCsvField(tx.endTime ? (typeof tx.endTime === "string" ? tx.endTime : tx.endTime.toISOString()) : "");
 
-      csvContent += `${tx.transactionId},${chargerName},${chargerModel},${tx.status},${energy},${power},${startTime},${endTime}\n`;
+      csvContent += `${txId},${chargerName},${chargerModel},${status},${energy},${power},${startTime},${endTime}\n`;
     });
 
     res.header("Content-Type", "text/csv");

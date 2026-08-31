@@ -199,17 +199,19 @@ export const handleWebhook = async (req: Request, res: Response) => {
 export const handleStripeWebhook = async (req: Request, res: Response) => {
   const sig = req.headers["stripe-signature"] as string;
   const companyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : null;
+  const payload = (req as any).rawBody || (typeof req.body === "string" ? req.body : JSON.stringify(req.body));
 
-  let event: any = req.body;
+  let event: any;
 
   try {
-    if (sig) {
-      try {
-        event = await StripeService.constructWebhookEvent(req.body, sig, companyId);
-      } catch (err: any) {
-        logger.warn(`Stripe signature verification skipped or failed: ${err.message}`);
-        // Fall back to parsed body if signature verification fails in dev/test
+    if (!sig) {
+      if (process.env.NODE_ENV === "production") {
+        logger.error("Stripe webhook rejected: Missing stripe-signature header in production");
+        return res.status(400).send("Webhook Error: Missing stripe-signature header");
       }
+      event = req.body;
+    } else {
+      event = await StripeService.constructWebhookEvent(payload, sig, companyId);
     }
 
     switch (event.type) {
