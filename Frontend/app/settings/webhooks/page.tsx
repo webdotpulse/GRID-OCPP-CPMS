@@ -797,7 +797,7 @@ export default function WebhooksManagementPage() {
 
         {/* Modal: Register / Edit Webhook */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="sm:max-w-2xl max-h-[90vh] p-0 flex flex-col overflow-hidden bg-card text-card-foreground border-border">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] p-0 flex flex-col gap-0 overflow-hidden bg-card text-card-foreground border-border">
             <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
               <DialogTitle className="flex items-center gap-2 text-xl font-bold font-heading">
                 <Webhook className="size-5 text-[#54a8c7]" />
@@ -939,7 +939,7 @@ export default function WebhooksManagementPage() {
 
         {/* Modal: Delivery Inspector */}
         <Dialog open={Boolean(selectedDelivery)} onOpenChange={(open) => !open && setSelectedDelivery(null)}>
-          <DialogContent className="sm:max-w-2xl max-h-[85vh] p-0 flex flex-col overflow-hidden bg-card text-card-foreground border-border">
+          <DialogContent className="sm:max-w-2xl max-h-[85vh] p-0 flex flex-col gap-0 overflow-hidden bg-card text-card-foreground border-border">
             <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
               <DialogTitle className="flex items-center gap-2 font-heading">
                 <Send className="size-5 text-[#3f78e0]" />

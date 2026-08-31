@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -85,24 +85,34 @@ export default function VehicleIdentityManagementPage() {
           <DialogTrigger asChild>
             <Button><Plus className="mr-2 h-4 w-4" /> Register Vehicle</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Register New Vehicle</DialogTitle>
+              <DialogDescription className="text-xs">
+                Register an ISO 15118 contract certificate (EMAID) for Plug & Charge authentication.
+              </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleAddVehicle} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">EMAID</label>
-                <Input required value={newVehicle.emaid} onChange={e => setNewVehicle({...newVehicle, emaid: e.target.value})} placeholder="e.g. DE*ABC*E123456789" />
+            <form onSubmit={handleAddVehicle} className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold">EMAID *</label>
+                <Input required value={newVehicle.emaid} onChange={e => setNewVehicle({...newVehicle, emaid: e.target.value})} placeholder="e.g. DE*ABC*E123456789" className="font-mono text-xs" />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">MAC Address (Optional)</label>
-                <Input value={newVehicle.macAddress} onChange={e => setNewVehicle({...newVehicle, macAddress: e.target.value})} placeholder="e.g. 00:1A:2B:3C:4D:5E" />
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold">MAC Address (Optional)</label>
+                <Input value={newVehicle.macAddress} onChange={e => setNewVehicle({...newVehicle, macAddress: e.target.value})} placeholder="e.g. 00:1A:2B:3C:4D:5E" className="font-mono text-xs" />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">User ID</label>
-                <Input type="number" required value={newVehicle.userId} onChange={e => setNewVehicle({...newVehicle, userId: e.target.value})} />
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold">User ID *</label>
+                <Input type="number" required value={newVehicle.userId} onChange={e => setNewVehicle({...newVehicle, userId: e.target.value})} className="text-xs" />
               </div>
-              <Button type="submit" className="w-full">Register</Button>
+              <DialogFooter className="pt-2">
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="bg-[#54a8c7] hover:bg-[#4596b4] text-white font-bold">
+                  Register Vehicle
+                </Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>

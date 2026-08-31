@@ -875,7 +875,7 @@ export default function InvoicesPage() {
 
         {/* Generate Invoices Dialog */}
         <Dialog open={isGenerateOpen} onOpenChange={setIsGenerateOpen}>
-          <DialogContent className="sm:max-w-md p-0 flex flex-col overflow-hidden bg-card text-card-foreground border-border">
+          <DialogContent className="sm:max-w-md max-h-[90vh] p-0 flex flex-col gap-0 overflow-hidden bg-card text-card-foreground border-border">
             <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
               <DialogTitle className="text-lg font-bold flex items-center gap-2 text-foreground font-heading">
                 <PlusCircle className="size-5 text-[#54a8c7]" />
@@ -963,7 +963,7 @@ export default function InvoicesPage() {
 
         {/* SEPA Direct Debit Export Dialog */}
         <Dialog open={isSepaExportOpen} onOpenChange={setIsSepaExportOpen}>
-          <DialogContent className="sm:max-w-md p-0 flex flex-col overflow-hidden bg-card text-card-foreground border-border">
+          <DialogContent className="sm:max-w-md max-h-[90vh] p-0 flex flex-col gap-0 overflow-hidden bg-card text-card-foreground border-border">
             <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
               <DialogTitle className="text-lg font-bold flex items-center gap-2 text-foreground font-heading">
                 <FileCode2 className="size-5 text-emerald-500 dark:text-emerald-400" />
@@ -1186,7 +1186,7 @@ export default function InvoicesPage() {
 
         {/* New Mandate Dialog */}
         <Dialog open={isNewMandateOpen} onOpenChange={setIsNewMandateOpen}>
-          <DialogContent className="sm:max-w-md p-0 flex flex-col overflow-hidden bg-card text-card-foreground border-border">
+          <DialogContent className="sm:max-w-md max-h-[90vh] p-0 flex flex-col gap-0 overflow-hidden bg-card text-card-foreground border-border">
             <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
               <DialogTitle className="text-lg font-bold flex items-center gap-2 text-foreground font-heading">
                 <PlusCircle className="size-5 text-[#54a8c7]" />

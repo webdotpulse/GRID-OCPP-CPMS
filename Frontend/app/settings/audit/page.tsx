@@ -436,12 +436,18 @@ export default function AuditLogsPage() {
                 </pre>
               </div>
             </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSelectedLog(null)}>
+                Close
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
 
         {/* Clear Audit Logs Modal */}
         <Dialog open={isClearModalOpen} onOpenChange={setIsClearModalOpen}>
-          <DialogContent className="sm:max-w-md p-0 flex flex-col overflow-hidden bg-card text-card-foreground border-border">
+          <DialogContent className="sm:max-w-md max-h-[90vh] p-0 flex flex-col gap-0 overflow-hidden bg-card text-card-foreground border-border">
             <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
               <DialogTitle className="flex items-center gap-2 text-lg font-bold text-rose-600 dark:text-rose-400 font-heading">
                 <Trash2 className="w-5 h-5" />

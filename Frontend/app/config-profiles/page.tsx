@@ -529,7 +529,7 @@ export default function ConfigProfilesPage() {
 
         {/* Create / Edit Profile Modal */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-2xl p-0 flex flex-col max-h-[90vh] overflow-hidden bg-card text-card-foreground border-border">
+          <DialogContent className="sm:max-w-2xl p-0 flex flex-col gap-0 max-h-[90vh] overflow-hidden bg-card text-card-foreground border-border">
             <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
               <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground font-heading">
                 <Sliders className="w-5 h-5 text-[#54a8c7]" />

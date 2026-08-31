@@ -14,6 +14,8 @@ import { Plus, Trash, Download, Upload, Save, Edit, Sun, CreditCard, ArrowRight,
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -346,11 +348,17 @@ export default function QuirkProfilesPage() {
                   <Plus className="w-4 h-4 mr-2" /> New Quirk Profile
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>{editingProfile ? "Edit Quirk Profile" : "Create Quirk Profile"}</DialogTitle>
+              <DialogContent className="sm:max-w-3xl max-h-[90vh] p-0 flex flex-col gap-0 overflow-hidden bg-card text-card-foreground border-border">
+                <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border/40">
+                  <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground font-heading">
+                    <Layers className="w-5 h-5 text-[#54a8c7]" />
+                    {editingProfile ? "Edit Quirk Profile" : "Create Quirk Profile"}
+                  </DialogTitle>
+                  <DialogDescription className="text-muted-foreground text-xs">
+                    Configure hardware compatibility overrides, RFID card ID translations, and power synthesis rules.
+                  </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-5 py-3">
+                <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Profile Name</Label>
@@ -556,16 +564,16 @@ export default function QuirkProfilesPage() {
                       />
                     </div>
                   )}
-
-                  <div className="pt-4 flex justify-end gap-2 border-t">
-                    <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleSave}>
-                      <Save className="w-4 h-4 mr-2" /> Save Profile
-                    </Button>
-                  </div>
                 </div>
+
+                <DialogFooter className="px-6 py-4 shrink-0 border-t border-border bg-muted/20 flex flex-row items-center justify-end gap-2">
+                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSave} className="bg-[#54a8c7] hover:bg-[#4596b4] text-white font-bold">
+                    <Save className="w-4 h-4 mr-1.5" /> Save Profile
+                  </Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
