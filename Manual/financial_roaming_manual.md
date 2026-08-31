@@ -145,6 +145,9 @@ sequenceDiagram
 
 ## 3. Roaming Hubs (OCPI 2.2.1 & OICP Hubject)
 
+> [!NOTE]
+> For the complete step-by-step setup guide, token generation instructions, and tutorial on connecting two CPMS instances, see the dedicated **[Roaming & Interoperability Operations Manual](roaming_manual.md)**.
+
 To maximize charger utilization and allow contracted drivers to charge on external networks, the CPMS acts as both a **Charge Point Operator (CPO)** and an **e-Mobility Service Provider (eMSP)**.
 
 ### 3.1 OCPI 2.2.1 Implementation
