@@ -41,9 +41,10 @@ function PaymentsContent() {
         provider: selectedProvider,
       });
 
-      if (res.data?.success && res.data?.data?.checkoutUrl) {
+      const checkoutUrl = res.data?.checkoutUrl || res.data?.data?.checkoutUrl;
+      if (checkoutUrl) {
         // Redirect to hosted checkout page
-        window.location.href = res.data.data.checkoutUrl;
+        window.location.href = checkoutUrl;
       } else {
         toast.error(res.data?.message || "Failed to initialize payment");
         setLoading(false);

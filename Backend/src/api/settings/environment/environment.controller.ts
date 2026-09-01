@@ -109,15 +109,15 @@ export const getServerEnvironmentMetrics = async (req: Request, res: Response) =
         companiesCount,
         groupsCount,
       ] = await Promise.all([
-        prisma.charger.count(),
-        prisma.chargingStation.count(),
-        prisma.connector.count(),
-        prisma.transaction.count(),
-        prisma.transaction.count({ where: { endTime: null } }),
-        prisma.user.count(),
-        prisma.rfidUser.count(),
-        prisma.company.count(),
-        prisma.chargeGroup.count(),
+        prisma.charger.count().catch(() => 0),
+        prisma.chargingStation.count().catch(() => 0),
+        prisma.connector.count().catch(() => 0),
+        prisma.transaction.count().catch(() => 0),
+        prisma.transaction.count({ where: { endTime: null } }).catch(() => 0),
+        prisma.user.count().catch(() => 0),
+        prisma.rfidUser.count().catch(() => 0),
+        prisma.company.count().catch(() => 0),
+        prisma.chargeGroup.count().catch(() => 0),
       ]);
 
       counts = {
@@ -170,24 +170,31 @@ export const getServerEnvironmentMetrics = async (req: Request, res: Response) =
       logger.error(`Failed to get cluster chargers: ${err}`);
     }
 
-    const connectedChargerRecords = await prisma.charger.findMany({
-      where: {
-        charger_id: { in: clusterConnectedChargerIds },
-      },
-      select: {
-        charger_id: true,
-        name: true,
-        model: true,
-        manufacturer: true,
-        firmware_version: true,
-        status: true,
-        chargingStation: {
-          select: {
-            station_name: true,
+    let connectedChargerRecords: any[] = [];
+    try {
+      if (clusterConnectedChargerIds.length > 0) {
+        connectedChargerRecords = await prisma.charger.findMany({
+          where: {
+            charger_id: { in: clusterConnectedChargerIds },
           },
-        },
-      },
-    });
+          select: {
+            charger_id: true,
+            name: true,
+            model: true,
+            manufacturer: true,
+            firmware_version: true,
+            status: true,
+            chargingStation: {
+              select: {
+                station_name: true,
+              },
+            },
+          },
+        });
+      }
+    } catch (err) {
+      logger.error(`Failed to query charger records: ${err}`);
+    }
 
     const connectedChargersList = clusterConnectedChargerIds.map((id) => {
       const localConn = chargerRegistry.getConnection(id);

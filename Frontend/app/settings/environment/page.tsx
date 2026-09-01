@@ -195,8 +195,9 @@ export default function ServerEnvironmentPage() {
     if (showLoader) setIsRefreshing(true);
     try {
       const res = await api.get("/settings/environment");
-      if (res.data?.success && res.data?.data) {
-        setMetrics(res.data.data);
+      const data = res.data?.data || res.data;
+      if (data && (data.host || data.status || data.cpu || data.database)) {
+        setMetrics(data);
       }
     } catch (err) {
       logger.error("Failed to fetch server environment metrics", err);
@@ -238,9 +239,12 @@ export default function ServerEnvironmentPage() {
     setIsPinging(true);
     try {
       const res = await api.post("/settings/environment/ping");
-      if (res.data?.success && res.data?.data?.results) {
-        setPingResults(res.data.data.results);
+      const results = res.data?.results || res.data?.data?.results || (Array.isArray(res.data) ? res.data : null);
+      if (results) {
+        setPingResults(results);
         toast.success("Diagnostic latency check complete");
+      } else {
+        toast.error("No diagnostic results returned");
       }
     } catch (err) {
       logger.error("Failed to run diagnostic ping", err);
@@ -286,10 +290,42 @@ export default function ServerEnvironmentPage() {
     );
   }
 
-  const isHealthy = metrics?.status === "operational";
-  const cpuPercent = metrics?.cpu?.overallUsagePercent || 0;
-  const sysMemPercent = metrics?.memory?.usedSystemPercent || 0;
-  const heapPercent = metrics?.memory?.heapUsagePercent || 0;
+  if (!metrics) {
+    return (
+      <AppShell>
+        <div className="space-y-6 max-w-7xl mx-auto pb-12">
+          <Link href="/settings">
+            <Button variant="ghost" size="sm" className="-ml-3 text-muted-foreground hover:text-foreground">
+              <ChevronLeft className="mr-1.5 size-4" /> Back to Settings
+            </Button>
+          </Link>
+          <Card className="rounded-2xl border-rose-500/30 bg-rose-500/5 p-8 text-center space-y-4">
+            <div className="size-12 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center mx-auto">
+              <AlertTriangle className="size-6" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold text-foreground">Unable to Load Server Environment Metrics</h2>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                The CPMS backend API could not be reached or returned an invalid telemetry response. Check backend connectivity.
+              </p>
+            </div>
+            <Button
+              onClick={() => fetchMetrics(true)}
+              className="rounded-xl bg-[#54a8c7] text-white hover:bg-[#4695b2] text-xs font-semibold gap-1.5"
+            >
+              <RefreshCw className="size-3.5" />
+              <span>Retry Connection</span>
+            </Button>
+          </Card>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const isHealthy = metrics.status === "operational";
+  const cpuPercent = metrics.cpu?.overallUsagePercent || 0;
+  const sysMemPercent = metrics.memory?.usedSystemPercent || 0;
+  const heapPercent = metrics.memory?.heapUsagePercent || 0;
 
   return (
     <AppShell>
@@ -644,19 +680,19 @@ export default function ServerEnvironmentPage() {
                     <div className="p-2.5 bg-muted/40 rounded-xl">
                       <div className="text-[10px] text-muted-foreground uppercase font-semibold">Load 1m</div>
                       <div className="text-sm font-bold font-mono text-foreground mt-0.5">
-                        {metrics?.host?.loadAverage[0]?.toFixed(2) || "0.00"}
+                        {metrics?.host?.loadAverage?.[0] !== undefined ? metrics.host.loadAverage[0].toFixed(2) : "0.00"}
                       </div>
                     </div>
                     <div className="p-2.5 bg-muted/40 rounded-xl">
                       <div className="text-[10px] text-muted-foreground uppercase font-semibold">Load 5m</div>
                       <div className="text-sm font-bold font-mono text-foreground mt-0.5">
-                        {metrics?.host?.loadAverage[1]?.toFixed(2) || "0.00"}
+                        {metrics?.host?.loadAverage?.[1] !== undefined ? metrics.host.loadAverage[1].toFixed(2) : "0.00"}
                       </div>
                     </div>
                     <div className="p-2.5 bg-muted/40 rounded-xl">
                       <div className="text-[10px] text-muted-foreground uppercase font-semibold">Load 15m</div>
                       <div className="text-sm font-bold font-mono text-foreground mt-0.5">
-                        {metrics?.host?.loadAverage[2]?.toFixed(2) || "0.00"}
+                        {metrics?.host?.loadAverage?.[2] !== undefined ? metrics.host.loadAverage[2].toFixed(2) : "0.00"}
                       </div>
                     </div>
                   </div>

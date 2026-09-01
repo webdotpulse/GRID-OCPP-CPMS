@@ -27,27 +27,47 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => {
     // The backend wraps responses in { success: true, data: { ... } }
-    // We unwrap it here so frontend components can use response.data directly.
+    // We unwrap it here so frontend components can use response.data directly,
+    // while preserving .success and .data self-reference for components expecting the raw wrapper.
     if (response.data && response.data.success && response.data.data !== undefined) {
       const pagination = response.data.pagination;
       const stats = response.data.stats;
       const unwrappedData = response.data.data;
-      if (pagination) {
-        (response as any).pagination = pagination;
-        if (unwrappedData && typeof unwrappedData === 'object') {
+
+      if (unwrappedData && typeof unwrappedData === 'object') {
+        if (pagination) {
+          (response as any).pagination = pagination;
           (unwrappedData as any).pagination = pagination;
         }
-      }
-      if (stats) {
-        (response as any).stats = stats;
-        if (unwrappedData && typeof unwrappedData === 'object') {
+        if (stats) {
+          (response as any).stats = stats;
           (unwrappedData as any).stats = stats;
         }
-      }
-      if (response.data.total !== undefined) {
-        (response as any).total = response.data.total;
-        if (unwrappedData && typeof unwrappedData === 'object') {
+        if (response.data.total !== undefined) {
+          (response as any).total = response.data.total;
           (unwrappedData as any).total = response.data.total;
+        }
+
+        // Attach non-enumerable .success and .data properties for backward compatibility
+        try {
+          if ((unwrappedData as any).success === undefined) {
+            Object.defineProperty(unwrappedData, 'success', {
+              value: true,
+              writable: true,
+              enumerable: false,
+              configurable: true,
+            });
+          }
+          if ((unwrappedData as any).data === undefined) {
+            Object.defineProperty(unwrappedData, 'data', {
+              value: unwrappedData,
+              writable: true,
+              enumerable: false,
+              configurable: true,
+            });
+          }
+        } catch {
+          // Ignore if object is frozen/sealed
         }
       }
       response.data = unwrappedData;
