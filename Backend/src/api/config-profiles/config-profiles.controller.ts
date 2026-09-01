@@ -221,3 +221,34 @@ export const generateStandardProfile = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: error.message || "Internal server error" });
   }
 };
+
+/**
+ * Returns the list of curated Benelux OEM presets and universal baseline definitions with metadata.
+ */
+export const getPresetDefinitions = async (req: Request, res: Response) => {
+  try {
+    const { BENELUX_CHARGER_PROFILES } = await import("../../utils/benelux-charger-profiles.js");
+    res.json({ success: true, data: BENELUX_CHARGER_PROFILES });
+  } catch (error: any) {
+    logger.error("Failed to get preset definitions", error);
+    res.status(500).json({ success: false, error: error.message || "Internal server error" });
+  }
+};
+
+/**
+ * Seeds or updates all Benelux OEM & Universal configuration profiles in the database.
+ */
+export const seedPresets = async (req: Request, res: Response) => {
+  try {
+    const { seedAllBeneluxProfiles } = await import("../../utils/benelux-charger-profiles.js");
+    const profiles = await seedAllBeneluxProfiles();
+    res.status(201).json({
+      success: true,
+      message: `Successfully seeded ${profiles.length} Benelux and Universal configuration profiles`,
+      data: profiles,
+    });
+  } catch (error: any) {
+    logger.error("Failed to seed configuration presets", error);
+    res.status(500).json({ success: false, error: error.message || "Internal server error" });
+  }
+};

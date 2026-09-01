@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import { prisma, pgliteInstance } from "../config/database.js";
 import { PkiCertificateService } from "../services/PkiCertificateService.js";
 import { DEFAULT_MAIL_TEMPLATES } from "../services/MailTemplateDefaults.js";
+import { seedAllBeneluxProfiles } from "../utils/benelux-charger-profiles.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -54,6 +55,8 @@ async function seed() {
   await prisma.diagnosticEvent.deleteMany({});
   await prisma.mediaCampaign.deleteMany({});
   await prisma.charger.deleteMany({});
+  await prisma.configurationProfileItem.deleteMany({});
+  await prisma.configurationProfile.deleteMany({});
   await prisma.chargerQuirkProfile.deleteMany({});
   await prisma.chargeGroupUser.deleteMany({});
   await prisma.chargeGroup.deleteMany({});
@@ -512,7 +515,7 @@ async function seed() {
   });
 
   // 14. Seed Default Multilingual Mail Templates
-  console.log("[14/14] Seeding Multilingual Mail Templates (EN, NL, FR)...");
+  console.log("[14/15] Seeding Multilingual Mail Templates (EN, NL, FR)...");
   for (const tpl of DEFAULT_MAIL_TEMPLATES) {
     await prisma.mailTemplate.create({
       data: {
@@ -525,6 +528,10 @@ async function seed() {
       },
     });
   }
+
+  // 15. Seed Optimized Benelux & Universal OCPP Configuration Profiles
+  console.log("[15/15] Seeding Optimized Benelux & Universal OCPP Configuration Profiles...");
+  await seedAllBeneluxProfiles();
 
   console.log("==================================================");
   console.log("  Demo Data Seeding Completed Successfully!       ");

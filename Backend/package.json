@@ -19,6 +19,7 @@
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
     "create-superadmin": "npx prisma db push && node --import tsx src/scripts/createSuperadmin.ts",
+    "seed:profiles": "node --import tsx src/scripts/seedConfigProfiles.ts",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest"
   },
   "keywords": [
