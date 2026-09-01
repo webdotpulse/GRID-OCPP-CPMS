@@ -40,6 +40,8 @@ import { OcppSchemaValidator } from "./OcppSchemaValidator";
 import { OcppFrame, OcppMessageType, OcppDirection, OcppInspectorFilter } from "./types";
 import { logger } from "@/lib/logger";
 import { toast } from "sonner";
+import { useTelemetryStore } from "@/store/useTelemetryStore";
+import { api } from "@/lib/api";
 
 export function OcppPacketInspector() {
   const [frames, setFrames] = useState<OcppFrame[]>([]);
@@ -163,8 +165,58 @@ export function OcppPacketInspector() {
     };
   }, []);
 
+  const realtimeSocket = useTelemetryStore((state) => state.socket);
+  const isRealtimeConnected = useTelemetryStore((state) => state.isConnected);
+
+  // 1. Initial Load via REST API
+  const fetchLogs = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const res = await api.get("/ocpp/logs?limit=100");
+      const rawLogs = res.data?.data || res.data?.logs || [];
+      if (Array.isArray(rawLogs)) {
+        const enriched = rawLogs.map(enrichRawLog);
+        setFrames(enriched.reverse());
+        if (enriched.length > 0) {
+          setSelectedFrameId((prev) => prev || enriched[0].id);
+        }
+      }
+    } catch (err) {
+      logger.debug("Failed to fetch initial OCPP logs via REST", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [enrichRawLog]);
+
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
+
+  // 2. Real-time Log Streaming via Socket.IO
+  useEffect(() => {
+    if (!realtimeSocket) return;
+
+    const handleRealtimeLog = (data: any) => {
+      const rawLog = data?.log || data;
+      if (!rawLog) return;
+      const newFrame = enrichRawLog(rawLog);
+      setFrames((prev) => {
+        if (isPaused) return prev;
+        if (prev.some((f) => f.id === newFrame.id)) return prev;
+        return [newFrame, ...prev].slice(0, 1000);
+      });
+      setIsLoading(false);
+    };
+
+    realtimeSocket.on("OCPP_LOG", handleRealtimeLog);
+
+    return () => {
+      realtimeSocket.off("OCPP_LOG", handleRealtimeLog);
+    };
+  }, [realtimeSocket, enrichRawLog, isPaused]);
+
+  // 3. Fallback / Dedicated Direct WebSocket Connection
   const connectWebSocket = useCallback(() => {
-    setIsLoading(true);
     let wsUrl = process.env.NEXT_PUBLIC_OCPP_LOGS_WS_URL;
 
     if (!wsUrl && typeof window !== "undefined") {
@@ -184,54 +236,59 @@ export function OcppPacketInspector() {
       wsUrl = `${wsUrl}${delimiter}token=${encodeURIComponent(token)}`;
     }
 
-    const socket = new WebSocket(wsUrl);
+    try {
+      const socket = new WebSocket(wsUrl);
 
-    socket.onopen = () => {
-      logger.info("Connected to OCPP logs WebSocket");
-    };
+      socket.onopen = () => {
+        logger.info("Connected to OCPP logs raw WebSocket channel");
+      };
 
-    socket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "history") {
-          const chronologicalLogs = Array.isArray(data.logs) ? data.logs : [];
-          const enriched = chronologicalLogs.map(enrichRawLog);
-          setFrames(enriched.reverse());
-          if (enriched.length > 0 && !selectedFrameId) {
-            setSelectedFrameId(enriched[0].id);
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "history") {
+            const chronologicalLogs = Array.isArray(data.logs) ? data.logs : [];
+            const enriched = chronologicalLogs.map(enrichRawLog);
+            setFrames(enriched.reverse());
+            if (enriched.length > 0 && !selectedFrameId) {
+              setSelectedFrameId(enriched[0].id);
+            }
+            setIsLoading(false);
+          } else if (data.type === "log") {
+            const newFrame = enrichRawLog(data.log);
+            setFrames((prev) => {
+              if (isPaused) return prev;
+              if (prev.some((f) => f.id === newFrame.id)) return prev;
+              const updated = [newFrame, ...prev].slice(0, 1000);
+              return updated;
+            });
+            setIsLoading(false);
           }
-          setIsLoading(false);
-        } else if (data.type === "log") {
-          const newFrame = enrichRawLog(data.log);
-          setFrames((prev) => {
-            if (isPaused) return prev;
-            const updated = [newFrame, ...prev].slice(0, 1000);
-            return updated;
-          });
-          setIsLoading(false);
+        } catch (err) {
+          logger.debug("Error parsing WS packet", err);
         }
-      } catch (err) {
-        logger.error("Error parsing WS packet", err);
-      }
-    };
+      };
 
-    socket.onerror = (error) => {
-      logger.error("WebSocket error:", error);
-      setIsLoading(false);
-    };
+      socket.onerror = (error) => {
+        logger.debug("Raw WebSocket fallback info (Socket.IO active):", error);
+      };
 
-    socket.onclose = () => {
-      logger.info("WebSocket connection closed");
-    };
+      socket.onclose = () => {
+        logger.debug("Raw WebSocket connection closed");
+      };
 
-    setWs(socket);
-    return socket;
+      setWs(socket);
+      return socket;
+    } catch (e) {
+      logger.debug("Could not initiate raw WS, relying on Socket.IO and REST", e);
+      return null;
+    }
   }, [enrichRawLog, isPaused, selectedFrameId]);
 
   useEffect(() => {
     const socket = connectWebSocket();
     return () => {
-      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
         socket.close();
       }
     };

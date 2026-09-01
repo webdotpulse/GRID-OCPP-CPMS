@@ -19,6 +19,7 @@ import rfidRoutes from "./api/rfid/rfid.routes.js";
 import tariffsRoutes from "./api/tariffs/tariffs.routes.js";
 import transactionsRoutes from "./api/transactions/transactions.routes.js";
 import ocppRoutes from "./api/ocpp/ocpp.routes.js";
+import { getOcppLogsController } from "./api/ocpp/ocpp.controller.js";
 import dashboardRoutes from "./api/dashboard/dashboard.routes.js";
 import paymentsRoutes from "./api/payments/payments.routes.js";
 import ocpiRoutes from "./api/ocpi/ocpi.routes.js";
@@ -182,6 +183,7 @@ export function createApp(): Application {
   app.use("/api/tariffs", authenticateToken, tariffsRoutes);
   app.use("/api/transactions", authenticateToken, transactionsRoutes);
   app.use("/api/ocpp", authenticateToken, ocppRoutes);
+  app.get("/api/ocpp-logs", authenticateToken, getOcppLogsController);
   app.use("/api/dashboard", authenticateToken, dashboardRoutes);
   app.use("/api/users", authenticateToken, usersRoutes);
   app.use("/api/companies", authenticateToken, companiesRoutes);

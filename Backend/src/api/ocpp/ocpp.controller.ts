@@ -707,3 +707,52 @@ export const triggerMessageController = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * GET /api/ocpp/logs or /api/ocpp-logs - Get latest OCPP logs
+ */
+export const getOcppLogsController = async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthRequest;
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 500);
+    const chargerId = req.query.chargerId ? parseInt(req.query.chargerId as string) : undefined;
+
+    const where: any = {};
+    if (chargerId && !isNaN(chargerId)) {
+      where.chargerId = chargerId;
+    }
+
+    if (authReq.userRole !== "admin" && authReq.userRole !== "superadmin") {
+      where.charger = {
+        owner_id: authReq.userId,
+      };
+    }
+
+    const logs = await prisma.ocppLog.findMany({
+      where,
+      take: limit,
+      orderBy: { timestamp: "desc" },
+      include: {
+        charger: {
+          select: {
+            charger_id: true,
+            name: true,
+            model: true,
+            vendor: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      data: logs.reverse(),
+    });
+  } catch (error: any) {
+    logger.error(`Error fetching OCPP logs: ${error}`);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch OCPP logs",
+    });
+  }
+};
+

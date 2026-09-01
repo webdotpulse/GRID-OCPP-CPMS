@@ -16,11 +16,13 @@ import {
   testAuth,
   updateFirmwareController,
   getDiagnosticsController,
+  getOcppLogsController,
 } from "./ocpp.controller.js";
 import { auditLogMiddleware } from "../../middleware/audit.js";
 
 const router = Router();
 
+router.get("/logs", getOcppLogsController);
 router.get("/connected", getConnectedChargers);
 router.post("/remote-start", auditLogMiddleware("REMOTE_START", "Charger"), remoteStart);
 router.post("/remote-stop", auditLogMiddleware("REMOTE_STOP", "Charger"), remoteStop);

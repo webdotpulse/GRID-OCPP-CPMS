@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { api } from "@/lib/api";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { logger } from "@/lib/logger";
+import { useTelemetryStore } from "@/store/useTelemetryStore";
 
 interface ChannelLog {
   id: string;
@@ -148,15 +149,43 @@ export function ChannelLogs({ chargerId, connectorId }: ChannelLogsProps) {
     };
   }, [chargerId, connectorId]);
 
+  const realtimeSocket = useTelemetryStore((state) => state.socket);
+
   useEffect(() => {
+    if (!realtimeSocket) return;
+
+    const handleRealtimeLog = (data: any) => {
+      const rawLog = data?.log || data;
+      if (!rawLog || Number(rawLog.chargerId) !== Number(chargerId)) return;
+      const newLog = enrichLog(rawLog);
+      if (newLog) {
+        setLogs((prev) => {
+          if (prev.some((l) => l.id === newLog.id)) return prev;
+          return [newLog, ...prev].slice(0, 50);
+        });
+      }
+    };
+
+    realtimeSocket.on("OCPP_LOG", handleRealtimeLog);
+
+    return () => {
+      realtimeSocket.off("OCPP_LOG", handleRealtimeLog);
+    };
+  }, [realtimeSocket, chargerId, enrichLog]);
+
+  useEffect(() => {
+    let isMounted = true;
     const fetchHistoricalLogs = async () => {
       setIsLoading(true);
       try {
         const response = await api.get(`/chargers/${chargerId}/logs`);
         const data = response.data || [];
 
-        // Pre-populate map before enriching, iterating from oldest to newest
-        // assuming data is newest first, so we reverse it to process chronologically
+        if (!Array.isArray(data)) {
+          if (isMounted) setLogs([]);
+          return;
+        }
+
         const chronologicalData = [...data].reverse();
         for (const log of chronologicalData) {
           try {
@@ -164,25 +193,23 @@ export function ChannelLogs({ chargerId, connectorId }: ChannelLogsProps) {
             if (Array.isArray(parsedMsg) && parsedMsg[0] === 2 && parsedMsg[1] && parsedMsg[2]) {
               messageActionMap.current[parsedMsg[1]] = parsedMsg[2];
             }
-          } catch {
-            // ignore JSON parse errors
-          }
+          } catch {}
         }
 
         const historicalLogs = data
           .map(enrichLog)
           .filter(Boolean) as ChannelLog[];
-        setLogs(historicalLogs.slice(0, 50));
+        if (isMounted) setLogs(historicalLogs.slice(0, 50));
       } catch (error) {
-        logger.error("Failed to fetch historical logs", error);
+        logger.debug("Failed to fetch historical logs via REST", error);
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
 
     fetchHistoricalLogs();
 
-    // Set up WebSocket connection for live logs
+    // Set up WebSocket connection for live logs as secondary transport
     let wsUrl = process.env.NEXT_PUBLIC_OCPP_LOGS_WS_URL;
     if (!wsUrl && typeof window !== 'undefined') {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
@@ -196,7 +223,8 @@ export function ChannelLogs({ chargerId, connectorId }: ChannelLogsProps) {
     }
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     if (token) {
-      wsUrl += `?token=${encodeURIComponent(token)}`;
+      const delimiter = wsUrl.includes('?') ? '&' : '?';
+      wsUrl += `${delimiter}token=${encodeURIComponent(token)}`;
     }
     let ws: WebSocket | null = null;
 
@@ -207,21 +235,27 @@ export function ChannelLogs({ chargerId, connectorId }: ChannelLogsProps) {
         try {
           const data = JSON.parse(event.data);
 
-          if (data.type === 'log' && data.log.chargerId === chargerId) {
+          if (data.type === 'log' && Number(data.log?.chargerId) === Number(chargerId)) {
              const newLog = enrichLog(data.log);
              if (newLog) {
-               setLogs(prev => [newLog, ...prev].slice(0, 50));
+               setLogs(prev => {
+                 if (prev.some(l => l.id === newLog.id)) return prev;
+                 return [newLog, ...prev].slice(0, 50);
+               });
              }
           }
-        } catch {
-          // parse error
-        }
+        } catch {}
+      };
+
+      ws.onerror = (err) => {
+        logger.debug("Raw WS fallback info for ChannelLogs (Socket.IO active):", err);
       };
     } catch (err) {
-      logger.error("Failed to connect to OCPP logs WS", err);
+      logger.debug("Failed to connect to OCPP logs WS, using Socket.IO", err);
     }
 
     return () => {
+      isMounted = false;
       if (ws) ws.close();
     };
   }, [chargerId, enrichLog]);

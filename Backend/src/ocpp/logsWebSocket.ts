@@ -4,6 +4,7 @@ import { config } from "../config/index.js";
 import { logger } from "../utils/logger.js";
 import { prisma } from "../config/database.js";
 import type { OcppMessage } from "../types/index.js";
+import { isOriginAllowed } from "../utils/cors.js";
 import { redisSubscriber } from "../config/redis.js";
 import http from "http";
 
@@ -16,7 +17,22 @@ class OcppLogsServer {
 
     server.on("upgrade", (request, socket, head) => {
       const urlStr = request.url || "";
-      if (urlStr.startsWith("/api/ocpp-logs")) {
+      const pathname = urlStr.split("?")[0].replace(/\/+$/, "");
+
+      if (
+        pathname === "/api/ocpp-logs" ||
+        pathname === "/api/ocpp/logs" ||
+        pathname === "/ocpp-logs"
+      ) {
+        // Verify Origin
+        const origin = request.headers.origin;
+        if (!isOriginAllowed(origin)) {
+          logger.warn(`CORS policy blocked WebSocket connection to ${pathname} from origin: ${origin}`);
+          socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
+          socket.destroy();
+          return;
+        }
+
         try {
           const parsedUrl = new URL(urlStr, `http://${request.headers.host || "localhost"}`);
           let token = parsedUrl.searchParams.get("token");
@@ -37,7 +53,7 @@ class OcppLogsServer {
           }
 
           if (!token) {
-            logger.warn("Rejected unauthenticated WebSocket connection to /api/ocpp-logs: Missing token");
+            logger.warn(`Rejected unauthenticated WebSocket connection to ${pathname}: Missing token`);
             socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
             socket.destroy();
             return;
@@ -50,7 +66,7 @@ class OcppLogsServer {
           };
 
           if (decoded.role !== "admin" && decoded.role !== "superadmin") {
-            logger.warn(`Rejected WebSocket connection to /api/ocpp-logs for user ${decoded.userId}: Insufficient role (${decoded.role})`);
+            logger.warn(`Rejected WebSocket connection to ${pathname} for user ${decoded.userId}: Insufficient role (${decoded.role})`);
             socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
             socket.destroy();
             return;
@@ -61,7 +77,7 @@ class OcppLogsServer {
             this.wss?.emit("connection", ws, request);
           });
         } catch (authErr: any) {
-          logger.warn(`Failed WebSocket authentication for /api/ocpp-logs: ${authErr.message}`);
+          logger.warn(`Failed WebSocket authentication for ${pathname}: ${authErr.message}`);
           socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
           socket.destroy();
           return;

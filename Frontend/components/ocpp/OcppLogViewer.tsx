@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, Download, Terminal } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { useTelemetryStore } from "@/store/useTelemetryStore";
+import { api } from "@/lib/api";
 
 export function OcppLogViewer() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -119,8 +121,60 @@ export function OcppLogViewer() {
     };
   }, []);
 
+  const realtimeSocket = useTelemetryStore((state) => state.socket);
+
+  // 1. Initial Load via REST API
+  const fetchLogs = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const res = await api.get('/ocpp/logs?limit=100');
+      const rawLogs = res.data?.data || res.data?.logs || [];
+      if (Array.isArray(rawLogs)) {
+        for (const log of rawLogs) {
+          try {
+            const parsedMsg = typeof log.message === 'string' ? JSON.parse(log.message) : log.message;
+            if (Array.isArray(parsedMsg) && parsedMsg[0] === 2 && parsedMsg[1] && parsedMsg[2]) {
+              messageActionMap.current[parsedMsg[1]] = parsedMsg[2];
+            }
+          } catch {}
+        }
+        setLogs([...rawLogs].reverse().map(enrichLog));
+      }
+    } catch (err) {
+      logger.debug('Failed to fetch initial OCPP logs via REST', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [enrichLog]);
+
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
+
+  // 2. Real-time streaming via Socket.IO
+  useEffect(() => {
+    if (!realtimeSocket) return;
+
+    const handleRealtimeLog = (data: any) => {
+      const rawLog = data?.log || data;
+      if (!rawLog) return;
+      const newLog = enrichLog(rawLog);
+      setLogs((prev) => {
+        if (prev.some((l) => l.id === newLog.id)) return prev;
+        return [newLog, ...prev].slice(0, 500);
+      });
+      setIsLoading(false);
+    };
+
+    realtimeSocket.on('OCPP_LOG', handleRealtimeLog);
+
+    return () => {
+      realtimeSocket.off('OCPP_LOG', handleRealtimeLog);
+    };
+  }, [realtimeSocket, enrichLog]);
+
+  // 3. Fallback raw WebSocket connection
   const connectWebSocket = useCallback(() => {
-    setIsLoading(true);
     let wsUrl = process.env.NEXT_PUBLIC_OCPP_LOGS_WS_URL;
 
     if (!wsUrl && typeof window !== 'undefined') {
@@ -140,59 +194,61 @@ export function OcppLogViewer() {
       wsUrl = `${wsUrl}${delimiter}token=${encodeURIComponent(token)}`;
     }
 
-    const socket = new WebSocket(wsUrl);
+    try {
+      const socket = new WebSocket(wsUrl);
 
-    socket.onopen = () => {
-      logger.info('Connected to OCPP logs WebSocket');
-    };
+      socket.onopen = () => {
+        logger.info('Connected to OCPP logs raw WebSocket channel');
+      };
 
-    socket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'history') {
-          // Pre-populate message action map chronologically (data.logs is oldest to newest or vice-versa, depending on backend)
-          // The backend currently sends in chronological order. We should process it as such.
-          const chronologicalData = Array.isArray(data.logs) ? data.logs : [];
-          for (const log of chronologicalData) {
-            try {
-              const parsedMsg = typeof log.message === 'string' ? JSON.parse(log.message) : log.message;
-              if (Array.isArray(parsedMsg) && parsedMsg[0] === 2 && parsedMsg[1] && parsedMsg[2]) {
-                messageActionMap.current[parsedMsg[1]] = parsedMsg[2];
-              }
-            } catch {
-              // Ignore parse errors
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'history') {
+            const chronologicalData = Array.isArray(data.logs) ? data.logs : [];
+            for (const log of chronologicalData) {
+              try {
+                const parsedMsg = typeof log.message === 'string' ? JSON.parse(log.message) : log.message;
+                if (Array.isArray(parsedMsg) && parsedMsg[0] === 2 && parsedMsg[1] && parsedMsg[2]) {
+                  messageActionMap.current[parsedMsg[1]] = parsedMsg[2];
+                }
+              } catch {}
             }
+            setLogs([...data.logs].reverse().map(enrichLog));
+            setIsLoading(false);
+          } else if (data.type === 'log') {
+            const newLog = enrichLog(data.log);
+            setLogs((prev) => {
+              if (prev.some((l) => l.id === newLog.id)) return prev;
+              return [newLog, ...prev].slice(0, 500);
+            });
+            setIsLoading(false);
           }
-
-          // Reverse history so newest logs appear at the top
-          setLogs([...data.logs].reverse().map(enrichLog));
-          setIsLoading(false);
-        } else if (data.type === 'log') {
-          setLogs(prev => [enrichLog(data.log), ...prev].slice(0, 500)); 
-          setIsLoading(false);
+        } catch (err) {
+          logger.debug('Error parsing WS message', err);
         }
-      } catch (err) {
-        logger.error('Error parsing WS message', err);
-      }
-    };
+      };
 
-    socket.onerror = (error) => {
-      logger.error('WebSocket error:', error);
-      setIsLoading(false);
-    };
+      socket.onerror = (error) => {
+        logger.debug('Raw WebSocket fallback info (Socket.IO active):', error);
+      };
 
-    socket.onclose = () => {
-      logger.info('WebSocket connection closed');
-    };
+      socket.onclose = () => {
+        logger.debug('Raw WebSocket connection closed');
+      };
 
-    setWs(socket);
-    return socket;
+      setWs(socket);
+      return socket;
+    } catch (e) {
+      logger.debug('Could not initiate raw WS, relying on Socket.IO and REST', e);
+      return null;
+    }
   }, [enrichLog]);
 
   useEffect(() => {
     const socket = connectWebSocket();
     return () => {
-      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
         socket.close();
       }
     };
@@ -201,6 +257,7 @@ export function OcppLogViewer() {
   const handleRefresh = () => {
     if (ws) ws.close();
     setLogs([]);
+    fetchLogs();
     connectWebSocket();
   };
 
