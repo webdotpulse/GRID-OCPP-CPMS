@@ -465,4 +465,13 @@ If the CPMS acts as an intermediary proxy forwarding traffic to an external upst
 | **Redis Connection Timeout** | Redis daemon inactive. | Run `sudo systemctl restart redis-server` and verify with `redis-cli ping`. |
 
 ---
+
+## 16. Application Updates & Ongoing Maintenance
+
+To pull the latest platform releases, run database schema migrations, recompile the frontend, and reload PM2 services without permission issues:
+
+* Run the automated 1-command update script: `bash update.sh`
+* For the complete end-to-end guide, permission troubleshooting (`EACCES`), zero-downtime reloads, and database backup/rollback strategies, consult the **[Application Update & Maintenance Manual](update_manual.md)**.
+
+---
 *Authored for Enterprise Operators & DevOps Teams — webdotpulse/GRID-OCPP-CPMS.*
