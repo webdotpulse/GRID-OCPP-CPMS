@@ -3,6 +3,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import qrcode from "qrcode";
 import { prisma } from "../config/database.js";
+import { config } from "../config/index.js";
 import { logger } from "../utils/logger.js";
 
 export interface RfidCardPassData {
@@ -135,10 +136,10 @@ export class WalletPassService {
    * Generate Google Wallet "Save to Google Wallet" JWT link
    */
   public static generateGoogleWalletUrl(rfidCard: RfidCardPassData): string {
-    const issuerId = process.env.GOOGLE_WALLET_ISSUER_ID || "3388000000022334455";
+    const issuerId = config.googleWalletIssuerId || process.env.GOOGLE_WALLET_ISSUER_ID || "3388000000022334455";
     const classId = `${issuerId}.GRID_RFID_PASS_CLASS`;
     const objectId = `${issuerId}.RFID_${rfidCard.rfid_tag.replace(/[^a-zA-Z0-9_]/g, "_")}`;
-    const clientEmail = process.env.GOOGLE_WALLET_CLIENT_EMAIL || "grid-cpms@google-wallet.internal";
+    const clientEmail = config.googleWalletClientEmail || process.env.GOOGLE_WALLET_CLIENT_EMAIL || "grid-cpms@google-wallet.internal";
     const appUrl = process.env.APP_URL || "https://cpms.grid-ev.network";
 
     const claims = {
@@ -195,9 +196,10 @@ export class WalletPassService {
       },
     };
 
-    if (process.env.GOOGLE_WALLET_PRIVATE_KEY) {
+    const privateKeyRaw = config.googleWalletPrivateKey || process.env.GOOGLE_WALLET_PRIVATE_KEY;
+    if (privateKeyRaw) {
       try {
-        const privateKey = process.env.GOOGLE_WALLET_PRIVATE_KEY.replace(/\\n/g, "\n");
+        const privateKey = privateKeyRaw.replace(/\\n/g, "\n");
         const token = jwt.sign(claims, privateKey, { algorithm: "RS256" });
         return `https://pay.google.com/gp/v/save/${token}`;
       } catch (err) {
@@ -215,10 +217,10 @@ export class WalletPassService {
   public static async generateGoogleWalletPassDetails(rfidCard: RfidCardPassData): Promise<GoogleWalletPassDetails> {
     const saveUrl = this.generateGoogleWalletUrl(rfidCard);
     const token = saveUrl.replace("https://pay.google.com/gp/v/save/", "");
-    const issuerId = process.env.GOOGLE_WALLET_ISSUER_ID || "3388000000022334455";
+    const issuerId = config.googleWalletIssuerId || process.env.GOOGLE_WALLET_ISSUER_ID || "3388000000022334455";
     const classId = `${issuerId}.GRID_RFID_PASS_CLASS`;
     const objectId = `${issuerId}.RFID_${rfidCard.rfid_tag.replace(/[^a-zA-Z0-9_]/g, "_")}`;
-    const isProductionConfigured = Boolean(process.env.GOOGLE_WALLET_PRIVATE_KEY && process.env.GOOGLE_WALLET_ISSUER_ID);
+    const isProductionConfigured = Boolean((config.googleWalletPrivateKey || process.env.GOOGLE_WALLET_PRIVATE_KEY) && (config.googleWalletIssuerId || process.env.GOOGLE_WALLET_ISSUER_ID));
 
     // Generate high-resolution QR code data URL for mobile scan (contains RFID tag / token)
     let qrCodeDataUrl = "";

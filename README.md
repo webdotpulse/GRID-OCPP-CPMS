@@ -245,6 +245,7 @@ flowchart TD
 | ⚡ **[Smart Charging, EMS & V2G Guide](Manual/advanced_ems_smart_charging_guide.md)** | Energy Engineers | Technical algorithms for dynamic EPEX tariffs, solar predictive balancing, and V2G discharging. |
 | 🗺️ **[Parking Ground Plan Manual](Manual/ground_plan_manual.md)** | Facility Managers | Guide to building 2D station layouts and operating the real-time glassmorphism Live Monitor. |
 | 🔄 **[Update & Maintenance Manual](Manual/update_manual.md)** | DevOps & SysAdmins | Step-by-step update procedures, 1-command `update.sh`, permission (`EACCES`) fixes, and DB migrations. |
+| 💳 **[Google Wallet & NFC Pass Guide](Manual/google_wallet.md)** | System Admins & Drivers | Google Wallet Generic Pass setup, Google Cloud Service Account RSA keys, and SmartTap NFC authorization. |
 | 💻 **[Developer & API Guide](Manual/DeveloperGuide.md)** | Software Engineers | REST API endpoints, JWT Bearer auth, Socket.IO real-time subscriptions, and custom quirk development. |
 
 ---

@@ -41,6 +41,11 @@ export const config = {
   tlsCertPath: process.env.TLS_CERT_PATH,
   tlsKeyPath: process.env.TLS_KEY_PATH,
   tlsCaPath: process.env.TLS_CA_PATH,
+
+  // Google Wallet Passes
+  googleWalletIssuerId: process.env.GOOGLE_WALLET_ISSUER_ID || "3388000000022334455",
+  googleWalletClientEmail: process.env.GOOGLE_WALLET_CLIENT_EMAIL || "grid-cpms@google-wallet.internal",
+  googleWalletPrivateKey: process.env.GOOGLE_WALLET_PRIVATE_KEY,
 };
 
 export const logLevels = ["error", "warn", "info", "debug"] as const;
