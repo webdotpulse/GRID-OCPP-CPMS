@@ -15,10 +15,20 @@ export const metadata: Metadata = {
   title: "GRID CPMS - Enterprise EV Charging",
   description: "Enterprise EV Charging, Smart Energy Flexibility, Roaming & Driver Companion",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    apple: [
+      { url: "/apple-icon", sizes: "180x180", type: "image/png" },
+    ],
+    shortcut: ["/icon.svg"],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "GRID Driver",
+    title: "GRID CPMS",
   },
 };
 

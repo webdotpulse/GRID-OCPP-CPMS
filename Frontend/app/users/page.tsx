@@ -63,6 +63,10 @@ import {
   Building2,
   Lock,
   ArrowRight,
+  Sparkles,
+  Loader2,
+  Globe,
+  RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -194,6 +198,16 @@ export default function UsersAdminPage() {
   });
   const [isSavingClient, setIsSavingClient] = useState(false);
 
+  // Registry Autofill State (Instant Belgian KBO & Dutch KvK)
+  const [registryCountry, setRegistryCountry] = useState<"ALL" | "BE" | "NL">("ALL");
+  const [registryQuery, setRegistryQuery] = useState("");
+  const [isSearchingRegistry, setIsSearchingRegistry] = useState(false);
+  const [registryMatch, setRegistryMatch] = useState<any | null>(null);
+  const [registrySuggestions, setRegistrySuggestions] = useState<any[]>([]);
+  const [showRegistrySuggestions, setShowRegistrySuggestions] = useState(false);
+  const [quickPresets, setQuickPresets] = useState<any[]>([]);
+  const [hasAutofilled, setHasAutofilled] = useState(false);
+
   // Fetch Users
   const fetchUsers = useCallback(async () => {
     try {
@@ -313,9 +327,14 @@ export default function UsersAdminPage() {
     }
   };
 
-  // Open Create/Edit Client Modal
+  // Open Create Client Modal
   const openCreateClientModal = () => {
     setEditingClient(null);
+    setRegistryMatch(null);
+    setRegistryQuery("");
+    setRegistrySuggestions([]);
+    setShowRegistrySuggestions(false);
+    setHasAutofilled(false);
     setClientFormData({
       name: "",
       clientNumber: `CLI-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -333,10 +352,87 @@ export default function UsersAdminPage() {
       notes: "",
     });
     setIsClientModalOpen(true);
+    fetchRegistryPresets();
+  };
+
+  // Fetch Quick Presets for Instant One-Click Autofill
+  const fetchRegistryPresets = async () => {
+    try {
+      const res = await api.get("/companies/lookup", { params: { presets: "true" } });
+      if (res.data?.presets && Array.isArray(res.data.presets)) {
+        setQuickPresets(res.data.presets);
+      }
+    } catch {
+      // Fallback silent
+    }
+  };
+
+  // Execute Registry Search / Lookup
+  const handleRegistryLookup = async (manualQuery?: string, manualCountry?: string) => {
+    const q = (manualQuery !== undefined ? manualQuery : registryQuery).trim();
+    if (!q) {
+      toast.info("Please enter a company name, KBO number (e.g. 0403.227.515), KvK number (e.g. 54707648), or VAT ID");
+      return;
+    }
+
+    try {
+      setIsSearchingRegistry(true);
+      const c = manualCountry || registryCountry;
+      const res = await api.get("/companies/lookup", {
+        params: { q, country: c },
+      });
+
+      const match = res.data?.data;
+      const suggestions = res.data?.suggestions || [];
+
+      if (match) {
+        applyRegistryData(match);
+        toast.success(`✓ Instant Autofill: ${match.name} (${match.registry} Registry)`);
+      } else if (suggestions.length > 0) {
+        setRegistrySuggestions(suggestions);
+        setShowRegistrySuggestions(true);
+        toast.info(`Found ${suggestions.length} matching registry records. Select one to autofill.`);
+      } else {
+        toast.error("No official registry match found. You can enter details manually.");
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to search enterprise registry");
+    } finally {
+      setIsSearchingRegistry(false);
+    }
+  };
+
+  // Apply Selected Registry Record to Form
+  const applyRegistryData = (entry: any) => {
+    setClientFormData((prev) => ({
+      ...prev,
+      name: entry.name || prev.name,
+      clientNumber: entry.clientNumber || prev.clientNumber || `CLI-${Math.floor(1000 + Math.random() * 9000)}`,
+      contactName: entry.contactName || prev.contactName,
+      contactEmail: entry.contactEmail || prev.contactEmail,
+      contactPhone: entry.contactPhone || prev.contactPhone,
+      address: entry.address || prev.address,
+      city: entry.city || prev.city,
+      postalCode: entry.postalCode || prev.postalCode,
+      country: entry.country || prev.country,
+      taxNumber: entry.taxNumber || prev.taxNumber,
+      kvkNumber: entry.kvkNumber || prev.kvkNumber,
+      billingEmail: entry.billingEmail || prev.billingEmail,
+      notes: entry.legalForm ? `Legal Form: ${entry.legalForm}. Industry: ${entry.industry || "EV Fleet"}. Source: ${entry.source}` : prev.notes,
+    }));
+    setRegistryMatch(entry);
+    setShowRegistrySuggestions(false);
+    setHasAutofilled(true);
+    setTimeout(() => setHasAutofilled(false), 2500);
   };
 
   const openEditClientModal = (client: CompanyItem) => {
     setEditingClient(client);
+    setRegistryMatch(null);
+    setRegistryQuery("");
+    setRegistrySuggestions([]);
+    setShowRegistrySuggestions(false);
+    setHasAutofilled(false);
     setClientFormData({
       name: client.name || "",
       clientNumber: client.clientNumber || "",
@@ -1307,14 +1403,194 @@ export default function UsersAdminPage() {
           <DialogContent className="rounded-2xl max-w-2xl max-h-[90vh] overflow-y-auto">
             <form onSubmit={handleSaveClient}>
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Building2 className="size-5 text-[#3f78e0]" />
-                  {editingClient ? "Edit Corporate Client" : "Create Corporate Client"}
-                </DialogTitle>
-                <DialogDescription className="text-xs">
-                  Configure corporate billing entity, contact parameters, and organizational settings.
+                <div className="flex items-center justify-between">
+                  <DialogTitle className="flex items-center gap-2 text-base font-bold text-white">
+                    <div className="size-8 rounded-xl bg-gradient-to-br from-[#54a8c7] to-[#3f78e0] flex items-center justify-center shadow-md shadow-[#54a8c7]/20">
+                      <Building2 className="size-4.5 text-white" />
+                    </div>
+                    {editingClient ? "Edit Corporate Client" : "Create Corporate Client"}
+                  </DialogTitle>
+                  <span className="text-[11px] font-mono text-[#54a8c7] bg-[#54a8c7]/10 px-2.5 py-1 rounded-full border border-[#54a8c7]/20 flex items-center gap-1.5 font-semibold">
+                    <Zap className="size-3 text-[#54a8c7] fill-[#54a8c7]" />
+                    Instant KBO &amp; KvK Engine
+                  </span>
+                </div>
+                <DialogDescription className="text-xs text-[#aab0bc]">
+                  Configure corporate billing entity, tax identifiers, and contact parameters with instant official Benelux registry autofill.
                 </DialogDescription>
               </DialogHeader>
+
+              {/* Instant Belgian KBO / Dutch KvK Autofill Header */}
+              {!editingClient && (
+                <div className="mt-3 p-3.5 rounded-xl bg-[#1e2228]/80 border border-[#54a8c7]/30 bg-gradient-to-r from-[#54a8c7]/10 via-[#3f78e0]/10 to-transparent shadow-inner">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="size-6 rounded-lg bg-gradient-to-br from-[#54a8c7] to-[#3f78e0] flex items-center justify-center text-white text-xs shadow-sm">
+                        <Zap className="size-3.5 text-white fill-white" />
+                      </span>
+                      <span className="text-xs font-bold text-white tracking-wide">
+                        Instant Belgian KBO / Dutch KvK Autofill
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 bg-[#13171c] p-0.5 rounded-lg border border-white/10 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => setRegistryCountry("ALL")}
+                        className={`px-2 py-0.5 rounded-md transition-all font-medium ${
+                          registryCountry === "ALL" ? "bg-[#3f78e0] text-white shadow-sm" : "text-[#aab0bc] hover:text-white"
+                        }`}
+                      >
+                        All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRegistryCountry("BE")}
+                        className={`px-2 py-0.5 rounded-md transition-all font-medium flex items-center gap-1 ${
+                          registryCountry === "BE" ? "bg-[#3f78e0] text-white shadow-sm" : "text-[#aab0bc] hover:text-white"
+                        }`}
+                      >
+                        <span>🇧🇪</span> KBO
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRegistryCountry("NL")}
+                        className={`px-2 py-0.5 rounded-md transition-all font-medium flex items-center gap-1 ${
+                          registryCountry === "NL" ? "bg-[#3f78e0] text-white shadow-sm" : "text-[#aab0bc] hover:text-white"
+                        }`}
+                      >
+                        <span>🇳🇱</span> KvK
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="relative flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#54a8c7]" />
+                      <Input
+                        placeholder={
+                          registryCountry === "BE"
+                            ? "Enter Belgian KBO number (e.g. 0403.227.515) or company name..."
+                            : registryCountry === "NL"
+                            ? "Enter Dutch KvK number (e.g. 54707648) or company name..."
+                            : "Search by KBO / KvK number, VAT ID, or company name..."
+                        }
+                        value={registryQuery}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setRegistryQuery(val);
+                          if (val.trim().length > 1) {
+                            const filtered = quickPresets.filter((p) =>
+                              p.name.toLowerCase().includes(val.toLowerCase()) ||
+                              p.kvkNumber.includes(val) ||
+                              p.taxNumber.toLowerCase().includes(val.toLowerCase()) ||
+                              p.city.toLowerCase().includes(val.toLowerCase())
+                            );
+                            setRegistrySuggestions(filtered);
+                            setShowRegistrySuggestions(filtered.length > 0);
+                          } else {
+                            setShowRegistrySuggestions(false);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleRegistryLookup();
+                          }
+                        }}
+                        className="h-9.5 pl-9 pr-3 rounded-xl bg-[#13171c]/90 border-white/10 text-xs text-white placeholder:text-[#aab0bc]/60 focus-visible:ring-[#54a8c7]"
+                      />
+
+                      {/* Autocomplete suggestions dropdown */}
+                      {showRegistrySuggestions && registrySuggestions.length > 0 && (
+                        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-[#1e2228] border border-white/10 rounded-xl shadow-2xl overflow-hidden max-h-56 overflow-y-auto">
+                          <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-[#aab0bc] tracking-wider bg-white/5 border-b border-white/5 flex items-center justify-between">
+                            <span>Registry Matches</span>
+                            <span>Click to Autofill</span>
+                          </div>
+                          {registrySuggestions.map((item, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => applyRegistryData(item)}
+                              className="w-full px-3 py-2 text-left hover:bg-[#3f78e0]/15 flex items-center justify-between border-b border-white/5 last:border-0 transition-colors group"
+                            >
+                              <div>
+                                <div className="text-xs font-semibold text-white group-hover:text-[#54a8c7] flex items-center gap-1.5">
+                                  <span>{item.country === "Belgium" ? "🇧🇪" : "🇳🇱"}</span>
+                                  <span>{item.name}</span>
+                                  <Badge variant="outline" className="text-[9px] py-0 px-1 border-white/20 text-[#aab0bc]">
+                                    {item.registry}
+                                  </Badge>
+                                </div>
+                                <div className="text-[11px] text-[#aab0bc] font-mono">
+                                  {item.taxNumber} · {item.city}
+                                </div>
+                              </div>
+                              <span className="text-[11px] text-[#54a8c7] font-semibold opacity-0 group-hover:opacity-100 flex items-center gap-1">
+                                Autofill <ArrowRight className="size-3" />
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <Button
+                      type="button"
+                      onClick={() => handleRegistryLookup()}
+                      disabled={isSearchingRegistry}
+                      className="h-9.5 px-3.5 rounded-xl bg-gradient-to-r from-[#54a8c7] to-[#3f78e0] hover:brightness-110 text-white font-semibold text-xs shadow-md shadow-[#54a8c7]/20 flex items-center gap-1.5 shrink-0"
+                    >
+                      {isSearchingRegistry ? (
+                        <>
+                          <Loader2 className="size-3.5 animate-spin" />
+                          Searching...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="size-3.5 fill-white" />
+                          Autofill
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Quick Presets for 1-click test */}
+                  {quickPresets.length > 0 && (
+                    <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-semibold text-[#aab0bc] uppercase tracking-wider flex items-center gap-1">
+                        <Sparkles className="size-3 text-[#fab758]" /> Quick Benelux Presets:
+                      </span>
+                      {quickPresets.slice(0, 6).map((preset, pIdx) => (
+                        <button
+                          key={pIdx}
+                          type="button"
+                          onClick={() => applyRegistryData(preset)}
+                          className="text-[11px] px-2 py-0.5 rounded-lg bg-white/5 hover:bg-[#54a8c7]/20 hover:text-white text-[#cbd5e1] border border-white/5 transition-all flex items-center gap-1"
+                        >
+                          <span>{preset.country === "Belgium" ? "🇧🇪" : "🇳🇱"}</span>
+                          <span className="truncate max-w-[130px]">{preset.name.split(" ")[0]} {preset.name.split(" ")[1] || ""}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Verified Match Banner */}
+                  {registryMatch && (
+                    <div className="mt-2.5 p-2 rounded-lg bg-[#45c4a0]/15 border border-[#45c4a0]/30 flex items-center justify-between text-[11px] text-[#45c4a0]">
+                      <div className="flex items-center gap-1.5">
+                        <CheckCircle2 className="size-4 shrink-0" />
+                        <span>
+                          <strong>Verified Match:</strong> {registryMatch.name} · {registryMatch.registry} ID: {registryMatch.kvkNumber} ({registryMatch.country})
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-[#45c4a0]/80 font-mono hidden sm:inline">
+                        {registryMatch.source}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-4 py-4 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1325,7 +1601,7 @@ export default function UsersAdminPage() {
                       value={clientFormData.name}
                       onChange={(e) => setClientFormData({ ...clientFormData, name: e.target.value })}
                       required
-                      className="h-9.5 rounded-xl"
+                      className={`h-9.5 rounded-xl ${hasAutofilled ? "ring-2 ring-[#45c4a0] transition-all" : ""}`}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1334,7 +1610,7 @@ export default function UsersAdminPage() {
                       placeholder="e.g. CLI-1001"
                       value={clientFormData.clientNumber}
                       onChange={(e) => setClientFormData({ ...clientFormData, clientNumber: e.target.value })}
-                      className="h-9.5 rounded-xl font-mono"
+                      className={`h-9.5 rounded-xl font-mono ${hasAutofilled ? "ring-2 ring-[#45c4a0] transition-all" : ""}`}
                     />
                   </div>
                 </div>
@@ -1346,7 +1622,7 @@ export default function UsersAdminPage() {
                       placeholder="e.g. Jan de Vries"
                       value={clientFormData.contactName}
                       onChange={(e) => setClientFormData({ ...clientFormData, contactName: e.target.value })}
-                      className="h-9.5 rounded-xl"
+                      className={`h-9.5 rounded-xl ${hasAutofilled ? "ring-2 ring-[#45c4a0] transition-all" : ""}`}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1356,7 +1632,7 @@ export default function UsersAdminPage() {
                       placeholder="jan@fleet.nl"
                       value={clientFormData.contactEmail}
                       onChange={(e) => setClientFormData({ ...clientFormData, contactEmail: e.target.value })}
-                      className="h-9.5 rounded-xl"
+                      className={`h-9.5 rounded-xl ${hasAutofilled ? "ring-2 ring-[#45c4a0] transition-all" : ""}`}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1365,7 +1641,7 @@ export default function UsersAdminPage() {
                       placeholder="+31 20 123 4567"
                       value={clientFormData.contactPhone}
                       onChange={(e) => setClientFormData({ ...clientFormData, contactPhone: e.target.value })}
-                      className="h-9.5 rounded-xl"
+                      className={`h-9.5 rounded-xl ${hasAutofilled ? "ring-2 ring-[#45c4a0] transition-all" : ""}`}
                     />
                   </div>
                 </div>
@@ -1374,19 +1650,19 @@ export default function UsersAdminPage() {
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold">VAT / Tax Number</Label>
                     <Input
-                      placeholder="e.g. NL123456789B01"
+                      placeholder="e.g. NL123456789B01 / BE 0403.227.515"
                       value={clientFormData.taxNumber}
                       onChange={(e) => setClientFormData({ ...clientFormData, taxNumber: e.target.value })}
-                      className="h-9.5 rounded-xl font-mono"
+                      className={`h-9.5 rounded-xl font-mono ${hasAutofilled ? "ring-2 ring-[#45c4a0] transition-all" : ""}`}
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold">Chamber of Commerce (KvK)</Label>
+                    <Label className="text-xs font-semibold">Chamber of Commerce (KvK / KBO)</Label>
                     <Input
-                      placeholder="e.g. 87654321"
+                      placeholder="e.g. 87654321 / 0403.227.515"
                       value={clientFormData.kvkNumber}
                       onChange={(e) => setClientFormData({ ...clientFormData, kvkNumber: e.target.value })}
-                      className="h-9.5 rounded-xl font-mono"
+                      className={`h-9.5 rounded-xl font-mono ${hasAutofilled ? "ring-2 ring-[#45c4a0] transition-all" : ""}`}
                     />
                   </div>
                 </div>
@@ -1398,7 +1674,7 @@ export default function UsersAdminPage() {
                       placeholder="Keizersgracht 100"
                       value={clientFormData.address}
                       onChange={(e) => setClientFormData({ ...clientFormData, address: e.target.value })}
-                      className="h-9.5 rounded-xl"
+                      className={`h-9.5 rounded-xl ${hasAutofilled ? "ring-2 ring-[#45c4a0] transition-all" : ""}`}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1407,7 +1683,7 @@ export default function UsersAdminPage() {
                       placeholder="1015 AA"
                       value={clientFormData.postalCode}
                       onChange={(e) => setClientFormData({ ...clientFormData, postalCode: e.target.value })}
-                      className="h-9.5 rounded-xl"
+                      className={`h-9.5 rounded-xl ${hasAutofilled ? "ring-2 ring-[#45c4a0] transition-all" : ""}`}
                     />
                   </div>
                 </div>
@@ -1419,17 +1695,27 @@ export default function UsersAdminPage() {
                       placeholder="Amsterdam"
                       value={clientFormData.city}
                       onChange={(e) => setClientFormData({ ...clientFormData, city: e.target.value })}
-                      className="h-9.5 rounded-xl"
+                      className={`h-9.5 rounded-xl ${hasAutofilled ? "ring-2 ring-[#45c4a0] transition-all" : ""}`}
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold">Country</Label>
-                    <Input
-                      placeholder="Netherlands"
+                    <Select
                       value={clientFormData.country}
-                      onChange={(e) => setClientFormData({ ...clientFormData, country: e.target.value })}
-                      className="h-9.5 rounded-xl"
-                    />
+                      onValueChange={(val) => setClientFormData({ ...clientFormData, country: val })}
+                    >
+                      <SelectTrigger className={`h-9.5 rounded-xl ${hasAutofilled ? "ring-2 ring-[#45c4a0] transition-all" : ""}`}>
+                        <SelectValue placeholder="Select country" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Netherlands">Netherlands (Nederland)</SelectItem>
+                        <SelectItem value="Belgium">Belgium (België / Belgique)</SelectItem>
+                        <SelectItem value="Germany">Germany (Deutschland)</SelectItem>
+                        <SelectItem value="France">France</SelectItem>
+                        <SelectItem value="Luxembourg">Luxembourg</SelectItem>
+                        <SelectItem value="United Kingdom">United Kingdom</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold">Account Status</Label>
@@ -1450,15 +1736,26 @@ export default function UsersAdminPage() {
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Invoicing / Billing Email</Label>
-                  <Input
-                    type="email"
-                    placeholder="billing@fleet.nl"
-                    value={clientFormData.billingEmail}
-                    onChange={(e) => setClientFormData({ ...clientFormData, billingEmail: e.target.value })}
-                    className="h-9.5 rounded-xl"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Invoicing / Billing Email</Label>
+                    <Input
+                      type="email"
+                      placeholder="billing@fleet.nl"
+                      value={clientFormData.billingEmail}
+                      onChange={(e) => setClientFormData({ ...clientFormData, billingEmail: e.target.value })}
+                      className={`h-9.5 rounded-xl ${hasAutofilled ? "ring-2 ring-[#45c4a0] transition-all" : ""}`}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Registration Notes / Legal Form</Label>
+                    <Input
+                      placeholder="e.g. NV / BV corporate entity"
+                      value={clientFormData.notes}
+                      onChange={(e) => setClientFormData({ ...clientFormData, notes: e.target.value })}
+                      className={`h-9.5 rounded-xl ${hasAutofilled ? "ring-2 ring-[#45c4a0] transition-all" : ""}`}
+                    />
+                  </div>
                 </div>
               </div>
 

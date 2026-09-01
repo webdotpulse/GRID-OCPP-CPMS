@@ -3,6 +3,7 @@ import { prisma } from "../../config/database.js";
 import { logger } from "../../utils/logger.js";
 import { AuthRequest } from "../../middleware/auth.js";
 import { parsePagination, parseId } from "../../utils/validation.js";
+import { CompanyRegistryService } from "../../services/CompanyRegistryService.js";
 
 /**
  * GET /api/companies - Get all companies / clients with metrics
@@ -431,3 +432,40 @@ export const deleteCompany = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ success: false, error: "Failed to delete client" });
   }
 };
+
+/**
+ * GET /api/companies/lookup - Instant Belgian KBO / Dutch KvK enterprise lookup & autofill
+ */
+export const lookupCompanyRegistry = async (req: AuthRequest, res: Response) => {
+  try {
+    const { q, country, presets } = req.query;
+
+    if (presets === "true") {
+      const samplePresets = CompanyRegistryService.getQuickPresets();
+      return res.json({
+        success: true,
+        presets: samplePresets,
+      });
+    }
+
+    const queryStr = (q as string) || "";
+    const filterCountry = country === "BE" || country === "NL" || country === "ALL" ? country : "ALL";
+
+    const result = await CompanyRegistryService.lookupCompany(queryStr, filterCountry);
+
+    res.json({
+      success: true,
+      query: queryStr,
+      country: filterCountry,
+      data: result.exactMatch,
+      suggestions: result.suggestions,
+    });
+  } catch (error: any) {
+    logger.error(`Error in company registry lookup: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: "Failed to perform company registry lookup",
+    });
+  }
+};
+

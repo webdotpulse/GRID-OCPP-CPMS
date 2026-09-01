@@ -1,30 +1,63 @@
 {
-  "name": "GRID CPMS - EV Driver Companion",
-  "short_name": "GRID Driver",
-  "description": "Enterprise EV Charging, Live Session Telemetry, NFC Wallet Passes & Smart Energy Orchestration",
-  "start_url": "/mobile/dashboard",
+  "name": "GRID CPMS - Enterprise EV Charging",
+  "short_name": "GRID CPMS",
+  "description": "Enterprise EV Charging Management System with Smart Energy Flexibility, Dynamic EPEX Spot Pricing, V2G Orchestration & OCPI Roaming",
+  "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#1e2228",
   "theme_color": "#3f78e0",
-  "orientation": "portrait",
+  "orientation": "any",
   "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
     {
       "src": "/favicon.ico",
       "sizes": "64x64 32x32 24x24 16x16",
       "type": "image/x-icon"
-    }
-  ],
-  "categories": ["utilities", "productivity", "transportation"],
-  "shortcuts": [
-    {
-      "name": "Live Sessions",
-      "url": "/mobile/dashboard",
-      "description": "View real-time EV charging session progress"
     },
     {
-      "name": "Find Chargers",
-      "url": "/mobile/map",
-      "description": "Locate available charging hubs"
+      "src": "/assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "utilities", "productivity", "transportation"],
+  "shortcuts": [
+    {
+      "name": "Dashboard Overview",
+      "url": "/dashboard",
+      "description": "Fleet KPI metrics, active power, and revenue analytics"
+    },
+    {
+      "name": "Live Sessions",
+      "url": "/transactions",
+      "description": "Real-time telemetry and active sessions"
+    },
+    {
+      "name": "Charge Points",
+      "url": "/chargers",
+      "description": "Fleet chargers status & remote control RPC"
+    },
+    {
+      "name": "Ground Plan & Stations",
+      "url": "/stations",
+      "description": "Interactive ground plan canvas and station hubs"
+    },
+    {
+      "name": "Driver Companion",
+      "url": "/mobile/dashboard",
+      "description": "Driver pass, live metering & remote stop"
     }
   ]
 }
