@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { I18nProvider } from "@/components/I18nProvider";
 import { WebSocketProvider } from "@/components/WebSocketProvider";
+import { BrowserErrorGuard } from "@/components/BrowserErrorGuard";
 
 import { Metadata, Viewport } from "next";
 
@@ -59,6 +60,7 @@ export default function RootLayout({
       className={cn("antialiased", fontMono.variable, urbanist.variable, manrope.variable, "font-sans")}
     >
       <body className="min-h-screen bg-background font-sans text-foreground">
+        <BrowserErrorGuard />
         <ThemeProvider>
           <I18nProvider>
             <AuthProvider>

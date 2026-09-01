@@ -37,7 +37,11 @@ export default function TransactionsPage() {
           type: t.rfidUserId ? 'rfid' : 'basic',
           idTag: t.rfidUser?.rfid_tag || t.idTag,
         }));
-        txns.sort((a: any, b: any) => new Date(b.startTime || b.createdAt).getTime() - new Date(a.startTime || a.createdAt).getTime());
+        txns.sort((a: any, b: any) => {
+          const timeA = a && (a.startTime || a.createdAt) ? new Date(a.startTime || a.createdAt).getTime() : 0;
+          const timeB = b && (b.startTime || b.createdAt) ? new Date(b.startTime || b.createdAt).getTime() : 0;
+          return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
+        });
         setTransactions(txns);
       } else if (Array.isArray(payload)) {
         setTransactions(payload);
@@ -102,15 +106,17 @@ export default function TransactionsPage() {
     if (!sortConfig) return 0;
     const { key, direction } = sortConfig;
 
-    let aVal: any = a[key];
-    let bVal: any = b[key];
+    let aVal: any = a ? a[key] : undefined;
+    let bVal: any = b ? b[key] : undefined;
 
     if (key === 'startTime') {
-      aVal = new Date(a.startTime || a.createdAt).getTime();
-      bVal = new Date(b.startTime || b.createdAt).getTime();
+      aVal = a && (a.startTime || a.createdAt) ? new Date(a.startTime || a.createdAt).getTime() : 0;
+      bVal = b && (b.startTime || b.createdAt) ? new Date(b.startTime || b.createdAt).getTime() : 0;
+      aVal = isNaN(aVal) ? 0 : aVal;
+      bVal = isNaN(bVal) ? 0 : bVal;
     } else if (key === 'charger') {
-      aVal = a.charger?.name || `Charger ID: ${a.charger_id}`;
-      bVal = b.charger?.name || `Charger ID: ${b.charger_id}`;
+      aVal = a?.charger?.name || `Charger ID: ${a?.charger_id || ''}`;
+      bVal = b?.charger?.name || `Charger ID: ${b?.charger_id || ''}`;
     }
 
     if (aVal < bVal) return direction === 'asc' ? -1 : 1;

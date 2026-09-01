@@ -737,18 +737,30 @@ export const getOcppLogsController = async (req: Request, res: Response) => {
             charger_id: true,
             name: true,
             model: true,
-            vendor: true,
+            manufacturer: true,
+            serial_number: true,
+            status: true,
           },
         },
       },
     });
 
+    const formattedLogs = logs.map((log) => ({
+      ...log,
+      charger: log.charger
+        ? {
+            ...log.charger,
+            vendor: log.charger.manufacturer,
+          }
+        : undefined,
+    }));
+
     res.json({
       success: true,
-      data: logs.reverse(),
+      data: formattedLogs.reverse(),
     });
   } catch (error: any) {
-    logger.error(`Error fetching OCPP logs: ${error}`);
+    logger.error(`Error fetching OCPP logs: ${error?.message || error}`);
     res.status(500).json({
       success: false,
       error: "Failed to fetch OCPP logs",

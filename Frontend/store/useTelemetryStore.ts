@@ -51,9 +51,9 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
       const response = await api.get('/dashboard/live-sessions');
       const rawData = response.data?.data ?? response.data;
       const list = Array.isArray(rawData) ? rawData : (Array.isArray(rawData?.data) ? rawData.data : []);
-      const formattedSessions = list.map((s: any) => ({
+      const formattedSessions = list.filter(Boolean).map((s: any) => ({
         ...s,
-        startTime: s.startTime || s.createdAt || new Date().toISOString(),
+        startTime: s?.startTime || s?.createdAt || (s?.timestamp ? new Date(s.timestamp).toISOString() : new Date().toISOString()),
       }));
       set({ sessions: formattedSessions, isSessionsLoading: false });
     } catch (error) {

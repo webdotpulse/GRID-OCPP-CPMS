@@ -50,7 +50,11 @@ export function ChargerTransactionsTable({ chargerId }: ChargerTransactionsTable
         allTxns = [...basicTxns, ...uniqueRfidTxns];
       }
 
-      allTxns.sort((a, b) => new Date(b.startTime || b.createdAt).getTime() - new Date(a.startTime || a.createdAt).getTime());
+      allTxns.sort((a, b) => {
+        const timeA = a && (a.startTime || a.createdAt) ? new Date(a.startTime || a.createdAt).getTime() : 0;
+        const timeB = b && (b.startTime || b.createdAt) ? new Date(b.startTime || b.createdAt).getTime() : 0;
+        return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
+      });
       setTransactions(allTxns);
     } catch (error) {
       logger.error("Failed to fetch charger transactions", error);
@@ -68,9 +72,10 @@ export function ChargerTransactionsTable({ chargerId }: ChargerTransactionsTable
   const getStatusBadge = (status: string) => {
     const s = status?.toLowerCase() || '';
     if (s === 'completed') return <Badge variant="outline" className="text-green-500 bg-green-500/10">COMPLETED</Badge>;
-    if (s === 'charging' || s === 'initiated') return <Badge variant="outline" className="text-blue-500 bg-blue-500/10 animate-pulse">CHARGING</Badge>;
-    if (s === 'faulted') return <Badge variant="outline" className="text-red-500 bg-red-500/10">FAULTED</Badge>;
-    return <Badge variant="outline" className="text-muted-foreground bg-muted">{status?.toUpperCase() || ''}</Badge>;
+    if (s === 'active' || s === 'charging') return <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">CHARGING</Badge>;
+    if (s === 'suspended') return <Badge variant="outline" className="text-amber-500 bg-amber-500/10">SUSPENDED</Badge>;
+    if (s === 'faulted') return <Badge variant="destructive">FAULTED</Badge>;
+    return <Badge variant="secondary">{status || 'UNKNOWN'}</Badge>;
   };
 
   const handleSort = (key: string) => {
@@ -96,12 +101,14 @@ export function ChargerTransactionsTable({ chargerId }: ChargerTransactionsTable
     if (!sortConfig) return 0;
     const { key, direction } = sortConfig;
 
-    let aVal: any = a[key];
-    let bVal: any = b[key];
+    let aVal: any = a ? a[key] : undefined;
+    let bVal: any = b ? b[key] : undefined;
 
     if (key === 'startTime') {
-      aVal = new Date(a.startTime || a.createdAt).getTime();
-      bVal = new Date(b.startTime || b.createdAt).getTime();
+      aVal = a && (a.startTime || a.createdAt) ? new Date(a.startTime || a.createdAt).getTime() : 0;
+      bVal = b && (b.startTime || b.createdAt) ? new Date(b.startTime || b.createdAt).getTime() : 0;
+      aVal = isNaN(aVal) ? 0 : aVal;
+      bVal = isNaN(bVal) ? 0 : bVal;
     }
 
     if (aVal < bVal) return direction === 'asc' ? -1 : 1;
