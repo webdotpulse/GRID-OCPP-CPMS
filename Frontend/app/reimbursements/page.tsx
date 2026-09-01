@@ -136,7 +136,7 @@ export default function ReimbursementsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {users.map(u => (
-                        <SelectItem key={u.id} value={u.id ? u.id.toString() : ''}>{u.name || u.email}</SelectItem>
+                        <SelectItem key={u.id} value={String(u.id)}>{u.name || u.email}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -156,7 +156,7 @@ export default function ReimbursementsPage() {
                     {stations.map(s => {
                       const sId = s.id || s.station_id;
                       return (
-                        <SelectItem key={sId} value={sId ? sId.toString() : ''}>{s.station_name || s.name || `Station #${sId}`}</SelectItem>
+                        <SelectItem key={sId} value={String(sId)}>{s.station_name || s.name || `Station #${sId}`}</SelectItem>
                       );
                     })}
                   </SelectContent>
@@ -172,7 +172,7 @@ export default function ReimbursementsPage() {
                     {rfids.map(r => {
                       const rId = r.rfid_user_id || r.id;
                       return (
-                        <SelectItem key={rId} value={rId ? rId.toString() : ''}>{r.rfid_tag || 'TAG'} - {r.name || 'User'}</SelectItem>
+                        <SelectItem key={rId} value={String(rId)}>{r.rfid_tag || 'TAG'} - {r.name || 'User'}</SelectItem>
                       );
                     })}
                   </SelectContent>
@@ -189,7 +189,7 @@ export default function ReimbursementsPage() {
                       const tId = t.tariff_id || t.id;
                       const rate = t.electricity_rate ?? t.energyFee ?? 0;
                       return (
-                        <SelectItem key={tId} value={tId ? tId.toString() : ''}>{t.tariff_name || t.name || `Tariff #${tId}`} ({rate} EUR/kWh)</SelectItem>
+                        <SelectItem key={tId} value={String(tId)}>{t.tariff_name || t.name || `Tariff #${tId}`} ({rate} EUR/kWh)</SelectItem>
                       );
                     })}
                   </SelectContent>

@@ -163,7 +163,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
                 </SelectTrigger>
                 <SelectContent>
                   {stations.map(station => (
-                    <SelectItem key={station.id || station.station_id} value={(station.id || station.station_id)?.toString() || ''}>
+                    <SelectItem key={station.id || station.station_id} value={String(station.id || station.station_id)}>
                       {station.station_name || station.name || `Station #${station.id}`}
                     </SelectItem>
                   ))}
@@ -295,7 +295,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
                 <SelectContent>
                   <SelectItem value="none">No Charge group</SelectItem>
                   {chargeGroups.map(group => (
-                    <SelectItem key={group.id} value={group.id ? group.id.toString() : ''}>
+                    <SelectItem key={group.id} value={String(group.id)}>
                       {group.name}
                     </SelectItem>
                   ))}
@@ -315,7 +315,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
                 <SelectContent>
                   <SelectItem value="none">Standard / No Quirks</SelectItem>
                   {quirkProfiles.map(profile => (
-                    <SelectItem key={profile.id} value={profile.id ? profile.id.toString() : ''}>
+                    <SelectItem key={profile.id} value={String(profile.id)}>
                       {profile.name}
                     </SelectItem>
                   ))}
@@ -343,7 +343,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
                     const energy = tariff.electricity_rate ?? tariff.energyFee ?? 0;
                     const conn = tariff.charge ?? tariff.connectionFee ?? 0;
                     return (
-                      <SelectItem key={tId} value={tId ? tId.toString() : ''}>
+                      <SelectItem key={tId} value={String(tId)}>
                         {tName} (€{conn} + €{energy}/kWh)
                       </SelectItem>
                     );
@@ -387,7 +387,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
                   </SelectTrigger>
                   <SelectContent>
                     {usersList.map(u => (
-                      <SelectItem key={u.id} value={u.id ? u.id.toString() : ''}>
+                      <SelectItem key={u.id} value={String(u.id)}>
                         {u.email} ({u.role})
                       </SelectItem>
                     ))}

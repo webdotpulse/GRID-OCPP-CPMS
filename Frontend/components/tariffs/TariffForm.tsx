@@ -142,7 +142,7 @@ export function TariffForm({ initialData }: { initialData?: any }) {
             <div className="space-y-2">
               <Label htmlFor="tariffType">Pricing Model</Label>
               <Select
-                defaultValue={selectedTariffType}
+                value={selectedTariffType || "FIXED"}
                 onValueChange={(value) => setValue("tariffType", value as "FIXED" | "DYNAMIC_EPEX")}
               >
                 <SelectTrigger id="tariffType">
@@ -178,7 +178,7 @@ export function TariffForm({ initialData }: { initialData?: any }) {
               <div className="space-y-2">
                 <Label htmlFor="dynamicProvider">Data Provider</Label>
                 <Select
-                  defaultValue={watch("dynamicProvider")}
+                  value={watch("dynamicProvider") || "EnergyZero"}
                   onValueChange={(value) => setValue("dynamicProvider", value as "EnergyZero" | "Energy-Charts")}
                 >
                   <SelectTrigger id="dynamicProvider">
@@ -194,7 +194,7 @@ export function TariffForm({ initialData }: { initialData?: any }) {
               <div className="space-y-2">
                 <Label htmlFor="country">Country (EPEX Zone)</Label>
                 <Select
-                  defaultValue={watch("country")}
+                  value={watch("country") || "BE"}
                   onValueChange={(value) => setValue("country", value as "BE" | "NL")}
                 >
                   <SelectTrigger id="country">

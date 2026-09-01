@@ -274,7 +274,7 @@ export default function SettingsPage() {
                 <div className="space-y-1.5">
                   <Label htmlFor="userType" className="text-xs font-semibold">User Type</Label>
                   <Select
-                    value={profileForm.watch('userType')}
+                    value={profileForm.watch('userType') || 'private'}
                     onValueChange={(val: any) => profileForm.setValue('userType', val)}
                   >
                     <SelectTrigger className="rounded-xl">
