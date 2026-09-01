@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { Loader2, User, KeyRound, ShieldAlert, ShieldCheck, Settings, WalletCards, Mail, Globe, Activity, Tv, Sparkles, Shield, Webhook, Cpu, Package } from "lucide-react";
+import { Loader2, User, KeyRound, ShieldAlert, ShieldCheck, Settings, WalletCards, Mail, Globe, Activity, Tv, Sparkles, Shield, Webhook, Cpu, Package, Server } from "lucide-react";
 import Image from "next/image";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -484,6 +484,7 @@ export default function SettingsPage() {
               <CardContent className="pt-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {[
+                    { title: 'Server Environment Overview', desc: 'Live CPU, memory, PostgreSQL, Redis, and OCPP WebSocket pipeline telemetry.', link: '/settings/environment', icon: Server, color: 'text-emerald-400 bg-emerald-500/15' },
                     { title: 'Roles & Custom PBAC', desc: 'Granular policy-based access control, custom roles, and site permissions.', link: '/settings/roles', icon: Shield, color: 'text-[#8b5cf6] bg-[#8b5cf6]/15' },
                     { title: 'Outbound Webhooks', desc: 'Real-time event subscriptions, HMAC signatures, and delivery traces.', link: '/settings/webhooks', icon: Webhook, color: 'text-[#54a8c7] bg-[#54a8c7]/15' },
                     { title: 'Audit Trail', desc: 'Immutable, granular compliance and operational audit log for ISO 27001 / SOC 2.', link: '/settings/audit', icon: ShieldAlert, color: 'text-[#fab758] bg-[#fab758]/15' },

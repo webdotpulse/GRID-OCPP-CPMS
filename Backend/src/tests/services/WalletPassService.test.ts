@@ -48,4 +48,18 @@ describe("Apple Wallet & Google Wallet NFC Passes Service", () => {
     expect(payload.payload.genericObjects[0].smartTap.value).toBe("NL-GRID-998877");
     expect(payload.payload.genericObjects[0].header.defaultValue.value).toBe("Alex Driver");
   });
+
+  it("should generate comprehensive Google Wallet pass details with QR code data URL", async () => {
+    const details = await WalletPassService.generateGoogleWalletPassDetails(mockCard);
+
+    expect(details).toBeDefined();
+    expect(details.saveUrl).toContain("https://pay.google.com/gp/v/save/");
+    expect(details.token).toBeDefined();
+    expect(details.rfidTag).toBe("NL-GRID-998877");
+    expect(details.name).toBe("Alex Driver");
+    expect(details.cardScope).toBe("Roaming");
+    expect(details.companyName).toBe("Fleet Corp");
+    expect(details.smartTapValue).toBe("NL-GRID-998877");
+    expect(details.qrCodeDataUrl).toMatch(/^data:image\/png;base64,/);
+  }, 15000);
 });

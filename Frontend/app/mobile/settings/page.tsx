@@ -41,6 +41,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { GoogleWalletModal } from "@/components/rfid/GoogleWalletModal";
 
 type ModalType = "account" | "notifications" | "security" | "help" | null;
 
@@ -52,19 +53,20 @@ interface NotificationSettings {
   spotPriceAlerts: boolean;
 }
 
-export default function MobileSettings() {
+export default function MobileSettingsPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const [profileData, setProfileData] = useState<any>(null);
   const [activeModal, setActiveModal] = useState<ModalType>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [profileData, setProfileData] = useState<any>(null);
 
-  // Account Form State
+  // Form State for Account Edit
   const [accountForm, setAccountForm] = useState({
     name: "",
     email: "",
     phone: "",
-    companyName: "",
     address: "",
+    companyName: "",
   });
   const [isSavingAccount, setIsSavingAccount] = useState(false);
 
@@ -95,6 +97,8 @@ export default function MobileSettings() {
   const [is2FALoading, setIs2FALoading] = useState(false);
   const [emergencyContact, setEmergencyContact] = useState<{ phone: string; email: string; name: string } | null>(null);
   const [walletPasses, setWalletPasses] = useState<any[]>([]);
+  const [selectedWalletPass, setSelectedWalletPass] = useState<any>(null);
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isPushSubscribed, setIsPushSubscribed] = useState(false);
   const [isPushLoading, setIsPushLoading] = useState(false);
 
@@ -478,7 +482,10 @@ export default function MobileSettings() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => window.open(pass.googleWalletUrl, "_blank")}
+                    onClick={() => {
+                      setSelectedWalletPass(pass);
+                      setIsWalletModalOpen(true);
+                    }}
                     className="h-8 text-[11px] font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white border-0"
                   >
                     💳 Google Wallet
@@ -1068,6 +1075,18 @@ export default function MobileSettings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Google Wallet Modal */}
+      <GoogleWalletModal
+        isOpen={isWalletModalOpen}
+        onClose={() => {
+          setIsWalletModalOpen(false);
+          setSelectedWalletPass(null);
+        }}
+        rfidUserId={selectedWalletPass?.rfid_user_id || null}
+        rfidTag={selectedWalletPass?.rfid_tag}
+        cardholderName={selectedWalletPass?.name}
+      />
     </div>
   );
 }

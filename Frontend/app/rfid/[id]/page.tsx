@@ -11,11 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Edit, CreditCard, Mail, Phone, Building, MapPin, Globe, Building2 } from "lucide-react";
 import { RfidSessionHistory } from "@/components/rfid/RfidSessionHistory";
+import { GoogleWalletModal } from "@/components/rfid/GoogleWalletModal";
 
 export default function RfidDetailPage() {
   const { id } = useParams();
   const [tag, setTag] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchTag = async () => {
@@ -68,11 +70,33 @@ export default function RfidDetailPage() {
           </div>
           <p className="text-muted-foreground">Assigned to: <span className="font-medium text-foreground">{tag.name}</span></p>
         </div>
-        <Link href={`/rfid/${id}/edit`}>
-          <Button>
-            <Edit className="mr-2 h-4 w-4" /> Edit Tag
+        <div className="flex items-center gap-2">
+          {/* Apple Wallet Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(`/api/rfid/${tag.rfid_user_id}/apple-wallet`, '_blank')}
+            className="rounded-xl border-border/80 hover:bg-muted/80 gap-1.5 text-xs font-semibold"
+          >
+            <span>🍏</span> Apple Wallet
           </Button>
-        </Link>
+
+          {/* Google Wallet Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsWalletModalOpen(true)}
+            className="rounded-xl border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 gap-1.5 text-xs font-semibold"
+          >
+            <span>💳</span> Google Wallet
+          </Button>
+
+          <Link href={`/rfid/${id}/edit`}>
+            <Button className="rounded-xl">
+              <Edit className="mr-2 h-4 w-4" /> Edit Tag
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -131,6 +155,15 @@ export default function RfidDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Google Wallet Modal */}
+      <GoogleWalletModal
+        isOpen={isWalletModalOpen}
+        onClose={() => setIsWalletModalOpen(false)}
+        rfidUserId={tag?.rfid_user_id || null}
+        rfidTag={tag?.rfid_tag}
+        cardholderName={tag?.name}
+      />
     </AppShell>
   );
 }

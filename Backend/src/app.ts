@@ -35,6 +35,7 @@ import settingsTariffsRoutes from "./api/settings/tariffs/tariffs.routes.js";
 import settingsMailRoutes from "./api/settings/mail/mail.routes.js";
 import settingsHardwareAtRiskRoutes from "./api/settings/hardware-at-risk/hardwareAtRisk.routes.js";
 import settingsPaymentsRoutes from "./api/settings/payments/payments.routes.js";
+import settingsEnvironmentRoutes from "./api/settings/environment/environment.routes.js";
 import diagnosticsRoutes from "./routes/diagnostics.js";
 import mediaCampaignsRoutes from "./api/media-campaigns/media-campaigns.routes.js";
 import vehiclesRoutes, { energyProfileRouter } from "./api/vehicles/vehicles.routes.js";
@@ -199,6 +200,7 @@ export function createApp(): Application {
   app.use("/api/settings/mail", authenticateToken, settingsMailRoutes);
   app.use("/api/settings/hardware-at-risk", authenticateToken, settingsHardwareAtRiskRoutes);
   app.use("/api/settings/payments", authenticateToken, settingsPaymentsRoutes);
+  app.use("/api/settings/environment", authenticateToken, settingsEnvironmentRoutes);
   app.use("/api/diagnostics", authenticateToken, diagnosticsRoutes);
   app.use("/api/media-campaigns", authenticateToken, mediaCampaignsRoutes);
   app.use("/api/vehicles", authenticateToken, vehiclesRoutes);

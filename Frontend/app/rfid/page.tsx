@@ -12,6 +12,7 @@ import { Plus, Edit, Trash2, CreditCard, ArrowUpDown, Search, ShieldCheck, Globe
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { GoogleWalletModal } from "@/components/rfid/GoogleWalletModal";
 
 interface RfidTag {
   rfid_user_id: number;
@@ -29,6 +30,10 @@ export default function RfidPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+  // Google Wallet modal state
+  const [selectedWalletTag, setSelectedWalletTag] = useState<RfidTag | null>(null);
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
 
   const fetchTags = useCallback(async () => {
     try {
@@ -236,15 +241,9 @@ export default function RfidPage() {
                           variant="ghost"
                           size="icon-sm"
                           title="Add to Google Wallet (NFC Pass)"
-                          onClick={async () => {
-                            try {
-                              const res = await api.get(`/rfid/${tag.rfid_user_id}/google-wallet`);
-                              if (res.data?.data?.saveUrl) {
-                                window.open(res.data.data.saveUrl, '_blank');
-                              }
-                            } catch (e) {
-                              logger.error("Error opening Google Wallet link", e);
-                            }
+                          onClick={() => {
+                            setSelectedWalletTag(tag);
+                            setIsWalletModalOpen(true);
                           }}
                           className="rounded-lg text-emerald-500 hover:bg-emerald-500/10"
                         >
@@ -282,6 +281,18 @@ export default function RfidPage() {
           </Table>
         </div>
       </div>
+
+      {/* Google Wallet & NFC Digital Pass Modal */}
+      <GoogleWalletModal
+        isOpen={isWalletModalOpen}
+        onClose={() => {
+          setIsWalletModalOpen(false);
+          setSelectedWalletTag(null);
+        }}
+        rfidUserId={selectedWalletTag?.rfid_user_id || null}
+        rfidTag={selectedWalletTag?.rfid_tag}
+        cardholderName={selectedWalletTag?.name}
+      />
     </AppShell>
   );
 }

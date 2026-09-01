@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import qrcode from "qrcode";
 import { prisma } from "../config/database.js";
 import { logger } from "../utils/logger.js";
 
@@ -11,6 +12,22 @@ export interface RfidCardPassData {
   cardScope: string;
   company_name?: string | null;
   active: boolean;
+}
+
+export interface GoogleWalletPassDetails {
+  saveUrl: string;
+  token: string;
+  qrCodeDataUrl: string;
+  rfidTag: string;
+  name: string;
+  cardScope: string;
+  companyName: string;
+  active: boolean;
+  smartTapValue: string;
+  isProductionConfigured: boolean;
+  issuerId: string;
+  classId: string;
+  objectId: string;
 }
 
 export class WalletPassService {
@@ -118,14 +135,16 @@ export class WalletPassService {
    * Generate Google Wallet "Save to Google Wallet" JWT link
    */
   public static generateGoogleWalletUrl(rfidCard: RfidCardPassData): string {
-    const issuerId = "3388000000022334455";
+    const issuerId = process.env.GOOGLE_WALLET_ISSUER_ID || "3388000000022334455";
     const classId = `${issuerId}.GRID_RFID_PASS_CLASS`;
     const objectId = `${issuerId}.RFID_${rfidCard.rfid_tag.replace(/[^a-zA-Z0-9_]/g, "_")}`;
+    const clientEmail = process.env.GOOGLE_WALLET_CLIENT_EMAIL || "grid-cpms@google-wallet.internal";
+    const appUrl = process.env.APP_URL || "https://cpms.grid-ev.network";
 
     const claims = {
-      iss: "grid-cpms@google-wallet.internal",
+      iss: clientEmail,
       aud: "google",
-      origins: ["https://cpms.grid-ev.network"],
+      origins: [appUrl, "http://localhost:3000", "http://localhost:3002"],
       typ: "savetowallet",
       payload: {
         genericObjects: [
@@ -134,7 +153,7 @@ export class WalletPassService {
             classId: classId,
             logo: {
               sourceUri: {
-                uri: "https://cpms.grid-ev.network/icons/icon-192x192.png",
+                uri: `${appUrl}/icons/icon-192x192.png`,
               },
               contentDescription: {
                 defaultValue: {
@@ -158,7 +177,7 @@ export class WalletPassService {
             header: {
               defaultValue: {
                 language: "en-US",
-                value: rfidCard.name,
+                value: rfidCard.name || "EV Driver",
               },
             },
             barcode: {
@@ -176,7 +195,62 @@ export class WalletPassService {
       },
     };
 
+    if (process.env.GOOGLE_WALLET_PRIVATE_KEY) {
+      try {
+        const privateKey = process.env.GOOGLE_WALLET_PRIVATE_KEY.replace(/\\n/g, "\n");
+        const token = jwt.sign(claims, privateKey, { algorithm: "RS256" });
+        return `https://pay.google.com/gp/v/save/${token}`;
+      } catch (err) {
+        logger.warn(`Failed to sign Google Wallet JWT with RS256 key: ${err}. Falling back to HS256.`);
+      }
+    }
+
     const token = jwt.sign(claims, "grid-wallet-secret-key-2026", { algorithm: "HS256" });
     return `https://pay.google.com/gp/v/save/${token}`;
   }
+
+  /**
+   * Generate comprehensive Google Wallet Pass details including dynamic QR Code data URL
+   */
+  public static async generateGoogleWalletPassDetails(rfidCard: RfidCardPassData): Promise<GoogleWalletPassDetails> {
+    const saveUrl = this.generateGoogleWalletUrl(rfidCard);
+    const token = saveUrl.replace("https://pay.google.com/gp/v/save/", "");
+    const issuerId = process.env.GOOGLE_WALLET_ISSUER_ID || "3388000000022334455";
+    const classId = `${issuerId}.GRID_RFID_PASS_CLASS`;
+    const objectId = `${issuerId}.RFID_${rfidCard.rfid_tag.replace(/[^a-zA-Z0-9_]/g, "_")}`;
+    const isProductionConfigured = Boolean(process.env.GOOGLE_WALLET_PRIVATE_KEY && process.env.GOOGLE_WALLET_ISSUER_ID);
+
+    // Generate high-resolution QR code data URL for mobile scan (contains RFID tag / token)
+    let qrCodeDataUrl = "";
+    try {
+      qrCodeDataUrl = await qrcode.toDataURL(rfidCard.rfid_tag, {
+        errorCorrectionLevel: "H",
+        margin: 2,
+        width: 320,
+        color: {
+          dark: "#000000",
+          light: "#ffffff",
+        },
+      });
+    } catch (err) {
+      logger.error(`Error generating QR code for Google Wallet pass: ${err}`);
+    }
+
+    return {
+      saveUrl,
+      token,
+      qrCodeDataUrl,
+      rfidTag: rfidCard.rfid_tag,
+      name: rfidCard.name,
+      cardScope: rfidCard.cardScope || "Roaming",
+      companyName: rfidCard.company_name || "GRID Open CPMS",
+      active: rfidCard.active,
+      smartTapValue: rfidCard.rfid_tag,
+      isProductionConfigured,
+      issuerId,
+      classId,
+      objectId,
+    };
+  }
 }
+

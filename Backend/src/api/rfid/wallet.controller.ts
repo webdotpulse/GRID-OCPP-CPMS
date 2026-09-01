@@ -36,7 +36,7 @@ export const downloadAppleWalletPass = async (req: Request, res: Response) => {
 };
 
 /**
- * GET /api/rfid/:id/google-wallet - Get Google Wallet "Save to Google Wallet" link
+ * GET /api/rfid/:id/google-wallet - Get Google Wallet "Save to Google Wallet" link and pass details
  */
 export const getGoogleWalletUrl = async (req: Request, res: Response) => {
   try {
@@ -53,15 +53,11 @@ export const getGoogleWalletUrl = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, error: "RFID card not found" });
     }
 
-    const saveUrl = WalletPassService.generateGoogleWalletUrl(rfidCard);
+    const passDetails = await WalletPassService.generateGoogleWalletPassDetails(rfidCard);
 
     res.json({
       success: true,
-      data: {
-        saveUrl,
-        rfidTag: rfidCard.rfid_tag,
-        name: rfidCard.name,
-      },
+      data: passDetails,
     });
   } catch (error) {
     logger.error(`Error generating Google Wallet link: ${error}`);
