@@ -202,6 +202,8 @@ model Charger {
   localAuthList         LocalAuthList?
   reservations          Reservation[]
   scheduledChargings    ScheduledCharging[]
+  anomalyEvents         AnomalyEvent[]
+  healthScores          ComponentHealthScore[]
 
   // Phase Commutation (1-Phase ⇄ 3-Phase Dynamic Switching)
   phaseCommutationSupported    Boolean           @default(false)
@@ -1311,6 +1313,58 @@ model PushSubscription {
 
   @@index([userId])
 }
+
+// Component Health Score & Remaining Useful Life (RUL) tracking
+model ComponentHealthScore {
+  id                        Int      @id @default(autoincrement())
+  chargerId                 Int
+  connectorId               Int      @default(1)
+  componentType             String   // "CONNECTOR_PIN_L1" | "CONNECTOR_PIN_L2" | "CONNECTOR_PIN_L3" | "CABLE_ASSEMBLY" | "COOLING_LOOP" | "POWER_ELECTRONICS"
+  healthScore               Float    @default(100.0) // 100.0 (Optimal) -> 0.0 (Critical)
+  contactResistanceMilliOhms Float?
+  voltageDropVolts          Float?
+  thdCurrentPct             Float?
+  thermalSlopeDegPerMin     Float?
+  rulDays                   Int?     // Estimated Remaining Useful Life in days
+  status                    String   @default("HEALTHY") // "HEALTHY" | "DEGRADING" | "AT_RISK" | "CRITICAL"
+  lastEvaluatedAt           DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  charger Charger @relation(fields: [chargerId], references: [charger_id], onDelete: Cascade)
+
+  @@unique([chargerId, connectorId, componentType])
+  @@index([chargerId, healthScore])
+  @@index([status])
+}
+
+// High-Frequency Anomaly Event Log
+model AnomalyEvent {
+  id                 Int       @id @default(autoincrement())
+  chargerId          Int
+  connectorId        Int?      @default(1)
+  transactionId      String?
+  anomalyType        String    // "CONTACT_RESISTANCE_SPIKE" | "PHASE_IMBALANCE" | "CABLE_WEAR_HARMONICS" | "COOLING_DEGRADATION" | "VOLTAGE_SAG_ANOMALY"
+  severity           String    @default("MEDIUM") // "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  anomalyScore       Float     // 0.0 to 1.0
+  confidence         Float     @default(0.9)
+  rootCause          String
+  affectedPhase      String?   // "L1" | "L2" | "L3" | "ALL"
+  metrics            Json?     // Extracted feature payload
+  telemetrySnapshot  Json?     // Sliding window data points
+  deratingApplied    Boolean   @default(false)
+  deratedLimitAmps   Float?
+  resolved           Boolean   @default(false)
+  resolvedAt         DateTime?
+  resolutionNotes    String?
+  createdAt          DateTime  @default(now())
+
+  charger Charger @relation(fields: [chargerId], references: [charger_id], onDelete: Cascade)
+
+  @@index([chargerId, resolved])
+  @@index([severity])
+  @@index([createdAt])
+}
+
 
 
 

@@ -87,4 +87,5 @@ This document outlines strategic enhancements, next-generation capabilities, and
 | **Virtual Waiting Queue & Smart Bay Reservations** | Medium | Low | Driver UX & High-Traffic Hubs | Planned |
 | **Multi-Currency & Dynamic VAT Localization** | Medium | Medium | Pan-European Cross-Border Billing | Planned |
 | **Active-Active Multi-Region Clustering** | High | High | Enterprise High Availability & Resilience | Planned |
-| **AI Anomaly Detection & 3D Digital Twin** | Long-Term | High | Predictive Maintenance & Asset Management | Planned |
+| **High-Frequency Telemetry Anomaly Detection & ML Diagnostics** | High | High | Predictive Maintenance & Asset Protection | Implemented |
+| **3D Isometric Ground Plan & Electrical Heatmap** | Long-Term | High | Digital Twin & Station Observability | Planned |

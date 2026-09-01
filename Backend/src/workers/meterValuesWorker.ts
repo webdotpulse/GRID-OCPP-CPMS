@@ -2,6 +2,7 @@ import { Worker, Job } from "bullmq";
 import { getBullMqRedisConnection, MeterValueJobData } from "../queues/queueManager.js";
 import { prisma } from "../config/database.js";
 import { logger } from "../utils/logger.js";
+import { TelemetryAnomalyService } from "../services/TelemetryAnomalyService.js";
 
 export const METER_VALUES_QUEUE_NAME = "meter-values-queue";
 
@@ -11,6 +12,13 @@ export const METER_VALUES_QUEUE_NAME = "meter-values-queue";
 export async function processMeterValueJob(job: Job<MeterValueJobData>): Promise<void> {
   const p = job.data;
   if (!p || !p.transactionId) return;
+
+  // Real-Time High-Frequency Anomaly Analysis & Closed-Loop Derating
+  try {
+    await TelemetryAnomalyService.analyzeTelemetry(p);
+  } catch (err) {
+    logger.error(`Error in TelemetryAnomalyService.analyzeTelemetry: ${err}`);
+  }
 
   // Diagnostic event for high temperature
   if (p.temperatureValue && p.temperatureValue > 80) {
@@ -88,6 +96,15 @@ export async function processMeterValueJob(job: Job<MeterValueJobData>): Promise
  */
 export async function processMeterValuesBatch(payloads: MeterValueJobData[]): Promise<void> {
   if (!payloads || payloads.length === 0) return;
+
+  // Real-Time High-Frequency Anomaly Analysis for batch
+  for (const p of payloads) {
+    try {
+      await TelemetryAnomalyService.analyzeTelemetry(p);
+    } catch (err) {
+      logger.error(`Error in TelemetryAnomalyService.analyzeTelemetry batch: ${err}`);
+    }
+  }
 
   const diagnosticEvents = payloads
     .filter((p) => p.temperatureValue && p.temperatureValue > 80)

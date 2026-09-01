@@ -55,6 +55,9 @@ export interface MeterValueJobData {
   voltage_L1?: number | null;
   voltage_L2?: number | null;
   voltage_L3?: number | null;
+  thd_current?: number | null;
+  thd_voltage?: number | null;
+  frequency?: number | null;
   timestamp: string | Date;
 }
 

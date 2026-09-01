@@ -466,6 +466,15 @@ export async function handleMeterValues(
       let currentValue: number | null = null;
       let voltageValue: number | null = null;
       let temperatureValue: number | null = null;
+      let current_L1: number | null = null;
+      let current_L2: number | null = null;
+      let current_L3: number | null = null;
+      let voltage_L1: number | null = null;
+      let voltage_L2: number | null = null;
+      let voltage_L3: number | null = null;
+      let thd_current: number | null = null;
+      let thd_voltage: number | null = null;
+      let frequency: number | null = null;
       let timestamp = new Date();
       let hasReadings = false;
 
@@ -478,24 +487,41 @@ export async function handleMeterValues(
           for (const sv of mv.sampledValue) {
             let rawMeasurand = sv.measurand || "Energy.Active.Import.Register";
             const measurand = validateAndCoerceEnum(rawMeasurand, ocpp16Measurands, 'Measurand');
+            const phase = sv.phase;
+            const val = parseFloat(sv.value);
+
             if (measurand === "Energy.Active.Import.Register" || measurand === "Energy") {
-              energyValue = parseFloat(sv.value);
+              energyValue = val;
               hasReadings = true;
             } else if (measurand === "Power.Active.Import" || measurand === "Power") {
-              powerValue = parseFloat(sv.value);
+              powerValue = val;
               hasReadings = true;
             } else if (measurand === "SoC") {
-              socValue = parseFloat(sv.value);
+              socValue = val;
               hasReadings = true;
             } else if (measurand === "Current.Import" || measurand === "Current.Offered") {
-              currentValue = parseFloat(sv.value);
+              currentValue = val;
               hasReadings = true;
+              if (phase === "L1") current_L1 = val;
+              else if (phase === "L2") current_L2 = val;
+              else if (phase === "L3") current_L3 = val;
             } else if (measurand === "Voltage") {
-              voltageValue = parseFloat(sv.value);
+              voltageValue = val;
               hasReadings = true;
-            }
-            else if (measurand === "Temperature") {
-              temperatureValue = parseFloat(sv.value);
+              if (phase === "L1" || phase === "L1-N" || phase === "L1-L2") voltage_L1 = val;
+              else if (phase === "L2" || phase === "L2-N" || phase === "L2-L3") voltage_L2 = val;
+              else if (phase === "L3" || phase === "L3-N" || phase === "L3-L1") voltage_L3 = val;
+            } else if (measurand === "Temperature") {
+              temperatureValue = val;
+              hasReadings = true;
+            } else if (rawMeasurand === "Current.Harmonics" || rawMeasurand === "Current.THD") {
+              thd_current = val;
+              hasReadings = true;
+            } else if (rawMeasurand === "Voltage.Harmonics" || rawMeasurand === "Voltage.THD") {
+              thd_voltage = val;
+              hasReadings = true;
+            } else if (rawMeasurand === "Frequency") {
+              frequency = val;
               hasReadings = true;
             }
           }
@@ -522,6 +548,15 @@ export async function handleMeterValues(
           currentValue: currentValue ?? null,
           voltageValue: voltageValue ?? null,
           temperatureValue: temperatureValue ?? null,
+          current_L1: current_L1 ?? null,
+          current_L2: current_L2 ?? null,
+          current_L3: current_L3 ?? null,
+          voltage_L1: voltage_L1 ?? null,
+          voltage_L2: voltage_L2 ?? null,
+          voltage_L3: voltage_L3 ?? null,
+          thd_current: thd_current ?? null,
+          thd_voltage: thd_voltage ?? null,
+          frequency: frequency ?? null,
           timestamp,
         };
 
