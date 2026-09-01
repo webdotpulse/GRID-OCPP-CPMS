@@ -138,7 +138,7 @@ export const getChargerConfigurations = async (req: Request, res: Response) => {
 
 export const getAllChargers = async (req: Request, res: Response) => {
   try {
-    const { page: queryPage, limit: queryLimit, search } = req.query;
+    const { page: queryPage, limit: queryLimit, search, includeSecondary } = req.query;
     const { page, limit } = parsePagination(queryPage, queryLimit);
 
     // @ts-expect-error userRole is attached by authenticateToken middleware
@@ -176,6 +176,19 @@ export const getAllChargers = async (req: Request, res: Response) => {
           OR: [
             { name: { contains: search as string, mode: "insensitive" } },
             { serial_number: { contains: search as string, mode: "insensitive" } }
+          ]
+        }
+      ];
+    }
+
+    // Hide secondary paired chargers in chargers overview to avoid confusion
+    if (includeSecondary !== "true") {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { pairedRole: null },
+            { pairedRole: { not: "secondary" } }
           ]
         }
       ];
@@ -914,6 +927,10 @@ export const uncombineChargers = async (req: Request, res: Response) => {
 
     const charger = await prisma.charger.findUnique({
       where: { charger_id: Number(chargerId) },
+      include: {
+        evses: { include: { connectors: true } },
+        pairedCharger: { include: { evses: { include: { connectors: true } } } },
+      },
     });
 
     if (!charger) {
@@ -938,8 +955,57 @@ export const uncombineChargers = async (req: Request, res: Response) => {
     }
 
     const pairedId = charger.pairedChargerId;
+    let primaryCharger = charger.pairedRole === "primary" ? charger : charger.pairedCharger;
+    let secondaryCharger = charger.pairedRole === "secondary" ? charger : charger.pairedCharger;
+
+    // Fallback if pairedRole wasn't explicitly set
+    if (!primaryCharger && !secondaryCharger && charger.pairedCharger) {
+      const hasChannel2 = charger.evses?.some(e => e.connectors?.some(c => c.connector_name === "Channel 2"));
+      if (hasChannel2) {
+        primaryCharger = charger;
+        secondaryCharger = charger.pairedCharger;
+      } else {
+        primaryCharger = charger.pairedCharger;
+        secondaryCharger = charger;
+      }
+    }
 
     await prisma.$transaction(async (tx) => {
+      // 1. Remove the second created channel on the primary charger and restore naming
+      if (primaryCharger) {
+        for (const evse of primaryCharger.evses || []) {
+          // Delete Channel 2 connector
+          const ch2Connectors = evse.connectors?.filter(c => c.connector_name === "Channel 2") || [];
+          for (const ch2 of ch2Connectors) {
+            await tx.connector.delete({
+              where: { connector_id: ch2.connector_id },
+            });
+          }
+          // Restore Channel 1 back to Connector 1
+          const ch1Connectors = evse.connectors?.filter(c => c.connector_name === "Channel 1") || [];
+          for (const ch1 of ch1Connectors) {
+            await tx.connector.update({
+              where: { connector_id: ch1.connector_id },
+              data: { connector_name: "Connector 1" },
+            });
+          }
+        }
+      }
+
+      // 2. Restore secondary charger connector name if it was renamed to Channel 2
+      if (secondaryCharger) {
+        for (const evse of secondaryCharger.evses || []) {
+          const ch2Connectors = evse.connectors?.filter(c => c.connector_name === "Channel 2") || [];
+          for (const ch2 of ch2Connectors) {
+            await tx.connector.update({
+              where: { connector_id: ch2.connector_id },
+              data: { connector_name: "Connector 1" },
+            });
+          }
+        }
+      }
+
+      // 3. Reset pairing state on both chargers
       await tx.charger.update({
         where: { charger_id: charger.charger_id },
         data: {

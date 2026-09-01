@@ -117,6 +117,8 @@ export default function ChargersPage() {
   };
 
   const filteredChargers = chargers.filter(c => {
+    // Hide secondary paired chargers to avoid confusion
+    if (c.pairedRole === "secondary") return false;
     if (statusFilter === "ALL") return true;
     const s = (c.status || '').toLowerCase();
     if (statusFilter === "ONLINE") return s === 'online' || s === 'active';
@@ -298,7 +300,7 @@ export default function ChargersPage() {
                           )}
                           {charger.isCombined && (
                             <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-400 border-indigo-500/30 px-1.5 py-0 font-medium">
-                              2 Sockets ({charger.pairedRole === "primary" ? "Ch 1+2" : "Ch 2"})
+                              2 Sockets (Combined)
                             </Badge>
                           )}
                           {charger.isStraightThroughProxy && (

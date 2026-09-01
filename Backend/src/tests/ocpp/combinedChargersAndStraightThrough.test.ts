@@ -3,7 +3,7 @@ import { prisma } from '../../config/database.js';
 import * as v16Handlers from '../../ocpp/handlers/v16Handlers.js';
 import * as v21Handlers from '../../ocpp/handlers/v21Handlers.js';
 import { resolveTargetChargerAndConnector } from '../../ocpp/remoteControl.js';
-import { combineChargers, uncombineChargers } from '../../api/chargers/chargers.controller.js';
+import { combineChargers, uncombineChargers, getAllChargers } from '../../api/chargers/chargers.controller.js';
 import { loadManagementService } from '../../services/LoadManagementService.js';
 
 describe("Combined Dual-Socket Chargers & Straight-Through Proxy", () => {
@@ -109,7 +109,7 @@ describe("Combined Dual-Socket Chargers & Straight-Through Proxy", () => {
       );
     });
 
-    it("should successfully uncombine paired chargers", async () => {
+    it("should successfully uncombine paired chargers and remove Channel 2 connector from primary", async () => {
       jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
         charger_id: 101,
         name: "Alfen Combined Primary",
@@ -117,7 +117,34 @@ describe("Combined Dual-Socket Chargers & Straight-Through Proxy", () => {
         pairedChargerId: 102,
         pairedRole: "primary",
         owner_id: 1,
+        evses: [
+          {
+            id: 1,
+            evse_id: 1,
+            connectors: [
+              { connector_id: 10, connector_name: "Channel 1" },
+              { connector_id: 11, connector_name: "Channel 2" },
+            ],
+          },
+        ],
+        pairedCharger: {
+          charger_id: 102,
+          name: "Alfen Single Secondary",
+          isCombined: true,
+          pairedChargerId: 101,
+          pairedRole: "secondary",
+          evses: [
+            {
+              id: 2,
+              evse_id: 1,
+              connectors: [{ connector_id: 20, connector_name: "Channel 2" }],
+            },
+          ],
+        },
       } as any);
+
+      const deleteSpy = jest.spyOn(prisma.connector, 'delete').mockResolvedValue({} as any);
+      const updateConnSpy = jest.spyOn(prisma.connector, 'update').mockResolvedValue({} as any);
 
       jest.spyOn(prisma, '$transaction').mockImplementation(async (callback: any) => {
         if (typeof callback === 'function') {
@@ -139,10 +166,60 @@ describe("Combined Dual-Socket Chargers & Straight-Through Proxy", () => {
 
       await uncombineChargers(req, res);
 
+      expect(deleteSpy).toHaveBeenCalledWith({
+        where: { connector_id: 11 },
+      });
+      expect(updateConnSpy).toHaveBeenCalledWith({
+        where: { connector_id: 10 },
+        data: { connector_name: "Connector 1" },
+      });
+      expect(updateConnSpy).toHaveBeenCalledWith({
+        where: { connector_id: 20 },
+        data: { connector_name: "Connector 1" },
+      });
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
           message: expect.stringContaining("uncombined successfully"),
+        })
+      );
+    });
+
+    it("getAllChargers should exclude secondary paired chargers by default", async () => {
+      const findManySpy = jest.spyOn(prisma.charger, 'findMany').mockResolvedValue([
+        {
+          charger_id: 101,
+          name: "Alfen Combined Primary",
+          isCombined: true,
+          pairedRole: "primary",
+        },
+      ] as any);
+      jest.spyOn(prisma.charger, 'count').mockResolvedValue(1);
+
+      const req: any = {
+        query: { page: "1", limit: "10" },
+        userRole: "superadmin",
+        userId: 1,
+      };
+      const res: any = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+
+      await getAllChargers(req, res);
+
+      expect(findManySpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              {
+                OR: [
+                  { pairedRole: null },
+                  { pairedRole: { not: "secondary" } },
+                ],
+              },
+            ]),
+          }),
         })
       );
     });

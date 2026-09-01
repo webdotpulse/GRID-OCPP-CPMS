@@ -63,6 +63,18 @@ interface ChargerDetail {
     vatRate: number;
     isActive: boolean;
   } | null;
+  tariffs?: Array<{
+    tariff_id: number;
+    tariff_name: string;
+    charge: number;
+    electricity_rate: number;
+    tariffType: string;
+    markupPerKwh?: number | null;
+    taxPercentage?: number | null;
+    time_fee?: number | null;
+    idle_fee?: number | null;
+    dynamicProvider?: string | null;
+  }>;
   pairedCharger?: {
     charger_id: number;
     name: string;
@@ -451,6 +463,54 @@ export default function ChargerDetailPage() {
                       </div>
                     ) : (
                       <p className="text-xs text-muted-foreground italic">None (Ad-Hoc Hardware)</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1 col-span-2 border-t border-border/50 pt-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-muted-foreground">Assigned Tariff Plan</p>
+                      {charger.tariffs && charger.tariffs.length > 0 && (
+                        <Link href="/tariffs" className="text-xs text-[#54a8c7] hover:underline flex items-center gap-1">
+                          Manage Tariffs
+                        </Link>
+                      )}
+                    </div>
+                    {charger.tariffs && charger.tariffs.length > 0 ? (
+                      <div className="space-y-2">
+                        {charger.tariffs.map((t) => (
+                          <div key={t.tariff_id} className="flex flex-wrap items-center gap-2">
+                            <Badge className="bg-[#54a8c7]/15 text-[#54a8c7] border-[#54a8c7]/30 font-semibold text-xs">
+                              {t.tariff_name}
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px] text-muted-foreground uppercase font-mono">
+                              {t.tariffType === "DYNAMIC_EPEX" ? "Dynamic EPEX" : "Fixed Rate"}
+                            </Badge>
+                            <span className="text-xs text-foreground/90 font-mono">
+                              {t.tariffType === "DYNAMIC_EPEX" ? (
+                                <>
+                                  Spot Price + €{(t.markupPerKwh ?? 0).toFixed(3)}/kWh
+                                  {t.taxPercentage ? ` (+${t.taxPercentage}% tax)` : ""}
+                                </>
+                              ) : (
+                                <>
+                                  €{(t.charge ?? 0).toFixed(2)} start + €{(t.electricity_rate ?? 0).toFixed(3)}/kWh
+                                  {t.time_fee && t.time_fee > 0 ? ` + €${t.time_fee.toFixed(2)}/min` : ""}
+                                  {t.idle_fee && t.idle_fee > 0 ? ` + €${t.idle_fee.toFixed(2)}/min idle` : ""}
+                                </>
+                              )}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground italic">None (Unassigned Tariff)</p>
+                        <Link href={`/chargers/${id}/edit`}>
+                          <Button variant="ghost" size="sm" className="h-6 text-xs text-[#54a8c7] hover:text-[#54a8c7]/80 p-0">
+                            Assign Tariff
+                          </Button>
+                        </Link>
+                      </div>
                     )}
                   </div>
                 </div>
