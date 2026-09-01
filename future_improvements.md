@@ -12,10 +12,6 @@ This document outlines strategic enhancements, next-generation capabilities, and
 * **BESS (Battery Energy Storage System) & Solar Hybrid Buffering**
   * Support on-site stationary battery storage tracking alongside solar arrays.
   * Implement smart dispatch algorithms: charge BESS from solar / negative EPEX prices and discharge BESS to buffer ultra-fast DC charging spikes without exceeding grid transformer connection limits.
-* **1-Phase ⇄ 3-Phase Dynamic Commutation (Phase-Switching)** *(Completed)*
-  * Dynamically switch compatible EVSEs between single-phase (1.4 kW minimum threshold) and 3-phase (4.1 kW minimum threshold) during low solar irradiance or high grid congestion to keep charging continuous without hard stops.
-* **Intraday & Real-Time Imbalance Price Arbitrage** *(Completed)*
-  * Extend current Day-Ahead EPEX spot pricing to include 15-minute Intraday continuous trading and national real-time settled imbalance markets for maximum energy cost optimization.
 
 ---
 
@@ -27,17 +23,11 @@ This document outlines strategic enhancements, next-generation capabilities, and
   * Automate X.509 certificate lifecycle management for OCPP Security Profile 3 (mTLS) and ISO 15118 Plug & Charge (CSMS Root, V2G Root, OEM Sub-CAs, and EVSE certificates) via EST/ACME protocols.
 * **Canary & Staged Firmware Rollout Engine**
   * Support progressive fleet firmware updates (e.g., 5% Canary $\rightarrow$ 25% Staging $\rightarrow$ 100% Production) with automatic rollback triggers if error/fault rates exceed defined thresholds.
-* **Eichrecht & OCMF (Open Charge Metering Format) Legal Metrology** *(Completed)*
-  * Ingest and cryptographically verify signed meter data public keys (OCMF / SML format) to guarantee tamper-proof billing compliance for German/Austrian legal metrology standards.
-* **Built-in Virtual OCPP Charger Simulator / Test Lab** *(Completed)*
-  * Add an in-dashboard interactive simulator to emulate physical chargers for OCPP 1.6-J and 2.0.1 testing (cable disconnects, meter value drift, offline transaction buffering, power drops).
 
 ---
 
-## 3. 🚚 Fleet Depot & Commercial Logistics Optimization *(In Execution)*
+## 3. 🚚 Fleet Depot & Commercial Logistics Optimization
 
-* **Departure Time & Target SoC Scheduling Engine**
-  * Allow fleet managers to define target SoC (e.g., 85%) and departure deadlines (e.g., 06:30 AM). The CPMS computes the most cost-effective non-linear charging curve using lowest-cost energy windows while guaranteeing 100% on-time vehicle departure.
 * **Vehicle OEM & Telematics Integration (Geotab, Samsara, Enode, Tesla Fleet API)**
   * Pull actual vehicle battery SoC, State of Health (SoH), odometer, and location directly via telematics APIs when chargers or cables do not transmit SoC via standard OCPP.
 * **Mission-Critical Priority Queuing (Emergency & Delivery Vehicles)**
@@ -45,7 +35,7 @@ This document outlines strategic enhancements, next-generation capabilities, and
 
 ---
 
-## 4. 🇪🇺 EU AFIR Compliance & Roaming Expansion *(In Execution)*
+## 4. 🇪🇺 EU AFIR Compliance & Roaming Expansion
 
 * **AFIR (Alternative Fuels Infrastructure Regulation) Compliance Package**
   * **Ad-Hoc Pricing Transparency:** Pre-session QR price breakdown (energy rate/kWh, session fee, minute fee, idle fee) clearly rendered before authorization.
@@ -60,10 +50,6 @@ This document outlines strategic enhancements, next-generation capabilities, and
 
 ## 5. 📱 Driver Experience & Frictionless Charging
 
-* **PWA & Native Mobile Companion App** *(Completed)*
-  * Web App Manifest, Service Worker offline caching, and push notifications for key milestones (e.g., *Reached 80% SoC*, *Charging completed*, *Idle fee alert in 15 minutes*, *Solar green energy boost active*).
-* **Apple Wallet & Google Wallet NFC Passes** *(Completed)*
-  * Digital RFID charging cards stored in mobile wallets for one-tap NFC authorization at the charger without carrying plastic cards (.pkpass bundle & Google Pay Save URL).
 * **Virtual Waiting Queue & Smart Bay Reservations**
   * When all chargers at a hub are occupied, drivers join a virtual queue via QR/PWA. Once a connector frees up, the driver gets an automatic 10-minute hold reservation to plug in.
 * **Multi-Currency & Dynamic VAT Localization**
@@ -77,8 +63,6 @@ This document outlines strategic enhancements, next-generation capabilities, and
   * Machine learning models analyzing phase current, voltage drops, and harmonic distortion to flag degrading contact resistance, cable wear, or cooling failures before physical breakdown.
 * **3D Isometric Ground Plan & Electrical Heatmap**
   * Upgrade the 2D Ground Plan canvas to an isometric/3D digital twin displaying underground cable trenches, transformer load heatmaps, and solar canopy power overlays.
-* **Vendor-Specific Auto-Healing Playbooks** *(Completed)*
-  * AI-assisted log parser for vendor-specific error codes (Alfen, EVBox, ABB, Schneider, Kempower) that automatically executes tailored multi-step recovery actions.
 
 ---
 
@@ -86,10 +70,6 @@ This document outlines strategic enhancements, next-generation capabilities, and
 
 * **Active-Active Multi-Region Clustering & WebSocket Sharding**
   * Distributed Redis Pub/Sub WebSocket gateways with sticky sessions and zero-downtime rolling deploys.
-* **Fine-Grained Custom RBAC & Audit Trails** *(Completed)*
-  * Policy-based access controls (PBAC) allowing custom roles with granular per-site, per-charger-group, and per-action permissions.
-* **Exportable Webhooks & Event-Driven API Subscriptions** *(Completed)*
-  * Outbound webhook system allowing enterprise customers to stream real-time CPMS events directly into their ERP/SCADA/CRM systems.
 
 ---
 
@@ -97,15 +77,14 @@ This document outlines strategic enhancements, next-generation capabilities, and
 
 | Feature Area | Priority | Complexity | Regulatory / Business Driver | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **EU AFIR Compliance & Open Data** | Critical | High | Mandatory EU Regulation (2024/2026) | In Execution |
-| **Eichrecht & OCMF Legal Metrology** | Critical | High | German MessEG / Austrian Metrology | **Completed** |
-| **1-Phase ⇄ 3-Phase Phase Switching** | High | Medium | Grid Flexibility & Continuous Solar PV | **Completed** |
-| **Intraday & Imbalance Arbitrage** | High | High | Energy Flexibility & Cost Optimization | **Completed** |
-| **Mobile PWA & NFC Wallet Passes** | Medium | Medium | Appless Charging & Driver Experience | **Completed** |
-| **Fleet Depot & Scheduled Charging** | High | High | B2B Fleet Electrification & Cost Reduction | **Completed** |
-| **Auto-Healing Vendor Playbooks** | High | Medium | Automated Fleet Diagnostics & Self-Healing | **Completed** |
-| **Virtual OCPP Test Lab** | High | Medium | Rapid Hardware QA & Protocol Conformance | **Completed** |
-| **Outbound Webhooks Subscriptions** | High | Medium | Third-Party ERP/TMS Integrations | **Completed** |
-| **OpenADR & BESS Orchestration** | Medium | High | Grid Flexibility Markets & Peak Shaving | Planned |
-| **AI Anomaly & 3D Digital Twin** | Long-Term | High | Predictive Maintenance & Asset Management | Planned |
-
+| **EU AFIR Compliance & Open Data (NAP / DATEX II)** | Critical | High | Mandatory EU Regulation (2024/2026) | In Execution |
+| **OCPP 2.1 Native Bidirectional Power Transfer (BPT / V2X)** | High | High | ISO 15118-20 & Smart Grid | Planned |
+| **Vehicle OEM & Telematics Integration** | High | Medium | Fleet Telematics & Live SoC | Planned |
+| **Automated PKI & EST Sub-CA** | High | High | Security Profile 3 & Plug & Charge | Planned |
+| **OpenADR 2.0b / 3.0 & BESS Hybrid Buffering** | Medium | High | Grid Flexibility Markets & Peak Shaving | Planned |
+| **Canary & Staged Firmware Rollout Engine** | Medium | Medium | Hardware Lifecycle & Fleet Reliability | Planned |
+| **Mission-Critical Priority Queuing** | Medium | Medium | Commercial Fleet Logistics | Planned |
+| **Virtual Waiting Queue & Smart Bay Reservations** | Medium | Low | Driver UX & High-Traffic Hubs | Planned |
+| **Multi-Currency & Dynamic VAT Localization** | Medium | Medium | Pan-European Cross-Border Billing | Planned |
+| **Active-Active Multi-Region Clustering** | High | High | Enterprise High Availability & Resilience | Planned |
+| **AI Anomaly Detection & 3D Digital Twin** | Long-Term | High | Predictive Maintenance & Asset Management | Planned |
