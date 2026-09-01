@@ -8,9 +8,9 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
+import { SafeResponsiveContainer } from "@/components/ui/SafeResponsiveContainer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export interface TariffGraphData {
@@ -81,7 +81,7 @@ export function DynamicTariffGraph({ data, country, isLoading }: DynamicTariffGr
       </CardHeader>
       <CardContent>
         <div className="h-[300px] w-full min-w-0">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <SafeResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
               <XAxis
@@ -127,7 +127,7 @@ export function DynamicTariffGraph({ data, country, isLoading }: DynamicTariffGr
                 activeDot={{ r: 5, fill: "hsl(var(--primary))", stroke: "hsl(var(--background))", strokeWidth: 2 }}
               />
             </LineChart>
-          </ResponsiveContainer>
+          </SafeResponsiveContainer>
         </div>
       </CardContent>
     </Card>

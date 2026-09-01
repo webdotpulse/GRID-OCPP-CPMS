@@ -59,6 +59,56 @@ export default function RootLayout({
       suppressHydrationWarning
       className={cn("antialiased", fontMono.variable, urbanist.variable, manrope.variable, "font-sans")}
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var isIgnored = function(msg, stack, source) {
+                    msg = msg || '';
+                    stack = stack || '';
+                    source = source || '';
+                    return (
+                      (msg.indexOf('Cannot read properties of undefined') !== -1 && msg.indexOf('startTime') !== -1) ||
+                      msg.indexOf("reading 'startTime'") !== -1 ||
+                      stack.indexOf('reportAllChanges') !== -1 ||
+                      (source.indexOf('VM') !== -1 && (stack.indexOf('startTime') !== -1 || msg.indexOf('startTime') !== -1)) ||
+                      (msg.indexOf('should be greater than 0') !== -1 && (msg.indexOf('width(') !== -1 || msg.indexOf('height(') !== -1))
+                    );
+                  };
+                  window.addEventListener('error', function(e) {
+                    var msg = e.message || '';
+                    var stack = (e.error && e.error.stack) || '';
+                    var source = e.filename || '';
+                    if (isIgnored(msg, stack, source)) {
+                      e.preventDefault();
+                      e.stopImmediatePropagation();
+                    }
+                  }, true);
+                  window.addEventListener('unhandledrejection', function(e) {
+                    var r = e.reason;
+                    var msg = (r && (r.message || String(r))) || '';
+                    var stack = (r && r.stack) || '';
+                    var source = (r && r.fileName) || '';
+                    if (isIgnored(msg, stack, source)) {
+                      e.preventDefault();
+                    }
+                  }, true);
+                  var origWarn = console.warn;
+                  console.warn = function() {
+                    var s = Array.prototype.slice.call(arguments).join(' ');
+                    if (s.indexOf('should be greater than 0') !== -1 && (s.indexOf('width(') !== -1 || s.indexOf('height(') !== -1)) {
+                      return;
+                    }
+                    origWarn.apply(console, arguments);
+                  };
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className="min-h-screen bg-background font-sans text-foreground">
         <BrowserErrorGuard />
         <ThemeProvider>

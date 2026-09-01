@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+import { SafeResponsiveContainer } from "@/components/ui/SafeResponsiveContainer";
 import { Loader2, Info } from "lucide-react";
 import { format } from "date-fns";
 
@@ -89,7 +90,7 @@ export function PredictiveLoadMap({ chargerId }: PredictiveLoadMapProps) {
       <CardContent>
         {/* Do not use strict fixed height to avoid overlap with Recharts. Let it flex. */}
         <div className="w-full h-[400px] min-w-0">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <SafeResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <ComposedChart data={data} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
 
@@ -113,7 +114,7 @@ export function PredictiveLoadMap({ chargerId }: PredictiveLoadMapProps) {
               <Line yAxisId="solar" type="monotone" dataKey="solarForecast" name="Solar Forecast" stroke="#eab308" strokeWidth={3} dot={false} />
               <Line yAxisId="price" type="stepAfter" dataKey="epexPrice" name="EPEX Price" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" dot={false} />
             </ComposedChart>
-          </ResponsiveContainer>
+          </SafeResponsiveContainer>
         </div>
       </CardContent>
     </Card>

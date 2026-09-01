@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Download, TrendingUp, TrendingDown, MapPin } from "lucide-react";
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { SafeResponsiveContainer } from "@/components/ui/SafeResponsiveContainer";
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
 
@@ -100,7 +101,7 @@ export function SettlementTab() {
           <CardContent>
             {revenueData.length > 0 ? (
               <div className="h-[300px] min-w-0">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <SafeResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <PieChart>
                     <Pie
                       data={revenueData}
@@ -119,7 +120,7 @@ export function SettlementTab() {
                     <Tooltip formatter={(value) => `€${Number(value).toFixed(2)}`} />
                     <Legend />
                   </PieChart>
-                </ResponsiveContainer>
+                </SafeResponsiveContainer>
               </div>
             ) : (
               <div className="flex h-[300px] items-center justify-center text-muted-foreground">

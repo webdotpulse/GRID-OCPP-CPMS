@@ -4,7 +4,8 @@ import { logger } from "@/lib/logger";
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
+import { SafeResponsiveContainer } from '@/components/ui/SafeResponsiveContainer';
 import { Cpu, PieChart as PieIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useTranslation } from 'react-i18next';
@@ -82,7 +83,7 @@ export function ConnectorDistribution() {
           <div className="text-xs text-muted-foreground">No connector data recorded</div>
         ) : (
           <div className="w-full h-[260px] min-w-0">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            <SafeResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie
                   data={data}
@@ -120,7 +121,7 @@ export function ConnectorDistribution() {
                   formatter={(value) => <span className="text-xs font-medium text-foreground">{value}</span>}
                 />
               </PieChart>
-            </ResponsiveContainer>
+            </SafeResponsiveContainer>
           </div>
         )}
       </CardContent>
