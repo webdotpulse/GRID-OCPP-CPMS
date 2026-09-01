@@ -49,7 +49,8 @@ export function ConnectorForm({ initialData }: { initialData?: any }) {
     const fetchChargers = async () => {
       try {
         const response = await api.get('/chargers');
-        setChargers(response.data);
+        const list = Array.isArray(response.data?.data) ? response.data.data : (Array.isArray(response.data) ? response.data : []);
+        setChargers(list);
       } catch (error) {
         logger.error("Failed to fetch chargers", error);
       }

@@ -88,8 +88,8 @@ export function PredictiveLoadMap({ chargerId }: PredictiveLoadMapProps) {
       </CardHeader>
       <CardContent>
         {/* Do not use strict fixed height to avoid overlap with Recharts. Let it flex. */}
-        <div className="w-full h-[400px]">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="w-full h-[400px] min-w-0">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <ComposedChart data={data} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
 

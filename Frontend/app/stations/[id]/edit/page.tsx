@@ -19,11 +19,14 @@ export default function EditStationPage() {
     const fetchStation = async () => {
       try {
         const response = await api.get(`/stations/${id}`);
-        setInitialData({
-          ...response.data,
-          latitude: Number(response.data.latitude),
-          longitude: Number(response.data.longitude),
-        });
+        const station = response.data?.data || response.data;
+        if (station) {
+          setInitialData({
+            ...station,
+            latitude: Number(station.latitude),
+            longitude: Number(station.longitude),
+          });
+        }
       } catch (error) {
         logger.error("Failed to fetch station", error);
         alert("Failed to load station.");

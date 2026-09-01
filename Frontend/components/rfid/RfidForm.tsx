@@ -58,7 +58,10 @@ export function RfidForm({ initialData }: { initialData?: any }) {
 
   useEffect(() => {
     if (user?.role === 'admin' || user?.role === 'superadmin') {
-      api.get('/users').then(res => setUsersList(res.data)).catch(err => logger.error(err));
+      api.get('/users').then(res => {
+        const list = Array.isArray(res.data?.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
+        setUsersList(list);
+      }).catch(err => logger.error(err));
     }
   }, [user]);
 

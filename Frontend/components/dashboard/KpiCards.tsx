@@ -24,7 +24,7 @@ export function KpiCards() {
     const fetchOverview = async () => {
       try {
         const response = await api.get('/dashboard/overview');
-        setMetrics(response.data);
+        setMetrics(response.data?.data || response.data);
       } catch (error) {
         logger.error('Failed to fetch overview metrics', error);
       } finally {

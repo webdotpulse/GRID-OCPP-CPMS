@@ -100,7 +100,9 @@ export function LiveSessionsTable() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(session.startTime), { addSuffix: true })}
+                      {session.startTime && !isNaN(new Date(session.startTime).getTime())
+                        ? formatDistanceToNow(new Date(session.startTime), { addSuffix: true })
+                        : 'Just now'}
                     </TableCell>
                     <TableCell className="text-right font-mono font-bold text-xs text-[#3f78e0]">
                       {session.currentPower > 0 ? `${(session.currentPower / 1000).toFixed(2)} kW` : '0.00 kW'}

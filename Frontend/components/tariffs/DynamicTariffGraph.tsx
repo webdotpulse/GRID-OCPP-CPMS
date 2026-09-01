@@ -80,8 +80,8 @@ export function DynamicTariffGraph({ data, country, isLoading }: DynamicTariffGr
         <CardDescription>Live preview of EPEX Spot based pricing for the next 24 hours.</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-[300px] w-full min-w-0">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
               <XAxis

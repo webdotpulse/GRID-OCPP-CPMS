@@ -61,15 +61,16 @@ export default function StationsPage() {
         params: { search: searchQuery || undefined, page, limit },
       });
       const data = response.data;
-      setStations(Array.isArray(data) ? data : (data?.data || []));
+      const rawList = Array.isArray(data) ? data : (data?.data || []);
+      setStations(rawList);
 
       const pagination = (response as any).pagination || (data as any)?.pagination;
       if (pagination) {
         setTotalPages(pagination.totalPages || 1);
-        setTotalCount(pagination.total ?? (Array.isArray(data) ? data.length : 0));
-      } else if (Array.isArray(data)) {
-        setTotalCount(data.length);
-        setTotalPages(Math.ceil(data.length / limit) || 1);
+        setTotalCount(pagination.total ?? rawList.length);
+      } else {
+        setTotalCount(rawList.length);
+        setTotalPages(Math.ceil(rawList.length / limit) || 1);
       }
     } catch (error) {
       logger.error("Failed to fetch stations", error);

@@ -49,10 +49,16 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
   fetchSessions: async () => {
     try {
       const response = await api.get('/dashboard/live-sessions');
-      set({ sessions: response.data, isSessionsLoading: false });
+      const rawData = response.data?.data ?? response.data;
+      const list = Array.isArray(rawData) ? rawData : (Array.isArray(rawData?.data) ? rawData.data : []);
+      const formattedSessions = list.map((s: any) => ({
+        ...s,
+        startTime: s.startTime || s.createdAt || new Date().toISOString(),
+      }));
+      set({ sessions: formattedSessions, isSessionsLoading: false });
     } catch (error) {
       logger.error('Failed to fetch live sessions', error);
-      set({ isSessionsLoading: false });
+      set({ sessions: [], isSessionsLoading: false });
     }
   },
 
@@ -61,10 +67,12 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
   fetchChargers: async () => {
     try {
       const response = await api.get('/dashboard/chargers-status');
-      set({ chargers: response.data, isChargersLoading: false });
+      const rawData = response.data?.data ?? response.data;
+      const list = Array.isArray(rawData) ? rawData : (Array.isArray(rawData?.data) ? rawData.data : []);
+      set({ chargers: list, isChargersLoading: false });
     } catch (error) {
       logger.error('Failed to fetch charger status grid', error);
-      set({ isChargersLoading: false });
+      set({ chargers: [], isChargersLoading: false });
     }
   },
 }));

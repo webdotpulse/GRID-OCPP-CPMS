@@ -17,9 +17,12 @@ export default function ActiveSessionsPage() {
   const fetchSessions = async () => {
     try {
       const response = await api.get('/dashboard/live-sessions');
-      setSessions(response.data);
+      const rawData = response.data?.data ?? response.data;
+      const list = Array.isArray(rawData) ? rawData : (Array.isArray(rawData?.data) ? rawData.data : []);
+      setSessions(list);
     } catch (error) {
       logger.error("Failed to fetch active sessions", error);
+      setSessions([]);
     } finally {
       setIsLoading(false);
     }
@@ -90,7 +93,9 @@ export default function ActiveSessionsPage() {
                   <TableCell className="font-mono text-sm">#{session.transactionId}</TableCell>
                   <TableCell>{session.chargerName} <span className="text-muted-foreground text-xs ml-1">({session.connectorName})</span></TableCell>
                   <TableCell>
-                    {formatDistanceToNow(new Date(session.startTime), { addSuffix: true })}
+                    {session.startTime && !isNaN(new Date(session.startTime).getTime())
+                      ? formatDistanceToNow(new Date(session.startTime), { addSuffix: true })
+                      : 'Just now'}
                   </TableCell>
                   <TableCell className="text-right font-mono text-blue-500 text-lg">
                     {session.currentPower > 0 ? `${(session.currentPower / 1000).toFixed(2)} kW` : '-'}

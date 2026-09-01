@@ -68,7 +68,9 @@ export function ChargerStatusGrid() {
                     {displayStatus.toUpperCase()}
                   </Badge>
                   <div className="text-[10px] text-muted-foreground mt-2">
-                    {formatDistanceToNow(new Date(charger.last_heartbeat))} ago
+                    {charger.last_heartbeat && !isNaN(new Date(charger.last_heartbeat).getTime())
+                      ? `${formatDistanceToNow(new Date(charger.last_heartbeat))} ago`
+                      : 'Recently'}
                   </div>
                 </div>
                );

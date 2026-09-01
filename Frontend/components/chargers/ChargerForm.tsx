@@ -95,14 +95,14 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
         }
 
         const results = await Promise.all(promises);
-        setStations(results[0].data);
-        setTariffs(results[1].data);
-        setChargeGroups(results[2].data?.data || results[2].data);
-        setQuirkProfiles(results[3].data?.data || results[3].data);
-        setProducts(results[4].data?.data || results[4].data || []);
+        setStations(Array.isArray(results[0].data?.data) ? results[0].data.data : (Array.isArray(results[0].data) ? results[0].data : []));
+        setTariffs(Array.isArray(results[1].data?.data) ? results[1].data.data : (Array.isArray(results[1].data) ? results[1].data : []));
+        setChargeGroups(Array.isArray(results[2].data?.data) ? results[2].data.data : (Array.isArray(results[2].data) ? results[2].data : []));
+        setQuirkProfiles(Array.isArray(results[3].data?.data) ? results[3].data.data : (Array.isArray(results[3].data) ? results[3].data : []));
+        setProducts(Array.isArray(results[4].data?.data) ? results[4].data.data : (Array.isArray(results[4].data) ? results[4].data : []));
 
         if (results[5]) {
-          setUsersList(results[5].data);
+          setUsersList(Array.isArray(results[5].data?.data) ? results[5].data.data : (Array.isArray(results[5].data) ? results[5].data : []));
         }
       } catch (error) {
         logger.error("Failed to fetch initial data", error);
