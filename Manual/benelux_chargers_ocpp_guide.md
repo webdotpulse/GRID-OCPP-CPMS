@@ -65,6 +65,27 @@ flowchart LR
 
 ---
 
+## 2.1 Central System WebSocket URL Configuration for Installers
+
+When configuring chargers via manufacturer commissioning apps (e.g. Alfen ACE Service Installer, EVBox Connect, Smappee Dashboard, Easee Installer, ABB Terra Config, Zaptec Portal):
+
+### Unified URL (Recommended for All Hardware)
+* **Central System URL / Backend URL:** `wss://ocpp.thechargegrid.com/OCPP/`
+* **Charge Point Identity / Communication ID:** `MP100220` *(or your station's specific charger ID)*
+* **Complete URL (for single-field apps):** `wss://ocpp.thechargegrid.com/OCPP/<chargerId>`
+
+### Key Installer App Behaviors
+1. **Separate URL + Identity Fields (Alfen ACE, EVBox Connect, ABB Terra, Smappee, Easee):**
+   - Enter `wss://ocpp.thechargegrid.com/OCPP/` in the *Central System URL* field.
+   - Enter the unit's unique name (e.g. `MP100220`) in the *Charge Point Identity* field.
+   - The hardware automatically appends its ID to connect to `wss://ocpp.thechargegrid.com/OCPP/MP100220`.
+2. **Single URL Field (Raedian, Wallbox, Mennekes, Compleo):**
+   - Enter the full URL `wss://ocpp.thechargegrid.com/OCPP/<chargerId>`.
+3. **Automatic Protocol Negotiation:**
+   - The CPMS server automatically negotiates whether the hardware is using **OCPP 1.6-J**, **2.0.1**, or **2.1** via WebSocket subprotocols (`Sec-WebSocket-Protocol`). You do not need to alter the URL path for different protocol versions.
+
+---
+
 ## 3. Detailed Engineering Breakdown per Manufacturer
 
 ---

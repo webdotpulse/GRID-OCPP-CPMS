@@ -233,7 +233,45 @@ The CPMS operates as both a **CPO (Charge Point Operator)** and an **eMSP (e-Mob
 
 ---
 
-## 11. Live OCPP Packet Inspector & WebSocket Triggers
+## 11. Live OCPP Packet Inspector & WebSocket Endpoints
+
+### 11.1 Charger WebSocket Backend URL Configuration
+
+When configuring physical charge points or vendor installer tools (e.g. Alfen ACE Service Installer, EVBox Connect, ABB Terra Config, Easee Installer, Smappee Dashboard):
+
+#### 1. Unified Backend URL (Recommended)
+You can point all chargers regardless of protocol version to the unified endpoint:
+* **Central System URL / Server URL:** `wss://ocpp.thechargegrid.com/OCPP/`
+* **Complete WebSocket URL:** `wss://ocpp.thechargegrid.com/OCPP/<chargerId>`
+* **Local / Development (Port 9220):** `ws://<server-ip>:9220/OCPP/<chargerId>`
+
+```mermaid
+flowchart TD
+    CP1["⚡ Charger (OCPP 1.6-J)\nSec-WebSocket-Protocol: ocpp1.6"] -->|"wss://ocpp.thechargegrid.com/OCPP/MP100220"| CPMS["🖥️ OCPP-CPMS Server"]
+    CP2["⚡ Charger (OCPP 2.0.1 / 2.1)\nSec-WebSocket-Protocol: ocpp2.0.1"] -->|"wss://ocpp.thechargegrid.com/OCPP/MP100221"| CPMS
+    CPMS -->|"Auto-negotiate ocpp1.6"| H1["OCPP 1.6 Message Pipeline"]
+    CPMS -->|"Auto-negotiate ocpp2.0.1"| H2["OCPP 2.0.1/2.1 Router"]
+```
+
+#### 2. Automatic Protocol Negotiation & Path Resolution
+* **Subprotocol Negotiation:** In compliance with OCPP 1.6-J (§4.1.1) and OCPP 2.0.1 (Part 4 §2.1), the backend automatically reads the `Sec-WebSocket-Protocol` handshake header (`ocpp1.6`, `ocpp2.0.1`, `ocpp2.1`) to negotiate the correct protocol.
+* **Smart Path Resolution:** The backend extracts the Charge Point Identity from the last path segment:
+  * `wss://ocpp.thechargegrid.com/OCPP/<chargerId>` (Unified - Recommended)
+  * `wss://ocpp.thechargegrid.com/OCPP/1.6/<chargerId>` (Backward-compatible versioned path)
+  * `wss://ocpp.thechargegrid.com/OCPP/2.1/<chargerId>` (Backward-compatible versioned path)
+  * `wss://ocpp.thechargegrid.com/<chargerId>` (Root-level path)
+
+#### 3. Charger Hardware Configuration Interface Types
+* **Separate Fields Interface (Alfen, EVBox, ABB, Easee, Smappee):**
+  * *Central System URL / Server URL:* `wss://ocpp.thechargegrid.com/OCPP/`
+  * *Charge Point Identity / Communication ID:* `MP100220`
+  * *(The charger automatically appends its ID to create `.../OCPP/MP100220`)*
+* **Single URL Field Interface (Mennekes, Wallbox, Raedian, Compleo):**
+  * *WebSocket URL:* `wss://ocpp.thechargegrid.com/OCPP/MP100220`
+
+---
+
+### 11.2 Live Packet Inspector & Diagnostics Console
 
 The **Live Packet Inspector** (`/ocpp`) provides low-level diagnostics for debugging charging hardware communications:
 * **Raw JSON-RPC Stream:** Real-time stream of incoming `CALL` [2], `CALLRESULT` [3], and `CALLERROR` [4] frames.

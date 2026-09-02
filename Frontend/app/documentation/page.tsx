@@ -350,6 +350,36 @@ export default function DocumentationPage() {
               </div>
             ),
           },
+          {
+            id: 'connecting-charger-url',
+            heading: '3. Connecting a New Charger (WebSocket Backend URL)',
+            body: (
+              <div className="space-y-3">
+                <p>
+                  To point any EV charger to the CPMS, configure the following endpoint parameters in your hardware configuration app (e.g. Alfen ACE Service Installer, EVBox Connect, Smappee Dashboard, Easee Installer, ABB Terra Config):
+                </p>
+                <div className="p-3.5 rounded-xl bg-card border border-border/70 space-y-2 font-mono text-xs">
+                  <div className="text-primary font-bold">Unified Central System URL (Recommended):</div>
+                  <div className="p-2 rounded bg-background text-foreground select-all">wss://ocpp.thechargegrid.com/OCPP/</div>
+                  <div className="text-muted-foreground pt-1">
+                    Enter the charger identity (e.g. <code>MP100220</code>) in the Charge Point ID field. The charger will automatically connect to <code>wss://ocpp.thechargegrid.com/OCPP/MP100220</code>.
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-xl bg-card border border-border/70 space-y-2 font-mono text-xs">
+                  <div className="text-emerald-400 font-bold">Complete WebSocket URL (For Single-Field Apps):</div>
+                  <div className="p-2 rounded bg-background text-foreground select-all">wss://ocpp.thechargegrid.com/OCPP/MP100220</div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  The backend automatically handles <strong>OCPP 1.6-J</strong>, <strong>2.0.1</strong>, and <strong>2.1</strong> via standard <code>Sec-WebSocket-Protocol</code> negotiation. You do not need separate URLs for different versions.
+                </p>
+              </div>
+            ),
+            callout: {
+              type: 'info',
+              title: 'Unrecognized Connection Queue',
+              message: 'If a newly connected charger is not yet registered in the system, it will appear in the Unrecognized Queue (/chargers) where an administrator can assign and approve it in one click.',
+            },
+          },
         ],
       },
       {
@@ -789,18 +819,29 @@ openssl x509 -in /etc/ssl/certs/csms-server.crt -noout -enddate -issuer`,
         sections: [
           {
             id: 'ocpp-pipeline',
-            heading: '1. WebSocket Dual-Protocol Architecture',
+            heading: '1. WebSocket Dual-Protocol Architecture & Backend URLs',
             body: (
               <div className="space-y-3">
                 <p>
-                  The CPMS exposes a dedicated high-performance WebSocket server on port <strong>9220</strong> (RFC 6455):
+                  The CPMS exposes a dedicated high-performance WebSocket server on port <strong>9220</strong> (RFC 6455) or via reverse proxy on port <strong>443 (WSS)</strong>:
                 </p>
                 <div className="p-3.5 rounded-xl bg-card border border-border/70 space-y-2">
-                  <div className="text-xs font-mono text-emerald-400">
-                    ws://&lt;host&gt;:9220/OCPP/1.6/&#123;chargerId&#125; → Handled by OCPP 1.6-J pipeline
+                  <div className="text-xs font-bold text-primary">Unified Backend Endpoint (Recommended for all hardware):</div>
+                  <div className="p-2 rounded bg-background font-mono text-xs text-foreground">
+                    wss://ocpp.thechargegrid.com/OCPP/&#123;chargerId&#125;
                   </div>
-                  <div className="text-xs font-mono text-sky-400">
-                    ws://&lt;host&gt;:9220/OCPP/2.1/&#123;chargerId&#125; → Handled by OCPP 2.0.1 / 2.1 router
+                  <div className="text-xs text-muted-foreground">
+                    The server inspects the <code>Sec-WebSocket-Protocol</code> header (<code>ocpp1.6</code>, <code>ocpp2.0.1</code>, <code>ocpp2.1</code>) and automatically routes traffic to the appropriate protocol handler.
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
+                  <div className="p-2.5 rounded-lg bg-card border border-border/70">
+                    <span className="text-emerald-400 font-bold block mb-1">OCPP 1.6-J Legacy Path:</span>
+                    wss://ocpp.thechargegrid.com/OCPP/1.6/&#123;id&#125;
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-card border border-border/70">
+                    <span className="text-sky-400 font-bold block mb-1">OCPP 2.0.1 / 2.1 Legacy Path:</span>
+                    wss://ocpp.thechargegrid.com/OCPP/2.1/&#123;id&#125;
                   </div>
                 </div>
               </div>

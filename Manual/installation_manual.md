@@ -435,9 +435,17 @@ sudo ufw enable
 
 Configure your EVSE hardware firmware to point to the secure WebSocket endpoint:
 
-### Standard Connection
-* **OCPP 1.6-J:** `wss://ocpp.yourdomain.com/OCPP/1.6/<chargerId>`
-* **OCPP 2.0.1 / 2.1:** `wss://ocpp.yourdomain.com/OCPP/2.1/<chargerId>`
+### Standard Connection Endpoints
+
+#### Unified Endpoint (Recommended)
+The CPMS provides a unified endpoint that automatically negotiates between **OCPP 1.6-J**, **OCPP 2.0.1**, and **OCPP 2.1** via the standard `Sec-WebSocket-Protocol` header:
+* **Central System URL:** `wss://ocpp.thechargegrid.com/OCPP/`
+* **Complete WebSocket URL:** `wss://ocpp.thechargegrid.com/OCPP/<chargerId>`
+* **Local Development (Port 9220):** `ws://<server-ip>:9220/OCPP/<chargerId>`
+
+#### Backward-Compatible Versioned Endpoints
+* **OCPP 1.6-J:** `wss://ocpp.thechargegrid.com/OCPP/1.6/<chargerId>`
+* **OCPP 2.0.1 / 2.1:** `wss://ocpp.thechargegrid.com/OCPP/2.1/<chargerId>`
 
 ### Straight-Through Proxy Forwarding
 If the CPMS acts as an intermediary proxy forwarding traffic to an external upstream operator:

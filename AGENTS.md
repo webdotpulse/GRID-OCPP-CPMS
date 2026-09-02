@@ -187,8 +187,9 @@ OCPP-CPMS/
 
 ## 5. OCPP Protocol Pipeline & Architecture
 
-### Dual-Protocol Routing
-The WebSocket server listens on port **9220** (configurable via `OCPP_PORT`) and routes connections based on the URL path:
+### Dual-Protocol Routing & Unified Endpoint
+The WebSocket server listens on port **9220** (configurable via `OCPP_PORT`) and routes connections based on the subprotocol header and URL path:
+- `ws://<host>:9220/OCPP/<chargerId>` (or `wss://.../OCPP/<chargerId>`) -> Unified endpoint: automatically routes based on `Sec-WebSocket-Protocol` (`ocpp1.6`, `ocpp2.0.1`, `ocpp2.1`).
 - `ws://<host>:9220/OCPP/1.6/<chargerId>` -> Handled by OCPP 1.6-J pipeline (`Backend/src/ocpp/handlers/`).
 - `ws://<host>:9220/OCPP/2.1/<chargerId>` -> Handled by OCPP 2.0.1 / 2.1 router (`Backend/src/ocpp/v201/`).
 

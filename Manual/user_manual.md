@@ -106,6 +106,18 @@ Opening any charger record provides full telemetry tabs:
 * **Straight-Through Proxy:** Forward all OCPP traffic to an external upstream CPO backend while maintaining local logging, card mapping, and real-time monitoring.
 * **Charger Combiner:** Combine two single-socket physical charge points into a unified dual-channel virtual charger (Primary = Channel 1, Secondary = Channel 2), handling connector ID translation transparently.
 
+### 4.4 Connecting a New Charge Point (Backend URL Setup)
+To connect any new EV charger to the CPMS, configure the following parameters in your charger's installer app or web interface:
+
+* **Central System URL / Server URL:** `wss://ocpp.thechargegrid.com/OCPP/`
+* **Charge Point Identity / Communication ID:** `MP100220` *(or your designated charger identity)*
+* **Complete WebSocket URL (if single field):** `wss://ocpp.thechargegrid.com/OCPP/MP100220`
+* **Security / Basic Auth:** If enabled on the charger in the CPMS, enter the matching Communication Key as the password.
+
+> **Automatic Protocol Detection:** The CPMS automatically detects whether your charger is communicating via **OCPP 1.6-J**, **2.0.1**, or **2.1** through standard WebSocket subprotocol negotiation (`Sec-WebSocket-Protocol`). You do not need different URLs for different protocol versions.
+>
+> **Unrecognized Charger Registration:** If a charger connects before being registered, it will appear in the **Unrecognized Queue** (`/chargers`), allowing an operator to approve and assign it to a station with a single click.
+
 ---
 
 ## 5. User Accounts, Corporate Clients & RBAC
