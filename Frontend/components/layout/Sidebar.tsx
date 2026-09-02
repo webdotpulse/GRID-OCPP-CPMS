@@ -31,6 +31,7 @@ import {
   CalendarClock,
   CalendarRange,
   Sparkles,
+  BookOpen,
 } from 'lucide-react';
 
 interface NavItem {
@@ -126,6 +127,7 @@ export function Sidebar({
         { key: 'nav.autoHealPlaybooks', path: '/auto-heal-playbooks', icon: Sparkles },
         { key: 'nav.hardwareAtRisk', path: '/hardware-at-risk', icon: AlertCircle },
         { key: 'nav.ocppConsole', path: '/ocpp', icon: TerminalSquare, adminOnly: true },
+        { key: 'nav.documentation', path: '/documentation', icon: BookOpen },
         { key: 'nav.settings', path: '/settings', icon: Settings },
       ],
     },

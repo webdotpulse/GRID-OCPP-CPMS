@@ -105,6 +105,20 @@ export function Topbar() {
 
       {/* Right: Quick Actions, Language, Theme, Profile */}
       <div className="flex items-center gap-2.5">
+        {/* Documentation / Guide Quick Link */}
+        <Button
+          asChild
+          variant="ghost"
+          size="icon-sm"
+          className="rounded-xl text-muted-foreground hover:text-foreground"
+          title={t('nav.documentation', 'Documentation & Guides')}
+        >
+          <Link href="/documentation">
+            <HelpCircle className="size-4" />
+            <span className="sr-only">{t('nav.documentation', 'Documentation')}</span>
+          </Link>
+        </Button>
+
         {/* Language Switcher */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -196,6 +210,13 @@ export function Topbar() {
               <Link href="/ocpp" className="w-full cursor-pointer flex items-center gap-2 rounded-lg py-2">
                 <Activity className="size-4 text-muted-foreground" />
                 <span>{t('topbar.diagnosticLogs', 'OCPP Diagnostic Logs')}</span>
+              </Link>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem asChild>
+              <Link href="/documentation" className="w-full cursor-pointer flex items-center gap-2 rounded-lg py-2">
+                <HelpCircle className="size-4 text-muted-foreground" />
+                <span>{t('nav.documentation', 'Documentation & Guides')}</span>
               </Link>
             </DropdownMenuItem>
 

@@ -27,6 +27,7 @@
       "ocppConsole": "OCPP Console",
       "simulator": "Simulator / Test Lab",
       "liveView": "Live Weergave",
+      "documentation": "Documentatie & Gidsen",
       "sections": {
         "infrastructure": "Infrastructuur",
         "fleetAndAccess": "Vloot & Toegang",

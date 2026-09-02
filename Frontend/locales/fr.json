@@ -27,6 +27,7 @@
       "ocppConsole": "Console OCPP",
       "simulator": "Simulateur / Lab de Test",
       "liveView": "Vue en Direct",
+      "documentation": "Documentation & Guides",
       "sections": {
         "infrastructure": "Infrastructure",
         "fleetAndAccess": "Flotte & Accès",
