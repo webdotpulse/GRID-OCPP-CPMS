@@ -36,7 +36,11 @@ export const getAllChargeGroups = async (req: Request, res: Response) => {
         take,
         where,
         include: {
-          chargers: true,
+          chargers: {
+            include: {
+              chargingStation: true,
+            },
+          },
           users: { include: { user: true, tariff: true } }
         },
         orderBy: { createdAt: "desc" },
@@ -76,7 +80,11 @@ export const getChargeGroupById = async (req: Request, res: Response) => {
     const group = await prisma.chargeGroup.findFirst({
       where,
       include: {
-        chargers: true,
+        chargers: {
+          include: {
+            chargingStation: true,
+          },
+        },
         users: { include: { user: true, tariff: true } }
       },
     });

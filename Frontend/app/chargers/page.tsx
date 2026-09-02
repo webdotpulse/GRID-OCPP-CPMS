@@ -532,9 +532,11 @@ export default function ChargersPage() {
                     </TableCell>
                     <TableCell>
                       {charger.chargeGroup?.name ? (
-                        <Badge variant="outline" className="text-xs font-medium">
-                          {charger.chargeGroup.name}
-                        </Badge>
+                        <Link href={`/charge-groups/${charger.chargeGroupId || charger.chargeGroup.id}`}>
+                          <Badge variant="outline" className="text-xs font-medium hover:border-[#54a8c7] hover:text-[#54a8c7] cursor-pointer transition-colors">
+                            {charger.chargeGroup.name}
+                          </Badge>
+                        </Link>
                       ) : (
                         <span className="text-xs text-muted-foreground">None</span>
                       )}

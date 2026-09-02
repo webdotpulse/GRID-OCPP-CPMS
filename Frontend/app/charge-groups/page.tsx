@@ -6,7 +6,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
-import { Plus, Users, Zap, Trash2, Edit, ArrowUpDown, Search, Cpu, Building } from "lucide-react";
+import { Plus, Users, Zap, Trash2, Edit, Eye, ArrowUpDown, Search, Cpu, Building } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -168,15 +168,17 @@ export default function ChargeGroupsPage() {
                 sortedGroups.map((group) => (
                   <TableRow key={group.id} className="hover:bg-[#54a8c7]/5 transition-colors">
                     <TableCell className="font-medium">
-                      <div className="font-bold text-sm text-foreground flex items-center gap-2">
-                        <div className="size-7 rounded-lg bg-[#54a8c7]/10 text-[#54a8c7] flex items-center justify-center">
-                          <Cpu className="size-3.5" />
+                      <Link href={`/charge-groups/${group.id}`} className="group block">
+                        <div className="font-bold text-sm text-foreground flex items-center gap-2 group-hover:text-[#54a8c7] transition-colors">
+                          <div className="size-7 rounded-lg bg-[#54a8c7]/10 text-[#54a8c7] flex items-center justify-center">
+                            <Cpu className="size-3.5" />
+                          </div>
+                          <span>{group.name}</span>
                         </div>
-                        <span>{group.name}</span>
-                      </div>
-                      {group.description && (
-                        <div className="text-xs text-muted-foreground ml-9">{group.description}</div>
-                      )}
+                        {group.description && (
+                          <div className="text-xs text-muted-foreground ml-9">{group.description}</div>
+                        )}
+                      </Link>
                     </TableCell>
                     <TableCell className="text-xs font-semibold text-muted-foreground">
                       {group.company ? (
@@ -205,7 +207,12 @@ export default function ChargeGroupsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        <Link href={`/charge-groups/${group.id}/edit`}>
+                        <Link href={`/charge-groups/${group.id}`} title="View Details">
+                          <Button variant="ghost" size="icon-sm" className="rounded-lg text-muted-foreground hover:text-[#54a8c7]">
+                            <Eye className="size-3.5" />
+                          </Button>
+                        </Link>
+                        <Link href={`/charge-groups/${group.id}/edit`} title="Edit Group">
                           <Button variant="ghost" size="icon-sm" className="rounded-lg text-muted-foreground hover:text-foreground">
                             <Edit className="size-3.5" />
                           </Button>
@@ -215,6 +222,7 @@ export default function ChargeGroupsPage() {
                           size="icon-sm"
                           onClick={() => handleDelete(group.id)}
                           className="rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                          title="Delete Group"
                         >
                           <Trash2 className="size-3.5" />
                         </Button>
