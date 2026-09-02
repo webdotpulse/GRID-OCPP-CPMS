@@ -9,8 +9,10 @@
     </filter>
   </defs>
   
+  <!-- Ambient glow & rounded-xl container -->
   <rect x="24" y="24" width="464" height="464" rx="116" fill="url(#zapGradient)" filter="url(#ambientGlow)" />
   
+  <!-- Centered Lucide Zap Lightning Bolt -->
   <g transform="translate(106, 106) scale(12.5)">
     <path 
       d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" 

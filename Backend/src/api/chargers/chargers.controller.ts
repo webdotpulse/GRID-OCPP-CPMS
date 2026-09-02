@@ -202,7 +202,11 @@ export const getAllChargers = async (req: Request, res: Response) => {
         include: {
           chargingStation: true,
           chargeGroup: true,
-          pairedCharger: true,
+          pairedCharger: {
+            include: {
+              evses: { include: { connectors: true } },
+            },
+          },
           evses: { include: { connectors: true } },
           owner: { select: { id: true, email: true } },
           product: true,

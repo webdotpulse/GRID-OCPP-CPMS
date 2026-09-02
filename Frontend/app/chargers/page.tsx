@@ -74,6 +74,70 @@ export default function ChargersPage() {
     }
   };
 
+  interface ChannelInfo {
+    id: string | number;
+    name: string;
+    status: string;
+    current_type?: string;
+    max_power?: number;
+  }
+
+  const getChargerChannels = (charger: any): ChannelInfo[] => {
+    const channels: ChannelInfo[] = [];
+
+    if (charger.evses && Array.isArray(charger.evses) && charger.evses.length > 0) {
+      const sortedEvses = [...charger.evses].sort((a, b) => (a.evse_id ?? a.id ?? 0) - (b.evse_id ?? b.id ?? 0));
+      let fallbackIndex = 1;
+      for (const evse of sortedEvses) {
+        if (evse.connectors && Array.isArray(evse.connectors) && evse.connectors.length > 0) {
+          const sortedConns = [...evse.connectors].sort((a, b) => (a.connector_id ?? 0) - (b.connector_id ?? 0));
+          for (const conn of sortedConns) {
+            channels.push({
+              id: conn.connector_id || `evse-${evse.id || evse.evse_id}-${fallbackIndex}`,
+              name: conn.connector_name || `Channel ${fallbackIndex}`,
+              status: conn.status || charger.status || "Offline",
+              current_type: conn.current_type,
+              max_power: conn.max_power,
+            });
+            fallbackIndex++;
+          }
+        }
+      }
+    } else if (charger.connectors && Array.isArray(charger.connectors) && charger.connectors.length > 0) {
+      charger.connectors.forEach((conn: any, idx: number) => {
+        channels.push({
+          id: conn.connector_id || idx + 1,
+          name: conn.connector_name || `Channel ${idx + 1}`,
+          status: conn.status || charger.status || "Offline",
+          current_type: conn.current_type,
+          max_power: conn.max_power,
+        });
+      });
+    }
+
+    // Handle combined paired charger (Channel 2 from paired charger)
+    if (charger.isCombined && charger.pairedCharger) {
+      const paired = charger.pairedCharger;
+      if (paired.evses && Array.isArray(paired.evses)) {
+        paired.evses.forEach((evse: any) => {
+          if (evse.connectors && Array.isArray(evse.connectors)) {
+            evse.connectors.forEach((conn: any) => {
+              channels.push({
+                id: `paired-${conn.connector_id}`,
+                name: conn.connector_name || `Channel 2`,
+                status: conn.status || paired.status || charger.status || "Offline",
+                current_type: conn.current_type,
+                max_power: conn.max_power,
+              });
+            });
+          }
+        });
+      }
+    }
+
+    return channels;
+  };
+
   const getStatusBadge = (status: string) => {
     const s = status?.toLowerCase() || '';
     if (s === 'online' || s === 'active') {
@@ -108,6 +172,109 @@ export default function ChargersPage() {
     );
   };
 
+  const getChannelBadge = (status: string, channelName: string) => {
+    const s = status?.toLowerCase() || '';
+    const formattedName = channelName.replace(/^Channel\s+/i, 'CH ');
+
+    if (s === 'available' || s === 'online' || s === 'active') {
+      return (
+        <Badge variant="soft-success" className="gap-1.5 px-2 py-0.5 text-[11px] font-bold">
+          <span className="size-1.5 rounded-full bg-emerald-500" />
+          <span className="font-semibold text-emerald-400 mr-0.5">{formattedName}:</span>
+          <span>{t('chargers.statusAvailable', 'Available')}</span>
+        </Badge>
+      );
+    }
+    if (s === 'charging') {
+      return (
+        <Badge variant="soft-primary" className="gap-1.5 px-2 py-0.5 text-[11px] font-bold">
+          <span className="size-1.5 rounded-full bg-[#54a8c7] animate-pulse" />
+          <span className="font-semibold text-[#54a8c7]/90 mr-0.5">{formattedName}:</span>
+          <span>{t('chargers.statusCharging', 'Charging')}</span>
+        </Badge>
+      );
+    }
+    if (s === 'preparing' || s === 'connected') {
+      return (
+        <Badge variant="soft-warning" className="gap-1.5 px-2 py-0.5 text-[11px] font-bold">
+          <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
+          <span className="font-semibold text-amber-300 mr-0.5">{formattedName}:</span>
+          <span>{t('chargers.statusPreparing', 'Preparing')}</span>
+        </Badge>
+      );
+    }
+    if (s === 'suspendedev' || s === 'suspendedevse' || s === 'suspended') {
+      return (
+        <Badge variant="soft-warning" className="gap-1.5 px-2 py-0.5 text-[11px] font-bold">
+          <span className="size-1.5 rounded-full bg-amber-400" />
+          <span className="font-semibold text-amber-300 mr-0.5">{formattedName}:</span>
+          <span>{t('chargers.statusSuspended', 'Suspended')}</span>
+        </Badge>
+      );
+    }
+    if (s === 'finishing') {
+      return (
+        <Badge variant="soft-purple" className="gap-1.5 px-2 py-0.5 text-[11px] font-bold">
+          <span className="size-1.5 rounded-full bg-purple-400" />
+          <span className="font-semibold text-purple-300 mr-0.5">{formattedName}:</span>
+          <span>{t('chargers.statusFinishing', 'Finishing')}</span>
+        </Badge>
+      );
+    }
+    if (s === 'reserved') {
+      return (
+        <Badge variant="soft-warning" className="gap-1.5 px-2 py-0.5 text-[11px] font-bold">
+          <span className="size-1.5 rounded-full bg-yellow-400" />
+          <span className="font-semibold text-yellow-300 mr-0.5">{formattedName}:</span>
+          <span>{t('chargers.statusReserved', 'Reserved')}</span>
+        </Badge>
+      );
+    }
+    if (s === 'faulted') {
+      return (
+        <Badge variant="soft-danger" className="gap-1.5 px-2 py-0.5 text-[11px] font-bold">
+          <span className="size-1.5 rounded-full bg-rose-500" />
+          <span className="font-semibold text-rose-300 mr-0.5">{formattedName}:</span>
+          <span>{t('chargers.statusFaulted', 'Faulted')}</span>
+        </Badge>
+      );
+    }
+    if (s === 'unavailable') {
+      return (
+        <Badge variant="soft-secondary" className="gap-1.5 px-2 py-0.5 text-[11px] font-bold">
+          <span className="size-1.5 rounded-full bg-slate-400" />
+          <span className="font-semibold text-slate-300 mr-0.5">{formattedName}:</span>
+          <span>{t('chargers.statusUnavailable', 'Unavailable')}</span>
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="soft-secondary" className="gap-1.5 px-2 py-0.5 text-[11px] font-bold">
+        <span className="size-1.5 rounded-full bg-slate-400" />
+        <span className="font-semibold text-slate-300 mr-0.5">{formattedName}:</span>
+        <span>{status ? status : t('chargers.statusOffline', 'Offline')}</span>
+      </Badge>
+    );
+  };
+
+  const renderChargerStatus = (charger: any) => {
+    const channels = getChargerChannels(charger);
+
+    if (channels.length === 0) {
+      return getStatusBadge(charger.status);
+    }
+
+    return (
+      <div className="flex flex-col gap-1.5 py-0.5 min-w-[130px]">
+        {channels.map((ch, idx) => (
+          <div key={ch.id || idx} className="flex items-center">
+            {getChannelBadge(ch.status, ch.name)}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -120,11 +287,31 @@ export default function ChargersPage() {
     // Hide secondary paired chargers to avoid confusion
     if (c.pairedRole === "secondary") return false;
     if (statusFilter === "ALL") return true;
-    const s = (c.status || '').toLowerCase();
-    if (statusFilter === "ONLINE") return s === 'online' || s === 'active';
-    if (statusFilter === "CHARGING") return s === 'charging';
-    if (statusFilter === "FAULTED") return s === 'faulted';
-    if (statusFilter === "OFFLINE") return s !== 'online' && s !== 'active' && s !== 'charging' && s !== 'faulted';
+
+    const channels = getChargerChannels(c);
+    const channelStatuses = channels.map(ch => (ch.status || '').toLowerCase());
+    const chargerStatus = (c.status || '').toLowerCase();
+
+    if (statusFilter === "ONLINE") {
+      return (
+        chargerStatus === 'online' ||
+        chargerStatus === 'active' ||
+        channelStatuses.some(s => ['available', 'online', 'active', 'charging', 'preparing', 'suspendedev', 'suspendedevse', 'finishing', 'reserved'].includes(s))
+      );
+    }
+    if (statusFilter === "CHARGING") {
+      return chargerStatus === 'charging' || channelStatuses.includes('charging');
+    }
+    if (statusFilter === "FAULTED") {
+      return chargerStatus === 'faulted' || channelStatuses.includes('faulted');
+    }
+    if (statusFilter === "OFFLINE") {
+      const isOnline =
+        chargerStatus === 'online' ||
+        chargerStatus === 'active' ||
+        channelStatuses.some(s => ['available', 'online', 'active', 'charging', 'preparing'].includes(s));
+      return !isOnline;
+    }
     return true;
   });
 
@@ -143,6 +330,11 @@ export default function ChargersPage() {
     } else if (key === 'charge_group') {
       aVal = a.chargeGroup?.name || 'None';
       bVal = b.chargeGroup?.name || 'None';
+    } else if (key === 'status') {
+      const aChannels = getChargerChannels(a);
+      const bChannels = getChargerChannels(b);
+      aVal = aChannels.length > 0 ? aChannels.map(c => c.status).join(',') : (a.status || '');
+      bVal = bChannels.length > 0 ? bChannels.map(c => c.status).join(',') : (b.status || '');
     } else if (key === 'last_heartbeat') {
       aVal = a.last_heartbeat ? new Date(a.last_heartbeat).getTime() : 0;
       bVal = b.last_heartbeat ? new Date(b.last_heartbeat).getTime() : 0;
@@ -326,7 +518,7 @@ export default function ChargersPage() {
                     <TableCell className="text-xs text-muted-foreground">
                       <span className="font-semibold text-foreground">{charger.manufacturer}</span> / {charger.model}
                     </TableCell>
-                    <TableCell>{getStatusBadge(charger.status)}</TableCell>
+                    <TableCell>{renderChargerStatus(charger)}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {charger.last_heartbeat 
                         ? `${formatDistanceToNow(new Date(charger.last_heartbeat))} ago` 

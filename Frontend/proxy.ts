@@ -16,9 +16,31 @@ export function proxy(request: NextRequest) {
   const url = request.nextUrl.clone();
 
   // Paths that should not be rewritten on mobile
-  const bypassMobilePaths = ['/login', '/forgot-password'];
+  const bypassMobilePaths = [
+    '/login',
+    '/forgot-password',
+    '/manifest.webmanifest',
+    '/manifest.json',
+    '/icon.svg',
+    '/favicon.ico',
+    '/sw.js',
+    '/apple-icon',
+    '/robots.txt',
+    '/sitemap.xml',
+  ];
 
-  if (device.type === 'mobile' && !bypassMobilePaths.includes(url.pathname)) {
+  // Pass through API, Next internals, assets, and file requests with extensions
+  if (
+    url.pathname.startsWith('/api') ||
+    url.pathname.startsWith('/_next') ||
+    url.pathname.startsWith('/assets') ||
+    url.pathname.includes('.') ||
+    bypassMobilePaths.includes(url.pathname)
+  ) {
+    return NextResponse.next();
+  }
+
+  if (device.type === 'mobile') {
     if (!url.pathname.startsWith('/mobile')) {
       if (url.pathname === '/') {
         url.pathname = '/mobile/dashboard';
@@ -34,6 +56,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon\\.ico|icon\\.svg|manifest\\.webmanifest|manifest\\.json|sw\\.js|apple-icon|robots\\.txt|sitemap\\.xml|assets/.*|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|json|webmanifest|js|css|woff2?|map)$).*)',
   ],
 };
