@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { AppShell } from '@/components/layout/AppShell';
 import {
   BookOpen,
   Search,
@@ -1042,14 +1043,14 @@ pg_dump -U postgres -h localhost -d ocpp_cpms -F c -b -v -f /var/backups/ocpp_ma
   }, [filteredArticles, currentArticle]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      {/* Top Banner & Search Header */}
-      <div className="border-b border-border/80 bg-card/60 backdrop-blur-md px-6 py-6 md:py-8 sticky top-16 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto space-y-4">
+    <AppShell>
+      <div className="space-y-6 max-w-7xl mx-auto w-full pb-12">
+        {/* Top Banner Card */}
+        <div className="bg-card border border-border/80 rounded-2xl p-5 md:p-6 shadow-sm space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
-              <div className="flex items-center gap-2.5">
-                <div className="size-9 rounded-xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white shadow-md shadow-primary/20">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <div className="size-9 rounded-xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white shadow-md shadow-primary/20 shrink-0">
                   <BookOpen className="size-5" />
                 </div>
                 <h1 className="text-xl md:text-2xl font-bold font-heading tracking-tight text-foreground">
@@ -1057,7 +1058,7 @@ pg_dump -U postgres -h localhost -d ocpp_cpms -F c -b -v -f /var/backups/ocpp_ma
                 </h1>
                 <Badge
                   variant={isAdmin ? 'soft-warning' : 'soft-info'}
-                  className="gap-1 text-xs py-0.5"
+                  className="gap-1 text-xs py-0.5 shrink-0"
                 >
                   {isAdmin ? (
                     <>
@@ -1080,7 +1081,7 @@ pg_dump -U postgres -h localhost -d ocpp_cpms -F c -b -v -f /var/backups/ocpp_ma
             </div>
 
             {/* Offline PDF Manual Downloads */}
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
               {isAdmin && (
                 <Button
                   asChild
@@ -1109,14 +1110,14 @@ pg_dump -U postgres -h localhost -d ocpp_cpms -F c -b -v -f /var/backups/ocpp_ma
           </div>
 
           {/* Search Bar & Audience Filters */}
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="relative w-full sm:flex-1">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 pt-1">
+            <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search documentation, topics, error codes, protocols (e.g. 'OCPP 1.6', 'Unlock', '2FA', 'EPEX')..."
-                className="pl-10 h-10 rounded-xl bg-background border-border/80 text-sm shadow-xs focus-visible:ring-primary"
+                className="pl-10 h-10 rounded-xl bg-background border-border/80 text-sm shadow-xs focus-visible:ring-primary w-full"
               />
               {searchQuery && (
                 <button
@@ -1130,11 +1131,11 @@ pg_dump -U postgres -h localhost -d ocpp_cpms -F c -b -v -f /var/backups/ocpp_ma
 
             {/* Admin Audience Selector (Hidden for normal users) */}
             {isAdmin && (
-              <div className="flex items-center bg-muted/60 p-1 rounded-xl border border-border/60 shrink-0 w-full sm:w-auto">
+              <div className="flex items-center bg-muted/60 p-1 rounded-xl border border-border/60 shrink-0 flex-wrap sm:flex-nowrap gap-1">
                 <button
                   onClick={() => setActiveAudienceFilter('all')}
                   className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex-1 sm:flex-none",
+                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex-1 sm:flex-none whitespace-nowrap",
                     activeAudienceFilter === 'all'
                       ? "bg-background text-foreground shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
@@ -1145,7 +1146,7 @@ pg_dump -U postgres -h localhost -d ocpp_cpms -F c -b -v -f /var/backups/ocpp_ma
                 <button
                   onClick={() => setActiveAudienceFilter('admin')}
                   className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 flex-1 sm:flex-none",
+                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 flex-1 sm:flex-none whitespace-nowrap",
                     activeAudienceFilter === 'admin'
                       ? "bg-amber-500/15 text-amber-400 font-bold shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
@@ -1157,7 +1158,7 @@ pg_dump -U postgres -h localhost -d ocpp_cpms -F c -b -v -f /var/backups/ocpp_ma
                 <button
                   onClick={() => setActiveAudienceFilter('user')}
                   className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 flex-1 sm:flex-none",
+                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 flex-1 sm:flex-none whitespace-nowrap",
                     activeAudienceFilter === 'user'
                       ? "bg-emerald-500/15 text-emerald-400 font-bold shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
@@ -1170,288 +1171,288 @@ pg_dump -U postgres -h localhost -d ocpp_cpms -F c -b -v -f /var/backups/ocpp_ma
             )}
           </div>
         </div>
-      </div>
 
-      {/* Main Content Body */}
-      <div className="max-w-7xl mx-auto w-full px-6 py-8 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Navigation Sidebar */}
-        <aside className="lg:col-span-4 xl:col-span-3 space-y-6">
-          {/* Category Filter Pills */}
-          <div className="space-y-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
-              Categories
-            </h3>
-            <div className="flex lg:flex-col flex-wrap gap-1.5">
-              {categories.map((cat) => {
-                const isSelected = selectedCategoryId === cat;
-                const count = allArticles.filter((a) => {
-                  if (!isAdmin && a.audience === 'admin') return false;
-                  if (isAdmin && activeAudienceFilter !== 'all' && a.audience !== activeAudienceFilter) return false;
-                  return cat === 'all' ? true : a.category === cat;
-                }).length;
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left Navigation Sidebar */}
+          <aside className="lg:col-span-4 xl:col-span-3 space-y-6">
+            {/* Category Filter Pills */}
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
+                Categories
+              </h3>
+              <div className="flex lg:flex-col flex-wrap gap-1.5">
+                {categories.map((cat) => {
+                  const isSelected = selectedCategoryId === cat;
+                  const count = allArticles.filter((a) => {
+                    if (!isAdmin && a.audience === 'admin') return false;
+                    if (isAdmin && activeAudienceFilter !== 'all' && a.audience !== activeAudienceFilter) return false;
+                    return cat === 'all' ? true : a.category === cat;
+                  }).length;
 
-                return (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategoryId(cat)}
-                    className={cn(
-                      "flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all text-left w-full",
-                      isSelected
-                        ? "bg-primary text-primary-foreground font-bold shadow-sm"
-                        : "bg-card/70 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50"
-                    )}
-                  >
-                    <span className="capitalize">{cat === 'all' ? 'All Categories' : cat}</span>
-                    <span
-                      className={cn(
-                        "text-[10px] px-1.5 py-0.5 rounded-md font-semibold",
-                        isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
-                      )}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Article List within Category */}
-          <div className="space-y-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1 flex items-center justify-between">
-              <span>Articles ({filteredArticles.length})</span>
-            </h3>
-            <div className="space-y-1.5 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin">
-              {filteredArticles.length === 0 ? (
-                <div className="p-4 rounded-xl border border-dashed border-border/80 text-center space-y-1">
-                  <p className="text-xs font-semibold text-muted-foreground">No matching articles</p>
-                  <p className="text-[11px] text-muted-foreground/70">Try adjusting your search query</p>
-                </div>
-              ) : (
-                filteredArticles.map((article) => {
-                  const isActive = article.id === currentArticle?.id;
                   return (
                     <button
-                      key={article.id}
-                      onClick={() => setSelectedArticleId(article.id)}
+                      key={cat}
+                      onClick={() => setSelectedCategoryId(cat)}
                       className={cn(
-                        "w-full text-left p-3 rounded-xl transition-all border group relative flex flex-col gap-1",
-                        isActive
-                          ? "bg-primary/10 border-primary/40 text-foreground shadow-xs"
-                          : "bg-card/40 border-border/60 hover:bg-card hover:border-border text-muted-foreground hover:text-foreground"
+                        "flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all text-left w-full",
+                        isSelected
+                          ? "bg-primary text-primary-foreground font-bold shadow-sm"
+                          : "bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border/60"
                       )}
                     >
-                      {isActive && (
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-primary" />
-                      )}
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-semibold leading-snug line-clamp-1 group-hover:text-primary transition-colors">
-                          {article.title}
-                        </span>
-                        {article.audience === 'admin' ? (
-                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 shrink-0">
-                            Admin
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-medium text-muted-foreground/70 shrink-0">
-                            {article.readTime}
-                          </span>
+                      <span className="capitalize truncate pr-2">{cat === 'all' ? 'All Categories' : cat}</span>
+                      <span
+                        className={cn(
+                          "text-[10px] px-1.5 py-0.5 rounded-md font-semibold shrink-0",
+                          isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
                         )}
-                      </div>
-                      <span className="text-[11px] text-muted-foreground line-clamp-1">
-                        {article.summary}
+                      >
+                        {count}
                       </span>
                     </button>
                   );
-                })
-              )}
-            </div>
-          </div>
-        </aside>
-
-        {/* Center Main Article Viewer */}
-        <main className="lg:col-span-8 xl:col-span-9 space-y-6">
-          {currentArticle ? (
-            <Card className="p-6 md:p-8 rounded-2xl bg-card border-border/80 shadow-md space-y-8">
-              {/* Article Header */}
-              <div className="space-y-4 border-b border-border/70 pb-6">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs font-semibold">
-                      {currentArticle.category}
-                    </Badge>
-                    <Badge
-                      variant={currentArticle.audience === 'admin' ? 'soft-warning' : 'soft-info'}
-                      className="text-xs gap-1"
-                    >
-                      {currentArticle.audience === 'admin' ? (
-                        <>
-                          <ShieldCheck className="size-3 text-amber-400" />
-                          <span>Admin Manual</span>
-                        </>
-                      ) : (
-                        <>
-                          <User className="size-3 text-sky-400" />
-                          <span>User & Driver Guide</span>
-                        </>
-                      )}
-                    </Badge>
-                  </div>
-
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Clock className="size-3.5" />
-                      {currentArticle.readTime} read
-                    </span>
-                    {currentArticle.appUrl && (
-                      <Button asChild size="xs" variant="outline" className="gap-1.5 rounded-lg text-primary hover:text-primary">
-                        <Link href={currentArticle.appUrl}>
-                          <span>{currentArticle.appUrlLabel || 'Open in App'}</span>
-                          <ExternalLink className="size-3" />
-                        </Link>
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h2 className="text-2xl md:text-3xl font-extrabold font-heading text-foreground tracking-tight">
-                    {currentArticle.title}
-                  </h2>
-                  <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
-                    {currentArticle.summary}
-                  </p>
-                </div>
-
-                {/* Tags */}
-                {currentArticle.tags.length > 0 && (
-                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                    {currentArticle.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        onClick={() => setSearchQuery(tag)}
-                        className="text-[11px] px-2 py-0.5 rounded-full bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                })}
               </div>
+            </div>
 
-              {/* Article Content Sections */}
-              <div className="space-y-8">
-                {currentArticle.sections.map((section) => (
-                  <section key={section.id} id={section.id} className="space-y-4">
-                    <h3 className="text-lg md:text-xl font-bold text-foreground font-heading border-l-2 border-primary pl-3">
-                      {section.heading}
-                    </h3>
-
-                    <div className="text-sm text-foreground/90 leading-relaxed space-y-3">
-                      {section.body}
-                    </div>
-
-                    {/* Callout Box */}
-                    {section.callout && (
-                      <div
+            {/* Article List within Category */}
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1 flex items-center justify-between">
+                <span>Articles ({filteredArticles.length})</span>
+              </h3>
+              <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin">
+                {filteredArticles.length === 0 ? (
+                  <div className="p-4 rounded-xl border border-dashed border-border/80 text-center space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground">No matching articles</p>
+                    <p className="text-[11px] text-muted-foreground/70">Try adjusting your search query</p>
+                  </div>
+                ) : (
+                  filteredArticles.map((article) => {
+                    const isActive = article.id === currentArticle?.id;
+                    return (
+                      <button
+                        key={article.id}
+                        onClick={() => setSelectedArticleId(article.id)}
                         className={cn(
-                          "p-4 rounded-xl border space-y-1.5 flex items-start gap-3",
-                          section.callout.type === 'tip' && "bg-emerald-500/10 border-emerald-500/30 text-emerald-300",
-                          section.callout.type === 'info' && "bg-blue-500/10 border-blue-500/30 text-blue-300",
-                          section.callout.type === 'warning' && "bg-amber-500/10 border-amber-500/30 text-amber-300",
-                          section.callout.type === 'security' && "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                          "w-full text-left p-3 rounded-xl transition-all border group relative flex flex-col gap-1.5",
+                          isActive
+                            ? "bg-primary/10 border-primary/50 text-foreground shadow-xs"
+                            : "bg-card border-border/60 hover:border-border text-muted-foreground hover:text-foreground"
                         )}
                       >
-                        {section.callout.type === 'tip' && <Sparkles className="size-5 text-emerald-400 mt-0.5 shrink-0" />}
-                        {section.callout.type === 'info' && <Info className="size-5 text-blue-400 mt-0.5 shrink-0" />}
-                        {section.callout.type === 'warning' && <AlertTriangle className="size-5 text-amber-400 mt-0.5 shrink-0" />}
-                        {section.callout.type === 'security' && <Lock className="size-5 text-rose-400 mt-0.5 shrink-0" />}
-                        <div className="space-y-0.5">
-                          <h5 className="font-bold text-xs uppercase tracking-wider">
-                            {section.callout.title}
-                          </h5>
-                          <p className="text-xs leading-relaxed text-foreground/90">
-                            {section.callout.message}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Code Snippet with Copy Button */}
-                    {section.codeSnippet && (
-                      <div className="rounded-xl overflow-hidden border border-white/10 bg-[#171a1f] shadow-inner space-y-0">
-                        <div className="px-4 py-2 bg-black/40 border-b border-white/5 flex items-center justify-between">
-                          <span className="text-[11px] font-mono font-bold uppercase text-[#aab0bc]">
-                            {section.codeSnippet.language}
+                        {isActive && (
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-primary" />
+                        )}
+                        <div className="flex items-center justify-between gap-2 w-full">
+                          <span className="text-xs font-bold leading-snug truncate group-hover:text-primary transition-colors flex-1 text-left">
+                            {article.title}
                           </span>
-                          <button
-                            onClick={() => handleCopyCode(section.id, section.codeSnippet!.code)}
-                            className="flex items-center gap-1 text-[11px] text-[#aab0bc] hover:text-white transition-colors"
-                          >
-                            {copiedCodeId === section.id ? (
-                              <>
-                                <Check className="size-3.5 text-emerald-400" />
-                                <span className="text-emerald-400 font-semibold">Copied!</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="size-3.5" />
-                                <span>Copy Code</span>
-                              </>
-                            )}
-                          </button>
+                          {article.audience === 'admin' ? (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 shrink-0">
+                              Admin
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-medium text-muted-foreground/70 shrink-0">
+                              {article.readTime}
+                            </span>
+                          )}
                         </div>
-                        <pre className="p-4 text-xs font-mono text-emerald-300/90 overflow-x-auto leading-relaxed">
-                          <code>{section.codeSnippet.code}</code>
-                        </pre>
+                        <span className="text-[11px] text-muted-foreground line-clamp-2 text-left leading-relaxed">
+                          {article.summary}
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </aside>
+
+          {/* Center Main Article Viewer */}
+          <main className="lg:col-span-8 xl:col-span-9 space-y-6">
+            {currentArticle ? (
+              <Card className="p-6 md:p-8 rounded-2xl bg-card border-border/80 shadow-md space-y-8">
+                {/* Article Header */}
+                <div className="space-y-4 border-b border-border/70 pb-6">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className="text-xs font-semibold">
+                        {currentArticle.category}
+                      </Badge>
+                      <Badge
+                        variant={currentArticle.audience === 'admin' ? 'soft-warning' : 'soft-info'}
+                        className="text-xs gap-1"
+                      >
+                        {currentArticle.audience === 'admin' ? (
+                          <>
+                            <ShieldCheck className="size-3 text-amber-400" />
+                            <span>Admin Manual</span>
+                          </>
+                        ) : (
+                          <>
+                            <User className="size-3 text-sky-400" />
+                            <span>User & Driver Guide</span>
+                          </>
+                        )}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Clock className="size-3.5" />
+                        {currentArticle.readTime} read
+                      </span>
+                      {currentArticle.appUrl && (
+                        <Button asChild size="xs" variant="outline" className="gap-1.5 rounded-lg text-primary hover:text-primary">
+                          <Link href={currentArticle.appUrl}>
+                            <span>{currentArticle.appUrlLabel || 'Open in App'}</span>
+                            <ExternalLink className="size-3" />
+                          </Link>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h2 className="text-2xl md:text-3xl font-extrabold font-heading text-foreground tracking-tight break-words">
+                      {currentArticle.title}
+                    </h2>
+                    <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+                      {currentArticle.summary}
+                    </p>
+                  </div>
+
+                  {/* Tags */}
+                  {currentArticle.tags.length > 0 && (
+                    <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                      {currentArticle.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          onClick={() => setSearchQuery(tag)}
+                          className="text-[11px] px-2 py-0.5 rounded-full bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Article Content Sections */}
+                <div className="space-y-8">
+                  {currentArticle.sections.map((section) => (
+                    <section key={section.id} id={section.id} className="space-y-4">
+                      <h3 className="text-lg md:text-xl font-bold text-foreground font-heading border-l-2 border-primary pl-3">
+                        {section.heading}
+                      </h3>
+
+                      <div className="text-sm text-foreground/90 leading-relaxed space-y-3">
+                        {section.body}
                       </div>
-                    )}
-                  </section>
-                ))}
-              </div>
 
-              {/* Navigation Footer (Prev / Next Article) */}
-              <div className="border-t border-border/70 pt-6 flex items-center justify-between gap-4 flex-wrap">
-                {prevArticle ? (
-                  <button
-                    onClick={() => setSelectedArticleId(prevArticle.id)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border/70 hover:border-primary/50 bg-card hover:bg-muted text-xs font-semibold text-muted-foreground hover:text-foreground transition-all group"
-                  >
-                    <ArrowLeft className="size-4 group-hover:-translate-x-1 transition-transform" />
-                    <div className="text-left">
-                      <span className="block text-[10px] text-muted-foreground/70 uppercase">Previous</span>
-                      <span className="font-bold text-foreground">{prevArticle.title}</span>
-                    </div>
-                  </button>
-                ) : (
-                  <div />
-                )}
+                      {/* Callout Box */}
+                      {section.callout && (
+                        <div
+                          className={cn(
+                            "p-4 rounded-xl border space-y-1.5 flex items-start gap-3",
+                            section.callout.type === 'tip' && "bg-emerald-500/10 border-emerald-500/30 text-emerald-300",
+                            section.callout.type === 'info' && "bg-blue-500/10 border-blue-500/30 text-blue-300",
+                            section.callout.type === 'warning' && "bg-amber-500/10 border-amber-500/30 text-amber-300",
+                            section.callout.type === 'security' && "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                          )}
+                        >
+                          {section.callout.type === 'tip' && <Sparkles className="size-5 text-emerald-400 mt-0.5 shrink-0" />}
+                          {section.callout.type === 'info' && <Info className="size-5 text-blue-400 mt-0.5 shrink-0" />}
+                          {section.callout.type === 'warning' && <AlertTriangle className="size-5 text-amber-400 mt-0.5 shrink-0" />}
+                          {section.callout.type === 'security' && <Lock className="size-5 text-rose-400 mt-0.5 shrink-0" />}
+                          <div className="space-y-0.5">
+                            <h5 className="font-bold text-xs uppercase tracking-wider">
+                              {section.callout.title}
+                            </h5>
+                            <p className="text-xs leading-relaxed text-foreground/90">
+                              {section.callout.message}
+                            </p>
+                          </div>
+                        </div>
+                      )}
 
-                {nextArticle && (
-                  <button
-                    onClick={() => setSelectedArticleId(nextArticle.id)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border/70 hover:border-primary/50 bg-card hover:bg-muted text-xs font-semibold text-muted-foreground hover:text-foreground transition-all group ml-auto"
-                  >
-                    <div className="text-right">
-                      <span className="block text-[10px] text-muted-foreground/70 uppercase">Next</span>
-                      <span className="font-bold text-foreground">{nextArticle.title}</span>
-                    </div>
-                    <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
-                  </button>
-                )}
-              </div>
-            </Card>
-          ) : (
-            <Card className="p-12 text-center space-y-4 rounded-2xl bg-card border-border/80">
-              <BookOpen className="size-12 text-muted-foreground mx-auto opacity-50" />
-              <div className="space-y-1">
-                <h3 className="text-lg font-bold text-foreground">No article selected</h3>
-                <p className="text-sm text-muted-foreground">Select an article from the left navigation to read the guide.</p>
-              </div>
-            </Card>
-          )}
-        </main>
+                      {/* Code Snippet with Copy Button */}
+                      {section.codeSnippet && (
+                        <div className="rounded-xl overflow-hidden border border-white/10 bg-[#171a1f] shadow-inner space-y-0">
+                          <div className="px-4 py-2 bg-black/40 border-b border-white/5 flex items-center justify-between">
+                            <span className="text-[11px] font-mono font-bold uppercase text-[#aab0bc]">
+                              {section.codeSnippet.language}
+                            </span>
+                            <button
+                              onClick={() => handleCopyCode(section.id, section.codeSnippet!.code)}
+                              className="flex items-center gap-1 text-[11px] text-[#aab0bc] hover:text-white transition-colors"
+                            >
+                              {copiedCodeId === section.id ? (
+                                <>
+                                  <Check className="size-3.5 text-emerald-400" />
+                                  <span className="text-emerald-400 font-semibold">Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="size-3.5" />
+                                  <span>Copy Code</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                          <pre className="p-4 text-xs font-mono text-emerald-300/90 overflow-x-auto leading-relaxed">
+                            <code>{section.codeSnippet.code}</code>
+                          </pre>
+                        </div>
+                      )}
+                    </section>
+                  ))}
+                </div>
+
+                {/* Navigation Footer (Prev / Next Article) */}
+                <div className="border-t border-border/70 pt-6 flex items-center justify-between gap-4 flex-wrap">
+                  {prevArticle ? (
+                    <button
+                      onClick={() => setSelectedArticleId(prevArticle.id)}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border/70 hover:border-primary/50 bg-card hover:bg-muted text-xs font-semibold text-muted-foreground hover:text-foreground transition-all group max-w-xs"
+                    >
+                      <ArrowLeft className="size-4 group-hover:-translate-x-1 transition-transform shrink-0" />
+                      <div className="text-left truncate">
+                        <span className="block text-[10px] text-muted-foreground/70 uppercase">Previous</span>
+                        <span className="font-bold text-foreground truncate block">{prevArticle.title}</span>
+                      </div>
+                    </button>
+                  ) : (
+                    <div />
+                  )}
+
+                  {nextArticle && (
+                    <button
+                      onClick={() => setSelectedArticleId(nextArticle.id)}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border/70 hover:border-primary/50 bg-card hover:bg-muted text-xs font-semibold text-muted-foreground hover:text-foreground transition-all group ml-auto max-w-xs"
+                    >
+                      <div className="text-right truncate">
+                        <span className="block text-[10px] text-muted-foreground/70 uppercase">Next</span>
+                        <span className="font-bold text-foreground truncate block">{nextArticle.title}</span>
+                      </div>
+                      <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform shrink-0" />
+                    </button>
+                  )}
+                </div>
+              </Card>
+            ) : (
+              <Card className="p-12 text-center space-y-4 rounded-2xl bg-card border-border/80">
+                <BookOpen className="size-12 text-muted-foreground mx-auto opacity-50" />
+                <div className="space-y-1">
+                  <h3 className="text-lg font-bold text-foreground">No article selected</h3>
+                  <p className="text-sm text-muted-foreground">Select an article from the left navigation to read the guide.</p>
+                </div>
+              </Card>
+            )}
+          </main>
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
