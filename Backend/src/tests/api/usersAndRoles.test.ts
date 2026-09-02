@@ -88,6 +88,7 @@ describe("User Roles, Client Management & Permissions API", () => {
     });
 
     it("should create a new client account with generated client number", async () => {
+      mockReq.userRole = "superadmin";
       mockReq.body = {
         name: "Rotterdam Port Logistics",
         contactEmail: "port@rotterdam-logistics.nl",
@@ -118,8 +119,15 @@ describe("User Roles, Client Management & Permissions API", () => {
 
   describe("Users Controller (Multi-role, Password Reset & Deletion Re-registration)", () => {
     it("should update user role to operator or client_admin", async () => {
+      mockReq.userRole = "superadmin";
       mockReq.params = { id: "10" };
       mockReq.body = { role: "operator" };
+
+      jest.spyOn(prisma.user, "findUnique").mockResolvedValue({
+        id: 10,
+        email: "ops@mobilitypulse.com",
+        role: "user",
+      } as any);
 
       jest.spyOn(prisma.user, "update").mockResolvedValue({
         id: 10,
@@ -144,6 +152,7 @@ describe("User Roles, Client Management & Permissions API", () => {
     });
 
     it("should allow admin to reset a user's password", async () => {
+      mockReq.userRole = "superadmin";
       mockReq.params = { id: "15" };
       mockReq.body = { newPassword: "secureNewPassword123" };
 
@@ -168,11 +177,15 @@ describe("User Roles, Client Management & Permissions API", () => {
       mockReq.userRole = "admin";
       mockReq.userId = 1;
 
-      jest.spyOn(prisma.user, "findUnique").mockResolvedValue({
-        id: 20,
-        email: "leaving@company.com",
-        role: "user",
-      } as any);
+      jest.spyOn(prisma.user, "findUnique").mockImplementation((async ({ where }: any) => {
+        if (where.id === 20) {
+          return { id: 20, email: "leaving@company.com", role: "user", companyId: 10 } as any;
+        }
+        if (where.id === 1) {
+          return { id: 1, role: "admin", companyId: 10 } as any;
+        }
+        return null;
+      }) as any);
 
       const updateSpy = jest.spyOn(prisma.user, "update").mockResolvedValue({
         id: 20,

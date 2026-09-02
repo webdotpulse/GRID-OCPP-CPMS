@@ -157,6 +157,11 @@ export const exportSepa = async (req: AuthRequest, res: Response) => {
           status: statusFilter,
           contract: { user: { companyId: currentUser.companyId } },
         };
+      } else {
+        whereClause = {
+          status: statusFilter,
+          contract: { userId: userId },
+        };
       }
     }
 

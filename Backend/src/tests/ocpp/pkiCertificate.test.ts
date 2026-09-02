@@ -13,7 +13,7 @@ const mockPrismaChargeGroupUserFindUnique = jest.fn() as any;
 const mockPrismaRfidFindUnique = jest.fn() as any;
 const mockPrismaOcppLogCreate = jest.fn() as any;
 
-jest.mock("../../config/database.js", () => ({
+jest.unstable_mockModule("../../config/database.js", () => ({
   prisma: {
     vehicleContractCertificate: {
       findFirst: mockPrismaVccFindFirst,
@@ -41,7 +41,7 @@ jest.mock("../../config/database.js", () => ({
   },
 }));
 
-jest.mock("../../config/redis.js", () => ({
+jest.unstable_mockModule("../../config/redis.js", () => ({
   redisPublisher: {
     publish: jest.fn().mockResolvedValue(1 as never),
   },
@@ -62,7 +62,7 @@ jest.mock("../../config/redis.js", () => ({
   },
 }));
 
-jest.mock("../../ocpp/distributedRemoteControl.js", () => ({
+jest.unstable_mockModule("../../ocpp/distributedRemoteControl.js", () => ({
   sendDistributedOcppCall: jest.fn().mockResolvedValue({ status: "Accepted" } as never),
   sendDistributedRemoteCommand: jest.fn().mockResolvedValue({ status: "Accepted" } as never),
   getChargerProtocol: jest.fn().mockResolvedValue("ocpp2.1" as never),
@@ -70,17 +70,23 @@ jest.mock("../../ocpp/distributedRemoteControl.js", () => ({
   distributedPendingRequests: new Map(),
 }));
 
-jest.mock("../../ocpp/remoteControl.js", () => ({
+jest.unstable_mockModule("../../ocpp/remoteControl.js", () => ({
   certificateSigned: jest.fn().mockResolvedValue({ status: "Accepted" } as never),
   installCertificate: jest.fn().mockResolvedValue({ status: "Accepted" } as never),
   deleteCertificate: jest.fn().mockResolvedValue({ status: "Accepted" } as never),
   getInstalledCertificateIds: jest.fn().mockResolvedValue({ status: "Accepted" } as never),
+  clearChargingProfile: jest.fn().mockResolvedValue({ status: "Accepted" } as never),
+  setChargingProfile: jest.fn().mockResolvedValue({ status: "Accepted" } as never),
 }));
 
-jest.mock("../../queues/queueManager.js", () => ({
+jest.unstable_mockModule("../../queues/queueManager.js", () => ({
   enqueueMeterValue: jest.fn().mockResolvedValue("job-1" as never),
   enqueueStatusEvent: jest.fn().mockResolvedValue("job-2" as never),
   enqueueBillingEvent: jest.fn().mockResolvedValue("job-3" as never),
+  enqueueBillingJob: jest.fn().mockResolvedValue("job-4" as never),
+  getBullMqRedisConnection: jest.fn().mockReturnValue({}),
+  defaultJobOptions: {},
+  DEFAULT_JOB_OPTIONS: {},
 }));
 
 describe("ISO 15118 Plug & Charge PKI Pipeline (PRT-01)", () => {
@@ -217,7 +223,7 @@ describe("ISO 15118 Plug & Charge PKI Pipeline (PRT-01)", () => {
         userId: 5,
         user: { name: "Bob Test" },
       });
-      mockPrismaChargerFindUnique.mockResolvedValue({ charger_id: 1, chargeGroupId: null });
+      mockPrismaChargerFindUnique.mockResolvedValue({ charger_id: 1, chargeGroupId: null, isPublic: true });
 
       const response = await v21Handlers.handleAuthorize(1, {
         iso15118CertificateHashData: {

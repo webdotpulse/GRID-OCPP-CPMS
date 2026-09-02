@@ -10,7 +10,7 @@ const mockRedisExists = jest.fn() as any;
 
 let messageHandler: ((channel: string, message: string) => void) | null = null;
 
-jest.mock("../../config/redis.js", () => ({
+jest.unstable_mockModule("../../config/redis.js", () => ({
   redisPublisher: {
     publish: mockRedisPublish,
   },
@@ -34,7 +34,7 @@ jest.mock("../../config/redis.js", () => ({
 const mockIsConnectedGlobally = jest.fn() as any;
 const mockGetConnection = jest.fn() as any;
 
-jest.mock("../../ocpp/chargerRegistry.js", () => ({
+jest.unstable_mockModule("../../ocpp/chargerRegistry.js", () => ({
   chargerRegistry: {
     isConnectedGlobally: mockIsConnectedGlobally,
     getConnection: mockGetConnection,

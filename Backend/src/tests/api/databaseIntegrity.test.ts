@@ -15,7 +15,7 @@ describe('Database Schema & Data Integrity Tests (DB-01, DB-02, DB-03)', () => {
       query: {},
       body: {},
       userId: 1,
-      userRole: 'admin',
+      userRole: 'superadmin',
     };
     mockRes = {
       json: jest.fn(),
@@ -296,7 +296,13 @@ describe('Database Schema & Data Integrity Tests (DB-01, DB-02, DB-03)', () => {
 
     it('deleteCertificate should delete certificate by ID', async () => {
       mockReq.params.id = '1';
+      mockReq.userRole = 'superadmin';
 
+      jest.spyOn(prisma.vehicleContractCertificate, 'findUnique').mockResolvedValue({
+        id: 1,
+        userId: 1,
+        user: { id: 1, companyId: 1 },
+      } as any);
       jest.spyOn(prisma.vehicleContractCertificate, 'delete').mockResolvedValue({ id: 1 } as any);
 
       await vehiclesController.deleteCertificate(mockReq, mockRes);

@@ -297,17 +297,22 @@ export class InvoiceService {
         }
 
         // Check for active subscription products attached to chargers owned by this entity
-        const chargersWithProduct = await prisma.charger.findMany({
-          where: {
-            OR: [
-              ...(entity.companyId ? [{ chargingStation: { companyId: entity.companyId } }] : []),
-              ...(entity.userId ? [{ owner_id: entity.userId }] : []),
-            ],
-            productId: { not: null },
-            product: { isActive: true },
-          },
-          include: { product: true },
-        });
+        const entityOrConditions = [
+          ...(entity.companyId ? [{ chargingStation: { companyId: entity.companyId } }] : []),
+          ...(entity.userId ? [{ owner_id: entity.userId }] : []),
+        ];
+
+        let chargersWithProduct: any[] = [];
+        if (entityOrConditions.length > 0) {
+          chargersWithProduct = await prisma.charger.findMany({
+            where: {
+              OR: entityOrConditions,
+              productId: { not: null },
+              product: { isActive: true },
+            },
+            include: { product: true },
+          });
+        }
 
         for (const ch of chargersWithProduct) {
           if (ch.product) {

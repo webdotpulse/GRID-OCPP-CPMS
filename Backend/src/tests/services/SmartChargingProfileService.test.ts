@@ -5,7 +5,7 @@ const mockPrismaProfileFindMany = jest.fn() as any;
 const mockPrismaProfileUpsert = jest.fn() as any;
 const mockPrismaProfileDeleteMany = jest.fn() as any;
 
-jest.mock("../../config/database.js", () => ({
+jest.unstable_mockModule("../../config/database.js", () => ({
   prisma: {
     charger: {
       findUnique: mockPrismaChargerFindUnique,
@@ -18,7 +18,7 @@ jest.mock("../../config/database.js", () => ({
   },
 }));
 
-jest.mock("../../config/redis.js", () => ({
+jest.unstable_mockModule("../../config/redis.js", () => ({
   redisPublisher: {
     publish: jest.fn().mockResolvedValue(1 as never),
   },

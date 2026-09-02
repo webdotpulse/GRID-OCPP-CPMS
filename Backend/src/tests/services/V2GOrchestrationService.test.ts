@@ -1,7 +1,15 @@
 import { jest } from '@jest/globals';
 import { prisma } from '../../config/database.js';
-import * as remoteControl from '../../ocpp/remoteControl.js';
-import { V2GOrchestrationService } from '../../services/V2GOrchestrationService.js';
+
+const mockSetChargingProfile = jest.fn<any>().mockResolvedValue({ status: 'Accepted' });
+const mockClearChargingProfile = jest.fn<any>().mockResolvedValue({ status: 'Accepted' });
+
+jest.unstable_mockModule('../../ocpp/remoteControl.js', () => ({
+  setChargingProfile: mockSetChargingProfile,
+  clearChargingProfile: mockClearChargingProfile,
+}));
+
+const { V2GOrchestrationService } = await import('../../services/V2GOrchestrationService.js');
 
 describe('V2GOrchestrationService (ENG-01)', () => {
   beforeEach(() => {
@@ -40,7 +48,7 @@ describe('V2GOrchestrationService (ENG-01)', () => {
         } as any,
       ]);
 
-      const mockSetChargingProfile = jest.spyOn(remoteControl, 'setChargingProfile').mockResolvedValue({
+      mockSetChargingProfile.mockResolvedValue({
         status: 'Accepted',
       } as any);
 
@@ -49,7 +57,7 @@ describe('V2GOrchestrationService (ENG-01)', () => {
       await V2GOrchestrationService.triggerV2GDischargeForClient(10, 8.0); // 8 kW grid overload
 
       expect(mockSetChargingProfile).toHaveBeenCalledTimes(1);
-      const profileCall = mockSetChargingProfile.mock.calls[0][0];
+      const profileCall = mockSetChargingProfile.mock.calls[0][0] as any;
       expect(profileCall.chargerId).toBe(42);
       expect(profileCall.csChargingProfiles.chargingProfileId).toBe(300);
       expect(profileCall.csChargingProfiles.stackLevel).toBe(3);
@@ -92,7 +100,7 @@ describe('V2GOrchestrationService (ENG-01)', () => {
         minSocThreshold: 50.0,
       } as any);
 
-      const mockSetChargingProfile = jest.spyOn(remoteControl, 'setChargingProfile').mockResolvedValue({
+      mockSetChargingProfile.mockResolvedValue({
         status: 'Accepted',
       } as any);
 
@@ -134,7 +142,7 @@ describe('V2GOrchestrationService (ENG-01)', () => {
         } as any,
       ]);
 
-      const mockSetChargingProfile = jest.spyOn(remoteControl, 'setChargingProfile').mockResolvedValue({
+      mockSetChargingProfile.mockResolvedValue({
         status: 'Accepted',
       } as any);
 
@@ -172,7 +180,7 @@ describe('V2GOrchestrationService (ENG-01)', () => {
         minSocThreshold: 20.0,
       } as any);
 
-      const mockSetChargingProfile = jest.spyOn(remoteControl, 'setChargingProfile').mockResolvedValue({
+      mockSetChargingProfile.mockResolvedValue({
         status: 'Accepted',
       } as any);
 
@@ -180,7 +188,7 @@ describe('V2GOrchestrationService (ENG-01)', () => {
 
       await V2GOrchestrationService.triggerV2GDischargeForClient(10, 20.0); // 20 kW requested, but cap is 7.4 kW
 
-      const profileCall = mockSetChargingProfile.mock.calls[0][0];
+      const profileCall = mockSetChargingProfile.mock.calls[0][0] as any;
       const limit = profileCall.csChargingProfiles.chargingSchedule.chargingSchedulePeriod[0].limit;
       expect(limit).toBeCloseTo((-7400 / 230), 1);
     });
@@ -199,7 +207,7 @@ describe('V2GOrchestrationService (ENG-01)', () => {
 
       jest.spyOn(prisma.transaction, 'findMany').mockResolvedValue(mockDischargingTransactions as any);
 
-      const mockSetChargingProfile = jest.spyOn(remoteControl, 'setChargingProfile').mockResolvedValue({
+      mockSetChargingProfile.mockResolvedValue({
         status: 'Accepted',
       } as any);
 
@@ -208,7 +216,7 @@ describe('V2GOrchestrationService (ENG-01)', () => {
       await V2GOrchestrationService.stopV2GDischargeForClient(10);
 
       expect(mockSetChargingProfile).toHaveBeenCalledTimes(1);
-      const profileCall = mockSetChargingProfile.mock.calls[0][0];
+      const profileCall = mockSetChargingProfile.mock.calls[0][0] as any;
       expect(profileCall.csChargingProfiles.chargingSchedule.chargingSchedulePeriod[0].limit).toBe(0);
 
       expect(mockTxUpdate).toHaveBeenCalledWith({

@@ -1,9 +1,18 @@
 import { jest } from '@jest/globals';
 import { prisma } from '../../config/database.js';
-import { processBillingJob } from '../../workers/billingWorker.js';
-import { DynamicTariffService } from '../../services/DynamicTariffService.js';
-import * as tariffHelpers from '../../utils/tariffHelpers.js';
-import { loadManagementService } from '../../services/LoadManagementService.js';
+
+const mockGetTariffForTransaction = jest.fn<any>().mockResolvedValue({
+  tariff_id: 1,
+  electricity_rate: 0.35,
+});
+
+jest.unstable_mockModule('../../utils/tariffHelpers.js', () => ({
+  getTariffForTransaction: mockGetTariffForTransaction,
+}));
+
+const { processBillingJob } = await import('../../workers/billingWorker.js');
+const { DynamicTariffService } = await import('../../services/DynamicTariffService.js');
+const { loadManagementService } = await import('../../services/LoadManagementService.js');
 
 describe('BillingWorker', () => {
   beforeEach(() => {
@@ -45,7 +54,7 @@ describe('BillingWorker', () => {
 
     const updateConnSpy = jest.spyOn(prisma.connector, 'update').mockResolvedValue({} as any);
 
-    jest.spyOn(tariffHelpers, 'getTariffForTransaction').mockResolvedValue({
+    mockGetTariffForTransaction.mockResolvedValue({
       tariff_id: 1,
       electricity_rate: 0.35,
     } as any);

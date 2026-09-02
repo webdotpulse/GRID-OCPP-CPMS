@@ -111,12 +111,12 @@ export const createCertificate = async (req: AuthRequest, res: Response): Promis
     const userRole = req.userRole;
     const authUserId = req.userId;
 
-    const targetUserId = userId ? Number(userId) : authUserId;
-
-    if (!emaid || !targetUserId) {
+    if (!emaid || !userId) {
       res.status(400).json({ success: false, error: "emaid and userId are required" });
       return;
     }
+
+    const targetUserId = Number(userId);
 
     if (userRole !== "superadmin" && targetUserId !== authUserId) {
       const currentUser = await prisma.user.findUnique({ where: { id: authUserId }, select: { companyId: true } });

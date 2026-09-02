@@ -8,7 +8,7 @@ const mockRedisHset = jest.fn() as any;
 const mockRedisHgetall = jest.fn() as any;
 const mockRedisExpire = jest.fn() as any;
 
-jest.mock('../../config/redis.js', () => ({
+jest.unstable_mockModule('../../config/redis.js', () => ({
   redisClient: {
     scan: mockRedisScan,
     get: mockRedisGet,

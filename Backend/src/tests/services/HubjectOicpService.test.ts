@@ -2,7 +2,7 @@ import { jest } from "@jest/globals";
 
 const mockAxiosPost = jest.fn() as any;
 
-jest.mock("axios", () => ({
+jest.unstable_mockModule("axios", () => ({
   default: {
     post: mockAxiosPost,
   },
@@ -14,7 +14,7 @@ const mockPrismaOicpEndpointFindFirst = jest.fn() as any;
 const mockPrismaRoamingPartnerFindFirst = jest.fn() as any;
 const mockPrismaTransactionFindFirst = jest.fn() as any;
 
-jest.mock("../../config/database.js", () => ({
+jest.unstable_mockModule("../../config/database.js", () => ({
   prisma: {
     chargingStation: {
       findUnique: mockPrismaStationFindUnique,
@@ -31,7 +31,7 @@ jest.mock("../../config/database.js", () => ({
   },
 }));
 
-jest.mock("../../config/redis.js", () => ({
+jest.unstable_mockModule("../../config/redis.js", () => ({
   redisPublisher: {
     publish: jest.fn().mockResolvedValue(1 as never),
   },

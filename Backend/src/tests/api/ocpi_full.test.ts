@@ -1,6 +1,6 @@
 import { jest } from "@jest/globals";
 
-jest.mock("axios", () => ({
+jest.unstable_mockModule("axios", () => ({
   default: {
     post: jest.fn().mockResolvedValue({ status: 200, data: {} } as never),
   },
@@ -24,7 +24,7 @@ const mockPrismaCdrFindUnique = jest.fn() as any;
 const mockPrismaCdrUpsert = jest.fn() as any;
 const mockPrismaCdrUpdate = jest.fn() as any;
 
-jest.mock("../../config/database.js", () => ({
+jest.unstable_mockModule("../../config/database.js", () => ({
   prisma: {
     chargingStation: {
       findMany: mockPrismaStationFindMany,
@@ -64,7 +64,7 @@ jest.mock("../../config/database.js", () => ({
   },
 }));
 
-jest.mock("../../config/redis.js", () => ({
+jest.unstable_mockModule("../../config/redis.js", () => ({
   redisPublisher: {
     publish: jest.fn().mockResolvedValue(1 as never),
   },
@@ -86,7 +86,7 @@ jest.mock("../../config/redis.js", () => ({
   },
 }));
 
-jest.mock("../../ocpp/distributedRemoteControl.js", () => ({
+jest.unstable_mockModule("../../ocpp/distributedRemoteControl.js", () => ({
   sendDistributedOcppCall: jest.fn().mockResolvedValue({ status: "Accepted" } as never),
   sendDistributedRemoteCommand: jest.fn().mockResolvedValue({ status: "Accepted" } as never),
   getChargerProtocol: jest.fn().mockResolvedValue("ocpp1.6" as never),

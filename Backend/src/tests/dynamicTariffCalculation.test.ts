@@ -25,19 +25,18 @@ const mockRedis = {
 jest.unstable_mockModule("../config/redis.js", () => mockRedis);
 jest.unstable_mockModule("../config/redis", () => mockRedis);
 
-const importPrisma = import("../config/database.js");
-const importEpex = import("../services/EpexSpotService.js");
-const importDynamicTariff = import("../services/DynamicTariffService.js");
-
 describe("Dynamic Tariff Calculation (FIN-04)", () => {
   let prisma: any;
   let EpexSpotService: any;
   let DynamicTariffService: any;
 
   beforeAll(async () => {
-    prisma = (await importPrisma).prisma;
-    EpexSpotService = (await importEpex).EpexSpotService;
-    DynamicTariffService = (await importDynamicTariff).DynamicTariffService;
+    const dbMod = await import("../config/database.js");
+    prisma = dbMod.prisma;
+    const epexMod = await import("../services/EpexSpotService.js");
+    EpexSpotService = epexMod.EpexSpotService;
+    const tariffMod = await import("../services/DynamicTariffService.js");
+    DynamicTariffService = tariffMod.DynamicTariffService;
   });
 
   beforeEach(() => {

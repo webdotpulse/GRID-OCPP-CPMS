@@ -145,6 +145,9 @@ describe("InvoiceService & Multi-Tax Invoicing Engine (FIN-01)", () => {
       const updateManyTxSpy = jest
         .spyOn(prisma.transaction, "updateMany")
         .mockResolvedValue({ count: 2 });
+      const findManyChargersSpy = jest
+        .spyOn(prisma.charger, "findMany")
+        .mockResolvedValue([]);
 
       const targetDate = new Date("2026-08-15T00:00:00Z");
       const result = await InvoiceService.generateMonthlyInvoices(targetDate);

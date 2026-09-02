@@ -259,7 +259,11 @@ export const getChargerById = async (req: Request, res: Response) => {
       where: { charger_id: chargerId },
       include: {
         chargingStation: true,
-        pairedCharger: true,
+        pairedCharger: {
+          include: {
+            evses: { include: { connectors: true } },
+          },
+        },
         evses: { include: { connectors: true } },
         transactions: { take: 10, orderBy: { createdAt: "desc" } },
         owner: { select: { id: true, email: true, companyId: true } },

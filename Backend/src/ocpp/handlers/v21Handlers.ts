@@ -186,22 +186,35 @@ export async function handleStatusNotification(
       },
     });
 
-    await prisma.connector.upsert({
+    const existingConnector = await prisma.connector.findFirst({
       where: {
-        connector_id: evse.id,
-      },
-      update: {
-        status: connectorStatus,
-        updatedAt: new Date(),
-      },
-      create: {
-        connector_id: evse.id,
-        connector_name: connectorName,
-        status: connectorStatus,
-        current_type: "AC",
         evse_id: evse.id,
+        OR: [
+          { connector_name: connectorName },
+          { connector_name: `Connector ${effectiveConnectorId}` },
+        ],
       },
     });
+
+    if (existingConnector) {
+      await prisma.connector.update({
+        where: { connector_id: existingConnector.connector_id },
+        data: {
+          status: connectorStatus,
+          connector_name: connectorName,
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      await prisma.connector.create({
+        data: {
+          connector_name: connectorName,
+          status: connectorStatus,
+          current_type: "AC",
+          evse_id: evse.id,
+        },
+      });
+    }
 
     // If paired secondary charger, also update primary charger's Channel 2 connector
     if (charger?.isCombined && charger?.pairedRole === "secondary" && charger?.pairedChargerId && effectiveConnectorId === 2) {

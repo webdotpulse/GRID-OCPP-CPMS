@@ -427,8 +427,7 @@ class OcppServer {
         chargerRegistry.unregister(chargerId).then(async () => {
           // Verify it is truly offline before marking offline in DB (might have reconnected elsewhere)
           if (!(await chargerRegistry.isConnectedGlobally(chargerId))) {
-            // Update charger status to offline and all its connectors to Unavailable
-            Promise.all([
+            const updates: Promise<any>[] = [
               prisma.charger.update({
                 where: { charger_id: chargerId },
                 data: { status: "offline" },
@@ -436,10 +435,27 @@ class OcppServer {
               prisma.connector.updateMany({
                 where: { evse: { charger_id: chargerId } },
                 data: { status: "Unavailable", updatedAt: new Date() },
-              })
-            ]).catch((err) => logger.error(`Error updating charger/connector status on disconnect: ${err}`));
+              }),
+            ];
+
+            if (charger.isCombined && charger.pairedRole === "secondary" && charger.pairedChargerId) {
+              updates.push(
+                prisma.connector.updateMany({
+                  where: {
+                    evse: { charger_id: charger.pairedChargerId },
+                    connector_name: "Channel 2",
+                  },
+                  data: { status: "Unavailable", updatedAt: new Date() },
+                })
+              );
+            }
+
+            Promise.all(updates).catch((err) => logger.error(`Error updating charger/connector status on disconnect: ${err}`));
 
             redisPublisher.publish("charger_status_updates", JSON.stringify({ chargerId }));
+            if (charger.isCombined && charger.pairedRole === "secondary" && charger.pairedChargerId) {
+              redisPublisher.publish("charger_status_updates", JSON.stringify({ chargerId: charger.pairedChargerId }));
+            }
           }
         }).catch(err => logger.error(`Error during unregister: ${err}`));
       });

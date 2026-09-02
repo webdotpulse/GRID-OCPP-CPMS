@@ -1,7 +1,21 @@
 import { jest } from '@jest/globals';
 import { prisma } from '../../config/database.js';
-import * as queueManager from '../../queues/queueManager.js';
-import * as v16Handlers from '../../ocpp/handlers/v16Handlers.js';
+
+const mockEnqueueBillingJob = jest.fn<any>().mockResolvedValue(undefined);
+
+jest.unstable_mockModule('../../queues/queueManager.js', () => ({
+  enqueueBillingJob: mockEnqueueBillingJob,
+  enqueueMeterValue: jest.fn<any>().mockResolvedValue(undefined),
+  enqueueStatusEvent: jest.fn<any>().mockResolvedValue(undefined),
+  getBullMqRedisConnection: jest.fn<any>().mockReturnValue({}),
+  defaultJobOptions: {},
+  DEFAULT_JOB_OPTIONS: {},
+  statusEventsQueue: { add: jest.fn() },
+  billingQueue: { add: jest.fn() },
+  meterValuesQueue: { add: jest.fn() },
+}));
+
+const v16Handlers = await import('../../ocpp/handlers/v16Handlers.js');
 
 describe("OCPP 1.6 Lifecycle Handlers", () => {
   beforeEach(() => {
@@ -135,8 +149,6 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
         startTime: new Date(Date.now() - 3600000),
         charger_id: 1,
       } as any);
-      const billingSpy = jest.spyOn(queueManager, 'enqueueBillingJob').mockResolvedValue(undefined as any);
-
       const response = await v16Handlers.handleStopTransaction(1, {
         transactionId: 12345,
         meterStop: 5000,
@@ -150,7 +162,7 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
       });
 
       expect(response.idTagInfo.status).toBe("Accepted");
-      expect(billingSpy).toHaveBeenCalledWith(
+      expect(mockEnqueueBillingJob).toHaveBeenCalledWith(
         expect.objectContaining({
           chargerId: 1,
           transactionId: "12345",
@@ -165,7 +177,6 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
         chargeGroupId: null,
         quirkProfile: null,
       } as any);
-      const billingSpy = jest.spyOn(queueManager, 'enqueueBillingJob').mockResolvedValue(undefined as any);
       jest.spyOn(prisma.transaction, 'findFirst').mockResolvedValue({
         id: 11,
         transactionId: "67890",
@@ -174,7 +185,6 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
         startTime: new Date(Date.now() - 1800000),
         charger_id: 1,
       } as any);
-
       const response = await v16Handlers.handleStopTransaction(1, {
         transactionId: 67890,
         meterStop: 2500,
@@ -182,7 +192,7 @@ describe("OCPP 1.6 Lifecycle Handlers", () => {
       });
 
       expect(response.idTagInfo.status).toBe("Accepted");
-      expect(billingSpy).toHaveBeenCalledWith(
+      expect(mockEnqueueBillingJob).toHaveBeenCalledWith(
         expect.objectContaining({
           chargerId: 1,
           transactionId: "67890",

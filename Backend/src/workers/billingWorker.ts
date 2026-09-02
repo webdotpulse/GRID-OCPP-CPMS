@@ -70,6 +70,23 @@ export async function processBillingJob(job: Job<BillingJobData>): Promise<void>
             data: { status: "Finishing", updatedAt: new Date() },
           });
         }
+
+        // If paired secondary charger, also update primary charger's Channel 2 connector to Finishing
+        const charger = updatedTransaction.charger;
+        if (charger?.isCombined && charger?.pairedRole === "secondary" && charger?.pairedChargerId) {
+          const primaryConnector = await prisma.connector.findFirst({
+            where: {
+              evse: { charger_id: charger.pairedChargerId },
+              connector_name: "Channel 2",
+            },
+          });
+          if (primaryConnector) {
+            await prisma.connector.update({
+              where: { connector_id: primaryConnector.connector_id },
+              data: { status: "Finishing", updatedAt: new Date() },
+            });
+          }
+        }
       }
 
       // Trigger Load Balancing to free up capacity

@@ -279,6 +279,14 @@ class ProxyRouter {
                           data: { transactionId: String(thirdPartyTransactionId) },
                         });
 
+                        await prisma.meterValue.updateMany({
+                          where: {
+                            chargerId: chargerId,
+                            transactionId: oldTransactionId,
+                          },
+                          data: { transactionId: String(thirdPartyTransactionId) },
+                        });
+
                         try {
                           const connection = chargerRegistry.getConnection(chargerId);
                           if (connection && connection.transactions.has(oldTransactionId)) {

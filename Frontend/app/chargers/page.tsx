@@ -129,8 +129,8 @@ export default function ChargersPage() {
       );
 
       if (existingCh2Index >= 0) {
-        // Channel 2 is already present from primary EVSE; sync live status from paired charger if active
-        if (pairedStatus && pairedStatus.toLowerCase() !== "offline" && pairedStatus.toLowerCase() !== "unavailable") {
+        // Channel 2 is already present from primary EVSE; sync live status from paired charger
+        if (pairedStatus) {
           rawChannels[existingCh2Index].status = pairedStatus;
         }
       } else {
@@ -145,16 +145,16 @@ export default function ChargersPage() {
       }
     }
 
-    // Deduplicate channels by normalized channel name (e.g. "Channel 1", "Channel 2")
-    const seenNames = new Set<string>();
+    // Deduplicate channels by normalized channel name (specifically Channel X / CH X / Connector X)
+    const seenKeys = new Set<string>();
     const channels: ChannelInfo[] = [];
 
     for (const ch of rawChannels) {
-      const match = ch.name.match(/(\d+)/);
-      const key = match ? `channel-${match[1]}` : ch.name.trim().toLowerCase();
+      const channelMatch = ch.name.match(/^(?:channel|ch|connector)\s*(\d+)$/i);
+      const key = channelMatch ? `channel-${channelMatch[1]}` : (ch.id ? `id-${ch.id}` : ch.name.trim().toLowerCase());
 
-      if (!seenNames.has(key)) {
-        seenNames.add(key);
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
         channels.push(ch);
       }
     }
