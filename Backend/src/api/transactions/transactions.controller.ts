@@ -27,7 +27,8 @@ export const getAllTransactions = async (req: Request, res: Response) => {
     if (search) {
       where.OR = [
         { transactionId: { contains: search as string, mode: "insensitive" } },
-        { status: { contains: search as string, mode: "insensitive" } }
+        { status: { contains: search as string, mode: "insensitive" } },
+        { idTag: { contains: search as string, mode: "insensitive" } }
       ];
     }
 
@@ -291,9 +292,9 @@ export const getTransactionStats = async (req: Request, res: Response) => {
  */
 export const getTransactionById = async (req: Request, res: Response) => {
   try {
-    const transactionId = parseId(req.params.id);
+    const rawId = String(req.params.id || "").trim();
 
-    if (!transactionId) {
+    if (!rawId) {
       return res.status(400).json({
         success: false,
         error: "Invalid transaction ID",
@@ -305,15 +306,59 @@ export const getTransactionById = async (req: Request, res: Response) => {
     // @ts-expect-error userId is attached by authenticateToken middleware
     const userId = req.userId;
 
-    const where: any = { id: transactionId };
+    const parsedInt = parseInt(rawId, 10);
+    const isDbId = !isNaN(parsedInt) && parsedInt > 0 && parsedInt <= 2147483647 && String(parsedInt) === rawId;
+
+    const idConditions: any[] = [{ transactionId: rawId }];
+    if (isDbId) {
+      idConditions.push({ id: parsedInt });
+    }
+
+    const where: any = {
+      OR: idConditions,
+    };
     if (userRole !== "admin" && userRole !== "superadmin") {
       where.charger = { owner_id: userId };
     }
 
-    const transaction = await prisma.transaction.findFirst({
+    let transaction = await prisma.transaction.findFirst({
       where,
-      include: { charger: { include: { chargingStation: true } } },
+      include: {
+        charger: { include: { chargingStation: true } },
+        rfidUser: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
+
+    // If not found in Transaction table, check RfidSession as fallback
+    if (!transaction) {
+      const rfidWhere: any = {
+        OR: idConditions,
+      };
+      if (userRole !== "admin" && userRole !== "superadmin") {
+        rfidWhere.charger = { owner_id: userId };
+      }
+
+      const rfidSession = await prisma.rfidSession.findFirst({
+        where: rfidWhere,
+        include: {
+          charger: { include: { chargingStation: true } },
+          rfidUser: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      if (rfidSession) {
+        transaction = {
+          ...rfidSession,
+          totalCost: rfidSession.amountDue,
+        } as any;
+      }
+    }
 
     if (!transaction) {
       return res.status(404).json({
@@ -337,20 +382,43 @@ export const getTransactionById = async (req: Request, res: Response) => {
  */
 export const getRfidSessionById = async (req: Request, res: Response) => {
   try {
-    const sessionId = parseId(req.params.id);
+    const rawId = String(req.params.id || "").trim();
 
-    if (!sessionId) {
+    if (!rawId) {
       return res.status(400).json({
         success: false,
         error: "Invalid session ID",
       });
     }
 
-    const rfidSession = await prisma.rfidSession.findUnique({
-      where: { id: sessionId },
+    // @ts-expect-error userRole is attached by authenticateToken middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken middleware
+    const userId = req.userId;
+
+    const parsedInt = parseInt(rawId, 10);
+    const isDbId = !isNaN(parsedInt) && parsedInt > 0 && parsedInt <= 2147483647 && String(parsedInt) === rawId;
+
+    const idConditions: any[] = [{ transactionId: rawId }];
+    if (isDbId) {
+      idConditions.push({ id: parsedInt });
+    }
+
+    const where: any = {
+      OR: idConditions,
+    };
+    if (userRole !== "admin" && userRole !== "superadmin") {
+      where.charger = { owner_id: userId };
+    }
+
+    const rfidSession = await prisma.rfidSession.findFirst({
+      where,
       include: {
         charger: { include: { chargingStation: true } },
         rfidUser: true,
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     });
 

@@ -22,7 +22,8 @@ export default function TransactionDetailPage() {
     const fetchTransaction = async () => {
       try {
         const response = await api.get(`/transactions/${id}`);
-        setTxn(response.data);
+        const data = response.data?.data ?? response.data;
+        setTxn(data);
       } catch (error) {
         logger.error("Failed to fetch transaction details", error);
       } finally {
@@ -141,7 +142,7 @@ export default function TransactionDetailPage() {
               <div>
                 <p className="text-xs text-muted-foreground">Auth Tag (RFID)</p>
                 <p className="font-mono font-medium">
-                  {txn.idTag ? txn.idTag : 'N/A'}
+                  {txn.idTag || txn.rfidUser?.rfid_tag || 'N/A'}
                 </p>
               </div>
               <div>
@@ -157,7 +158,7 @@ export default function TransactionDetailPage() {
               <div className="pt-2">
                 <p className="text-xs text-muted-foreground">Stop Reason</p>
                 <p className="text-sm font-medium capitalize">
-                  {txn.status === 'completed' ? 'Local Stop' : (txn.status === 'charging' ? 'N/A' : txn.status)}
+                  {txn.stopReason || (txn.status === 'completed' ? 'Local Stop' : (txn.status === 'charging' ? 'N/A' : txn.status))}
                 </p>
               </div>
             </div>

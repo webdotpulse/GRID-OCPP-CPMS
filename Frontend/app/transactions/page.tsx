@@ -215,7 +215,12 @@ export default function TransactionsPage() {
                 sortedTransactions.map((tx) => (
                   <TableRow key={tx.transaction_id || tx.transactionId || tx.id} className="hover:bg-[#54a8c7]/5 transition-colors">
                     <TableCell className="font-mono font-bold text-xs text-foreground">
-                      #{tx.transaction_id || tx.transactionId || tx.id}
+                      <Link 
+                        href={`/transactions/${tx.transactionId || tx.id || tx.transaction_id}`}
+                        className="hover:text-[#54a8c7] hover:underline transition-colors"
+                      >
+                        #{tx.transactionId || tx.id || tx.transaction_id}
+                      </Link>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground font-medium">
                       {tx.startTime 
@@ -253,7 +258,7 @@ export default function TransactionsPage() {
                       {getStatusBadge(tx.status || 'completed')}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Link href={`/transactions/${tx.transaction_id || tx.transactionId || tx.id}`}>
+                      <Link href={`/transactions/${tx.transactionId || tx.id || tx.transaction_id}`}>
                         <Button variant="ghost" size="icon-sm" className="rounded-lg text-muted-foreground hover:text-foreground">
                           <Eye className="size-3.5" />
                         </Button>
