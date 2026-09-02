@@ -2,12 +2,13 @@ import express, { Application } from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import RedisStore from "rate-limit-redis";
+import jwt from "jsonwebtoken";
 import { config } from "./config/index.js";
 import { logger } from "./utils/logger.js";
 import { isOriginAllowed } from "./utils/cors.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 
-import { authenticateToken } from "./middleware/auth.js";
+import { authenticateToken, isSuperAdminOrAdmin } from "./middleware/auth.js";
 import { redisClient } from "./config/redis.js";
 
 // Import API routes
@@ -125,6 +126,7 @@ export function createApp(): Application {
     message: { success: false, error: "Too many requests from this IP, please try again after 15 minutes" },
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => isSuperAdminOrAdmin(req),
   });
   app.use(limiter);
 

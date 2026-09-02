@@ -230,6 +230,29 @@ redis-cli ping
 ```bash
 cd /var/www/ocpp-cpms/Backend
 npm install --production=false
+
+# Configure environment variables
+cat <<EOT > .env
+DATABASE_URL="postgresql://cms_user:YOUR_DB_PASSWORD@localhost:5432/ocpp_cms?schema=public"
+PORT=3000
+OCPP_PORT=9220
+OCPP_LOG_WS_PORT=3001
+JWT_SECRET="YOUR_SECURE_JWT_SECRET_64_CHARACTERS"
+REDIS_URL="redis://localhost:6379"
+TZ="Europe/Brussels"
+LOG_LEVEL=info
+DEFAULT_DYNAMIC_PROVIDER="EnergyZero"
+DEFAULT_DYNAMIC_COUNTRY="BE"
+FRONTEND_URL="https://ui.yourdomain.com"
+ALLOWED_ORIGINS="https://ui.yourdomain.com,https://*.yourdomain.com,http://localhost:3002"
+
+# Google Wallet Passes & NFC SmartTap Configuration
+GOOGLE_WALLET_ISSUER_ID="3388000000022334455"
+GOOGLE_WALLET_CLIENT_EMAIL="grid-cpms@google-wallet.internal"
+GOOGLE_WALLET_PRIVATE_KEY=""
+APP_URL="https://ui.yourdomain.com"
+EOT
+
 npx prisma generate
 npx tsc
 

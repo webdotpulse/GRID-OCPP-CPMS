@@ -230,7 +230,11 @@ export default function RfidPage() {
                           variant="ghost"
                           size="icon-sm"
                           title="Add to Apple Wallet (NFC Pass)"
-                          onClick={() => window.open(`/api/rfid/${tag.rfid_user_id}/apple-wallet`, '_blank')}
+                          onClick={() => {
+                            const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+                            const query = token ? `?token=${encodeURIComponent(token)}` : "";
+                            window.open(`/api/rfid/${tag.rfid_user_id}/apple-wallet${query}`, '_blank');
+                          }}
                           className="rounded-lg text-foreground hover:bg-muted/80"
                         >
                           <span className="text-[10px] font-bold">🍏</span>

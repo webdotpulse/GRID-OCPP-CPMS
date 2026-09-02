@@ -17,8 +17,14 @@ export function authenticateToken(
   res: Response,
   next: NextFunction
 ): void | Response {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
+  const authHeader = req.headers["authorization"] || (req.headers["x-access-token"] as string | undefined);
+  let token: string | undefined;
+
+  if (typeof authHeader === "string") {
+    token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
+  } else if (req.query && typeof req.query.token === "string") {
+    token = req.query.token;
+  }
 
   if (!token) {
     return res.status(401).json({
@@ -106,6 +112,30 @@ export function generateToken(userId: number, email: string, role: string): stri
     config.jwtSecret as jwt.Secret,
     { expiresIn: config.jwtExpiresIn as any }
   );
+}
+
+/**
+ * Helper to determine if the incoming request is authenticated as Superadmin or Admin.
+ * Used to bypass rate limiting for administrative operators.
+ */
+export function isSuperAdminOrAdmin(req: Request): boolean {
+  try {
+    const authHeader = req.headers["authorization"] || (req.headers["x-access-token"] as string | undefined);
+    let token: string | undefined;
+
+    if (typeof authHeader === "string") {
+      token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
+    } else if (req.query && typeof req.query.token === "string") {
+      token = req.query.token;
+    }
+
+    if (!token) return false;
+
+    const decoded = jwt.verify(token, config.jwtSecret) as { role?: string };
+    return decoded?.role === "admin" || decoded?.role === "superadmin";
+  } catch {
+    return false;
+  }
 }
 
 export type ResourceType = "station" | "charger" | "transaction" | "user" | "vehicle" | "company";

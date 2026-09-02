@@ -36,6 +36,12 @@ TIMEZONE="Europe/Brussels"
 SKIP_SSL=false
 NON_INTERACTIVE=false
 
+# Google Wallet Passes & NFC SmartTap
+GOOGLE_WALLET_ISSUER_ID="3388000000022334455"
+GOOGLE_WALLET_CLIENT_EMAIL="grid-cpms@google-wallet.internal"
+GOOGLE_WALLET_PRIVATE_KEY=""
+APP_URL=""
+
 # Generate secure random strings
 generate_random_pass() {
   openssl rand -base64 16 | tr -dc 'a-zA-Z0-9!@#$%^&*' | head -c 16
@@ -64,6 +70,10 @@ Options:
   --install-dir <path>          Installation directory (default: /var/www/ocpp-cms)
   --git-repo <url>              Git repository URL (default: official repo)
   --timezone <tz>               Server timezone (default: Europe/Brussels)
+  --google-wallet-issuer-id <id>     Google Wallet Issuer ID (default: 3388000000022334455)
+  --google-wallet-client-email <email> Google Wallet Service Account Email (default: grid-cpms@google-wallet.internal)
+  --google-wallet-private-key <key>  Google Wallet RSA Private Key PEM (default: empty)
+  --app-url <url>                    Base URL for Pass Assets & QR Links (default: https://<frontend-domain>)
   --skip-ssl                    Skip Certbot Let's Encrypt SSL setup
   -y, --non-interactive         Run unattended without confirmation prompts
   -h, --help                    Show this help message
@@ -94,6 +104,10 @@ while [[ "$#" -gt 0 ]]; do
     --install-dir) INSTALL_DIR="$2"; shift 2 ;;
     --git-repo) GIT_REPO="$2"; shift 2 ;;
     --timezone) TIMEZONE="$2"; shift 2 ;;
+    --google-wallet-issuer-id) GOOGLE_WALLET_ISSUER_ID="$2"; shift 2 ;;
+    --google-wallet-client-email) GOOGLE_WALLET_CLIENT_EMAIL="$2"; shift 2 ;;
+    --google-wallet-private-key) GOOGLE_WALLET_PRIVATE_KEY="$2"; shift 2 ;;
+    --app-url) APP_URL="$2"; shift 2 ;;
     --skip-ssl) SKIP_SSL=true; shift 1 ;;
     -y|--non-interactive) NON_INTERACTIVE=true; shift 1 ;;
     -h|--help) show_help ;;
@@ -132,6 +146,9 @@ if [[ "$NON_INTERACTIVE" != true ]]; then
   echo -e "Superadmin Pass : ${YELLOW}${ADMIN_PASS}${NC}"
   echo -e "Install Directory: ${GREEN}${INSTALL_DIR}${NC}"
   echo -e "Timezone        : ${GREEN}${TIMEZONE}${NC}"
+  echo -e "Google Wallet ID: ${GREEN}${GOOGLE_WALLET_ISSUER_ID}${NC}"
+  echo -e "Google Wallet Em: ${GREEN}${GOOGLE_WALLET_CLIENT_EMAIL}${NC}"
+  echo -e "Google Key State: $([ -n "$GOOGLE_WALLET_PRIVATE_KEY" ] && echo -e "${GREEN}Configured${NC}" || echo -e "${YELLOW}Pending / Optional${NC}")"
   echo -e "SSL (Certbot)   : $([ "$SKIP_SSL" = true ] && echo -e "${YELLOW}Disabled${NC}" || echo -e "${GREEN}Enabled${NC}")"
   echo -e "${CYAN}--------------------------------------------------------------${NC}"
   read -rp "Proceed with installation? [y/N]: " confirm
@@ -233,6 +250,12 @@ DEFAULT_DYNAMIC_PROVIDER="EnergyZero"
 DEFAULT_DYNAMIC_COUNTRY="BE"
 FRONTEND_URL="https://${FRONTEND_DOMAIN}"
 ALLOWED_ORIGINS="https://${FRONTEND_DOMAIN},http://${FRONTEND_DOMAIN},https://*.${FRONTEND_DOMAIN#*.},http://localhost:3002"
+
+# Google Wallet Passes & NFC SmartTap Configuration
+GOOGLE_WALLET_ISSUER_ID="${GOOGLE_WALLET_ISSUER_ID}"
+GOOGLE_WALLET_CLIENT_EMAIL="${GOOGLE_WALLET_CLIENT_EMAIL}"
+GOOGLE_WALLET_PRIVATE_KEY="${GOOGLE_WALLET_PRIVATE_KEY}"
+APP_URL="${APP_URL:-https://${FRONTEND_DOMAIN}}"
 EOT
 
 npm install
@@ -435,6 +458,11 @@ echo -e "  ${BOLD}🗄️ PostgreSQL Database:${NC}"
 echo -e "     Database: ${DB_NAME}"
 echo -e "     User:     ${DB_USER}"
 echo -e "     Password: ${DB_PASS}"
+echo -e ""
+echo -e "  ${BOLD}💳 Google Wallet & NFC SmartTap:${NC}"
+echo -e "     Issuer ID:     ${GOOGLE_WALLET_ISSUER_ID}"
+echo -e "     Service Email: ${GOOGLE_WALLET_CLIENT_EMAIL}"
+echo -e "     Documentation: See Manual/google_wallet.md"
 echo -e ""
 echo -e "  ${BOLD}🛠️ Useful Commands:${NC}"
 echo -e "     View Process Status:  pm2 status"

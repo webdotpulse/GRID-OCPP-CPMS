@@ -84,7 +84,9 @@ export function GoogleWalletModal({
 
   const handleDownloadApplePass = () => {
     if (rfidUserId) {
-      window.open(`/api/rfid/${rfidUserId}/apple-wallet`, "_blank");
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const query = token ? `?token=${encodeURIComponent(token)}` : "";
+      window.open(`/api/rfid/${rfidUserId}/apple-wallet${query}`, "_blank");
     }
   };
 

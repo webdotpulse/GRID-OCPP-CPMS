@@ -75,7 +75,11 @@ export default function RfidDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => window.open(`/api/rfid/${tag.rfid_user_id}/apple-wallet`, '_blank')}
+            onClick={() => {
+              const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+              const query = token ? `?token=${encodeURIComponent(token)}` : "";
+              window.open(`/api/rfid/${tag.rfid_user_id}/apple-wallet${query}`, '_blank');
+            }}
             className="rounded-xl border-border/80 hover:bg-muted/80 gap-1.5 text-xs font-semibold"
           >
             <span>🍏</span> Apple Wallet

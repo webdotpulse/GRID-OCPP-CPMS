@@ -102,6 +102,31 @@ describe("Auth Middleware Suite (CLN-02)", () => {
       expect(mockReq.userRole).toBe("admin");
       expect(mockNext).toHaveBeenCalled();
     });
+
+    it("should authenticate using token passed in query parameter (for direct wallet/pass downloads)", () => {
+      const userToken = generateToken(77, "passholder@example.com", "user");
+      mockReq.headers = {}; // No authorization header
+      mockReq.query = { token: userToken };
+
+      authenticateToken(mockReq, mockRes, mockNext);
+
+      expect(mockReq.userId).toBe(77);
+      expect(mockReq.userRole).toBe("user");
+      expect(mockNext).toHaveBeenCalled();
+      expect(mockRes.status).not.toHaveBeenCalled();
+    });
+
+    it("should authenticate using token in x-access-token header", () => {
+      const token = generateToken(88, "headeruser@example.com", "admin");
+      mockReq.headers = { "x-access-token": token };
+
+      authenticateToken(mockReq, mockRes, mockNext);
+
+      expect(mockReq.userId).toBe(88);
+      expect(mockReq.userRole).toBe("admin");
+      expect(mockNext).toHaveBeenCalled();
+      expect(mockRes.status).not.toHaveBeenCalled();
+    });
   });
 
   describe("requireAdmin", () => {

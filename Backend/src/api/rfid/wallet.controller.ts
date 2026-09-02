@@ -21,6 +21,15 @@ export const downloadAppleWalletPass = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, error: "RFID card not found" });
     }
 
+    // @ts-expect-error userRole is attached by authenticateToken middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken middleware
+    const userId = req.userId;
+
+    if (userRole !== "admin" && userRole !== "superadmin" && rfidCard.owner_id !== userId) {
+      return res.status(403).json({ success: false, error: "Access denied to this RFID card" });
+    }
+
     const passBuffer = await WalletPassService.generateApplePkPass(rfidCard);
 
     res.setHeader("Content-Type", "application/vnd.apple.pkpass");
@@ -51,6 +60,15 @@ export const getGoogleWalletUrl = async (req: Request, res: Response) => {
 
     if (!rfidCard) {
       return res.status(404).json({ success: false, error: "RFID card not found" });
+    }
+
+    // @ts-expect-error userRole is attached by authenticateToken middleware
+    const userRole = req.userRole;
+    // @ts-expect-error userId is attached by authenticateToken middleware
+    const userId = req.userId;
+
+    if (userRole !== "admin" && userRole !== "superadmin" && rfidCard.owner_id !== userId) {
+      return res.status(403).json({ success: false, error: "Access denied to this RFID card" });
     }
 
     const passDetails = await WalletPassService.generateGoogleWalletPassDetails(rfidCard);

@@ -4,6 +4,7 @@ import { verifyChargerOwnership } from "../../api/ocpp/ocpp.controller.js";
 import { sanitizeCsvField } from "../../utils/validation.js";
 import { prisma } from "../../config/database.js";
 import { config } from "../../config/index.js";
+import { isSuperAdminOrAdmin } from "../../middleware/auth.js";
 import jwt from "jsonwebtoken";
 
 describe("Security Remediation Suite (SEC-01 through SEC-06)", () => {
@@ -212,6 +213,63 @@ describe("Security Remediation Suite (SEC-01 through SEC-06)", () => {
       expect(req.ocpiEndpoint).toBeDefined();
 
       mockFind.mockRestore();
+    });
+  });
+
+  describe("Rate Limiting Exemption for Admin & Super Admin (isSuperAdminOrAdmin)", () => {
+    it("should exempt requests with a valid superadmin Bearer token", () => {
+      const token = jwt.sign({ userId: 1, email: "super@cpms.com", role: "superadmin" }, config.jwtSecret);
+      const req: any = {
+        headers: { authorization: `Bearer ${token}` },
+      };
+      expect(isSuperAdminOrAdmin(req)).toBe(true);
+    });
+
+    it("should exempt requests with a valid admin Bearer token", () => {
+      const token = jwt.sign({ userId: 2, email: "admin@cpms.com", role: "admin" }, config.jwtSecret);
+      const req: any = {
+        headers: { authorization: `Bearer ${token}` },
+      };
+      expect(isSuperAdminOrAdmin(req)).toBe(true);
+    });
+
+    it("should exempt requests with a valid admin token in query parameter", () => {
+      const token = jwt.sign({ userId: 3, email: "admin@cpms.com", role: "admin" }, config.jwtSecret);
+      const req: any = {
+        headers: {},
+        query: { token },
+      };
+      expect(isSuperAdminOrAdmin(req)).toBe(true);
+    });
+
+    it("should exempt requests with a valid admin token in x-access-token header", () => {
+      const token = jwt.sign({ userId: 4, email: "admin@cpms.com", role: "admin" }, config.jwtSecret);
+      const req: any = {
+        headers: { "x-access-token": token },
+      };
+      expect(isSuperAdminOrAdmin(req)).toBe(true);
+    });
+
+    it("should NOT exempt regular users (role: 'user')", () => {
+      const token = jwt.sign({ userId: 5, email: "driver@cpms.com", role: "user" }, config.jwtSecret);
+      const req: any = {
+        headers: { authorization: `Bearer ${token}` },
+      };
+      expect(isSuperAdminOrAdmin(req)).toBe(false);
+    });
+
+    it("should NOT exempt unauthenticated requests", () => {
+      const req: any = {
+        headers: {},
+      };
+      expect(isSuperAdminOrAdmin(req)).toBe(false);
+    });
+
+    it("should NOT exempt requests with invalid or malformed tokens", () => {
+      const req: any = {
+        headers: { authorization: "Bearer not-a-valid-jwt" },
+      };
+      expect(isSuperAdminOrAdmin(req)).toBe(false);
     });
   });
 });

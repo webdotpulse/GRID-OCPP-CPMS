@@ -474,7 +474,12 @@ export default function MobileSettingsPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => window.open(pass.appleWalletUrl, "_blank")}
+                    onClick={() => {
+                      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+                      const query = token ? `?token=${encodeURIComponent(token)}` : "";
+                      const base = pass.appleWalletUrl?.split("?")[0] || `/api/rfid/${pass.rfid_user_id}/apple-wallet`;
+                      window.open(`${base}${query}`, "_blank");
+                    }}
                     className="h-8 text-[11px] font-semibold rounded-lg bg-black text-white hover:bg-gray-800 hover:text-white border-0"
                   >
                     🍏 Apple Wallet
