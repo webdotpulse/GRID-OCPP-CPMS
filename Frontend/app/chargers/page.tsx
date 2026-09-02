@@ -83,7 +83,7 @@ export default function ChargersPage() {
   }
 
   const getChargerChannels = (charger: any): ChannelInfo[] => {
-    const channels: ChannelInfo[] = [];
+    const rawChannels: ChannelInfo[] = [];
 
     if (charger.evses && Array.isArray(charger.evses) && charger.evses.length > 0) {
       const sortedEvses = [...charger.evses].sort((a, b) => (a.evse_id ?? a.id ?? 0) - (b.evse_id ?? b.id ?? 0));
@@ -92,7 +92,7 @@ export default function ChargersPage() {
         if (evse.connectors && Array.isArray(evse.connectors) && evse.connectors.length > 0) {
           const sortedConns = [...evse.connectors].sort((a, b) => (a.connector_id ?? 0) - (b.connector_id ?? 0));
           for (const conn of sortedConns) {
-            channels.push({
+            rawChannels.push({
               id: conn.connector_id || `evse-${evse.id || evse.evse_id}-${fallbackIndex}`,
               name: conn.connector_name || `Channel ${fallbackIndex}`,
               status: conn.status || charger.status || "Offline",
@@ -105,7 +105,7 @@ export default function ChargersPage() {
       }
     } else if (charger.connectors && Array.isArray(charger.connectors) && charger.connectors.length > 0) {
       charger.connectors.forEach((conn: any, idx: number) => {
-        channels.push({
+        rawChannels.push({
           id: conn.connector_id || idx + 1,
           name: conn.connector_name || `Channel ${idx + 1}`,
           status: conn.status || charger.status || "Offline",
@@ -118,20 +118,44 @@ export default function ChargersPage() {
     // Handle combined paired charger (Channel 2 from paired charger)
     if (charger.isCombined && charger.pairedCharger) {
       const paired = charger.pairedCharger;
-      if (paired.evses && Array.isArray(paired.evses)) {
-        paired.evses.forEach((evse: any) => {
-          if (evse.connectors && Array.isArray(evse.connectors)) {
-            evse.connectors.forEach((conn: any) => {
-              channels.push({
-                id: `paired-${conn.connector_id}`,
-                name: conn.connector_name || `Channel 2`,
-                status: conn.status || paired.status || charger.status || "Offline",
-                current_type: conn.current_type,
-                max_power: conn.max_power,
-              });
-            });
-          }
+      const pairedConn = paired.evses?.[0]?.connectors?.[0] || paired.connectors?.[0];
+      const pairedStatus = pairedConn?.status || paired.status;
+
+      // Check if Channel 2 is already present in rawChannels
+      const existingCh2Index = rawChannels.findIndex(ch =>
+        ch.name.toLowerCase().includes("channel 2") ||
+        ch.name.toLowerCase().includes("ch 2") ||
+        ch.name.toLowerCase() === "channel 2"
+      );
+
+      if (existingCh2Index >= 0) {
+        // Channel 2 is already present from primary EVSE; sync live status from paired charger if active
+        if (pairedStatus && pairedStatus.toLowerCase() !== "offline" && pairedStatus.toLowerCase() !== "unavailable") {
+          rawChannels[existingCh2Index].status = pairedStatus;
+        }
+      } else {
+        // Primary didn't have Channel 2 in its own EVSE/connectors, add it from paired charger
+        rawChannels.push({
+          id: pairedConn ? `paired-${pairedConn.connector_id}` : `paired-${paired.charger_id}`,
+          name: pairedConn?.connector_name || "Channel 2",
+          status: pairedStatus || charger.status || "Offline",
+          current_type: pairedConn?.current_type,
+          max_power: pairedConn?.max_power,
         });
+      }
+    }
+
+    // Deduplicate channels by normalized channel name (e.g. "Channel 1", "Channel 2")
+    const seenNames = new Set<string>();
+    const channels: ChannelInfo[] = [];
+
+    for (const ch of rawChannels) {
+      const match = ch.name.match(/(\d+)/);
+      const key = match ? `channel-${match[1]}` : ch.name.trim().toLowerCase();
+
+      if (!seenNames.has(key)) {
+        seenNames.add(key);
+        channels.push(ch);
       }
     }
 

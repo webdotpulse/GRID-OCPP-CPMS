@@ -866,9 +866,16 @@ export const combineChargers = async (req: Request, res: Response) => {
       });
     }
 
-    // Ensure Channel 2 on Primary
-    const channel2 = primaryConnectors.find(c => c.connector_name === "Channel 2");
-    if (!channel2) {
+    // Ensure exactly one Channel 2 on Primary
+    const ch2Connectors = primaryConnectors.filter(c => c.connector_name === "Channel 2");
+    if (ch2Connectors.length > 1) {
+      // Clean up any extra redundant Channel 2 connectors
+      for (let i = 1; i < ch2Connectors.length; i++) {
+        await prisma.connector.delete({
+          where: { connector_id: ch2Connectors[i].connector_id },
+        });
+      }
+    } else if (ch2Connectors.length === 0) {
       const secConn = secondary.evses?.[0]?.connectors?.[0];
       const secStatus = secConn?.status || (secondary.status === "offline" ? "Unavailable" : "Available");
       await prisma.connector.create({
