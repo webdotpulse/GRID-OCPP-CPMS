@@ -23,6 +23,8 @@ describe("Benelux & Universal OCPP Configuration Profiles", () => {
     expect(profileIds).toContain("phoenix-contact-charx-sec3000-dc-optimized");
     expect(profileIds).toContain("phoenix-contact-charx-sec1000-ac-optimized");
     expect(profileIds).toContain("bender-cc613-charge-controller-optimized");
+    expect(profileIds).toContain("raedian-nex-optimized");
+    expect(profileIds).toContain("raedian-gemini-optimized");
   });
 
   it("should contain valid and complete keys in every profile", () => {
@@ -47,6 +49,57 @@ describe("Benelux & Universal OCPP Configuration Profiles", () => {
       expect(measurandsItem).toBeDefined();
       expect(measurandsItem!.value).toContain("Energy.Active.Import.Register");
     }
+  });
+
+  it("should configure Raedian NEX and Gemini profiles with exact specifications", () => {
+    const nex = BENELUX_CHARGER_PROFILES.find((p) => p.id === "raedian-nex-optimized");
+    expect(nex).toBeDefined();
+    expect(nex?.manufacturer).toBe("Raedian");
+    expect(nex?.category).toBe("Smart & Solar AC");
+
+    const nexKeys = new Map(nex!.items.map((i) => [i.key, i.value]));
+    expect(nexKeys.get("HeartbeatInterval")).toBe("60");
+    expect(nexKeys.get("ConnectionTimeOut")).toBe("30");
+    expect(nexKeys.get("ResetRetries")).toBe("3");
+    expect(nexKeys.get("TransactionMessageAttempts")).toBe("3");
+    expect(nexKeys.get("TransactionMessageRetryInterval")).toBe("10");
+    expect(nexKeys.get("AuthorizeRemoteTxRequests")).toBe("true");
+    expect(nexKeys.get("LocalAuthorizeOffline")).toBe("true");
+    expect(nexKeys.get("LocalPreAuthorize")).toBe("true");
+    expect(nexKeys.get("AllowOfflineTxForUnknownId")).toBe("false");
+    expect(nexKeys.get("UnlockConnectorOnEVSideDisconnect")).toBe("true");
+    expect(nexKeys.get("StopTransactionOnEVSideDisconnect")).toBe("true");
+    expect(nexKeys.get("StopTransactionOnInvalidId")).toBe("true");
+    expect(nexKeys.get("MeterValueSampleInterval")).toBe("60");
+    expect(nexKeys.get("MeterValuesSampledData")).toBe("Energy.Active.Import.Register,Power.Active.Import,Current.Import,Voltage");
+    expect(nexKeys.get("StopTxnSampledData")).toBe("Energy.Active.Import.Register");
+    expect(nexKeys.get("NumberOfConnectors")).toBe("1");
+    expect(nexKeys.get("ChargingScheduleAllowedChargingRateUnit")).toBe("Current,Power");
+
+    const gemini = BENELUX_CHARGER_PROFILES.find((p) => p.id === "raedian-gemini-optimized");
+    expect(gemini).toBeDefined();
+    expect(gemini?.manufacturer).toBe("Raedian");
+    expect(gemini?.category).toBe("Commercial & Fleet");
+
+    const geminiKeys = new Map(gemini!.items.map((i) => [i.key, i.value]));
+    expect(geminiKeys.get("HeartbeatInterval")).toBe("60");
+    expect(geminiKeys.get("ConnectionTimeOut")).toBe("30");
+    expect(geminiKeys.get("ResetRetries")).toBe("3");
+    expect(geminiKeys.get("TransactionMessageAttempts")).toBe("5");
+    expect(geminiKeys.get("TransactionMessageRetryInterval")).toBe("15");
+    expect(geminiKeys.get("AuthorizeRemoteTxRequests")).toBe("true");
+    expect(geminiKeys.get("LocalAuthorizeOffline")).toBe("true");
+    expect(geminiKeys.get("LocalPreAuthorize")).toBe("false");
+    expect(geminiKeys.get("AllowOfflineTxForUnknownId")).toBe("false");
+    expect(geminiKeys.get("UnlockConnectorOnEVSideDisconnect")).toBe("true");
+    expect(geminiKeys.get("StopTransactionOnEVSideDisconnect")).toBe("true");
+    expect(geminiKeys.get("StopTransactionOnInvalidId")).toBe("true");
+    expect(geminiKeys.get("MeterValueSampleInterval")).toBe("30");
+    expect(geminiKeys.get("MeterValuesSampledData")).toBe("Energy.Active.Import.Register,Power.Active.Import,Current.Import,Voltage,Current.Offered,Power.Offered");
+    expect(geminiKeys.get("StopTxnSampledData")).toBe("Energy.Active.Import.Register,Current.Import,Power.Active.Import");
+    expect(geminiKeys.get("NumberOfConnectors")).toBe("2");
+    expect(geminiKeys.get("MaxChargingProfilesInstalled")).toBe("10");
+    expect(geminiKeys.get("ChargingScheduleAllowedChargingRateUnit")).toBe("Current,Power");
   });
 
   it("should configure DC fast chargers with strict cable retention safety", () => {

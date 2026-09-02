@@ -38,6 +38,7 @@ flowchart LR
         COM["🇩🇪 Compleo\n(eBox, Duo, Cito)"]
         MEN["🇩🇪 Mennekes\n(AMTRON, AMEDIO)"]
         SCH["🇫🇷 Schneider\n(EVlink Pro AC)"]
+        RAE["⚡ Raedian\n(NEX & Gemini Dual)"]
     end
 
     subgraph Universal
@@ -58,6 +59,7 @@ flowchart LR
     CPMS <-->|OCPP 1.6-J / 2.0.1| COM
     CPMS <-->|OCPP 1.6-J / 2.0.1| MEN
     CPMS <-->|OCPP 1.6-J / 2.0.1| SCH
+    CPMS <-->|OCPP 1.6-J / 2.0.1| RAE
     CPMS <-->|OCPP 1.6-J / 2.0.1| UNI
 ```
 
@@ -568,6 +570,58 @@ flowchart LR
   TransactionMessageAttempts = 3
   TransactionMessageRetryInterval = 15
   ChargeProfileMaxStackLevel = 5
+  MaxChargingProfilesInstalled = 10
+  ChargingScheduleAllowedChargingRateUnit = Current,Power
+  ```
+
+---
+
+### 16. Raedian (Raedian NEX & Raedian Gemini Series)
+* **Market Position**: Fast-growing smart residential and commercial hardware family with native dynamic solar integration, intuitive LED indicators, and dual-connector workplace posts.
+* **Core Models**:
+  - `Raedian NEX` (7.4kW / 11kW / 22kW Single-Connector Smart Wallbox with RFID & Solar Routing)
+  - `Raedian Gemini` (Dual-Socket 2x11kW / 2x22kW Commercial & Fleet AC Charging Post)
+* **Hardware & Firmware Characteristics**:
+  - **Raedian NEX**: Configured for 60s sample intervals, active local pre-authorization (`LocalPreAuthorize=true`), and EV-side disconnect auto-unlocking for frictionless residential charging.
+  - **Raedian Gemini**: Tuned for commercial dual-port deployments with 30s telemetry, comprehensive measurand reporting (`Energy.Active.Import.Register`, `Power.Active.Import`, `Current.Import`, `Voltage`, `Current.Offered`, `Power.Offered`), 5 retry attempts with 15s intervals, automatic connector unlocking on EV-side disconnect (`UnlockConnectorOnEVSideDisconnect=true`), and multi-profile smart charging (up to 10 installed profiles).
+* **Raedian NEX Optimized Key-Value Settings**:
+  ```ini
+  HeartbeatInterval = 60
+  ConnectionTimeOut = 30
+  ResetRetries = 3
+  TransactionMessageAttempts = 3
+  TransactionMessageRetryInterval = 10
+  AuthorizeRemoteTxRequests = true
+  LocalAuthorizeOffline = true
+  LocalPreAuthorize = true
+  AllowOfflineTxForUnknownId = false
+  UnlockConnectorOnEVSideDisconnect = true
+  StopTransactionOnEVSideDisconnect = true
+  StopTransactionOnInvalidId = true
+  MeterValueSampleInterval = 60
+  MeterValuesSampledData = Energy.Active.Import.Register,Power.Active.Import,Current.Import,Voltage
+  StopTxnSampledData = Energy.Active.Import.Register
+  NumberOfConnectors = 1
+  ChargingScheduleAllowedChargingRateUnit = Current,Power
+  ```
+* **Raedian Gemini Optimized Key-Value Settings**:
+  ```ini
+  HeartbeatInterval = 60
+  ConnectionTimeOut = 30
+  ResetRetries = 3
+  TransactionMessageAttempts = 5
+  TransactionMessageRetryInterval = 15
+  AuthorizeRemoteTxRequests = true
+  LocalAuthorizeOffline = true
+  LocalPreAuthorize = false
+  AllowOfflineTxForUnknownId = false
+  UnlockConnectorOnEVSideDisconnect = true
+  StopTransactionOnEVSideDisconnect = true
+  StopTransactionOnInvalidId = true
+  MeterValueSampleInterval = 30
+  MeterValuesSampledData = Energy.Active.Import.Register,Power.Active.Import,Current.Import,Voltage,Current.Offered,Power.Offered
+  StopTxnSampledData = Energy.Active.Import.Register,Current.Import,Power.Active.Import
+  NumberOfConnectors = 2
   MaxChargingProfilesInstalled = 10
   ChargingScheduleAllowedChargingRateUnit = Current,Power
   ```
