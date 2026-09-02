@@ -94,6 +94,20 @@ interface CompanyItem {
   chargersCount: number;
   activeChargersCount: number;
   recentUsers?: Array<{ id: number; name?: string; email: string; role: string }>;
+  chargingStations?: Array<{
+    id: number;
+    station_name: string;
+    city?: string;
+    status?: string;
+    maxPower?: number;
+    chargers?: Array<{
+      charger_id: number;
+      name: string;
+      model?: string;
+      status: string;
+      power_capacity?: number;
+    }>;
+  }>;
   createdAt?: string;
 }
 
@@ -176,6 +190,44 @@ export default function UsersAdminPage() {
 
   const [selectedUserForDetails, setSelectedUserForDetails] = useState<UserItem | null>(null);
   const [selectedClientForDetails, setSelectedClientForDetails] = useState<CompanyItem | null>(null);
+  const [clientFullDetails, setClientFullDetails] = useState<any | null>(null);
+  const [isLoadingClientDetails, setIsLoadingClientDetails] = useState(false);
+  const [isSyncingStations, setIsSyncingStations] = useState(false);
+
+  const openClientDetails = async (c: CompanyItem) => {
+    setSelectedClientForDetails(c);
+    setClientFullDetails(c);
+    setIsLoadingClientDetails(true);
+    try {
+      const res = await api.get(`/companies/${c.id}`);
+      const data = res.data?.data || res.data;
+      if (data) {
+        setClientFullDetails(data);
+      }
+    } catch (err) {
+      console.error("Failed to load full company details", err);
+    } finally {
+      setIsLoadingClientDetails(false);
+    }
+  };
+
+  const handleSyncCompanyStations = async (companyId: number) => {
+    setIsSyncingStations(true);
+    try {
+      const res = await api.post(`/companies/${companyId}/sync-stations`);
+      toast.success(res.data?.message || "Successfully synced company stations");
+      await fetchCompanies();
+      const updated = await api.get(`/companies/${companyId}`);
+      if (updated.data?.data || updated.data) {
+        setClientFullDetails(updated.data?.data || updated.data);
+      }
+    } catch (err: any) {
+      console.error("Failed to sync stations", err);
+      toast.error(err.response?.data?.error || "Failed to auto-link stations");
+    } finally {
+      setIsSyncingStations(false);
+    }
+  };
 
   // Client Create/Edit Modal
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
@@ -1119,11 +1171,20 @@ export default function UsersAdminPage() {
 
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
+                            <Link href={`/stations/new?companyId=${c.id}`} title="Add Location for this Corporate Client">
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="rounded-lg text-[#3f78e0] hover:text-[#3f78e0] hover:bg-[#3f78e0]/10"
+                              >
+                                <Plus className="size-4" />
+                              </Button>
+                            </Link>
                             <Button
                               variant="ghost"
                               size="icon-sm"
-                              onClick={() => setSelectedClientForDetails(c)}
-                              title="View Client Profile"
+                              onClick={() => openClientDetails(c)}
+                              title="View Client Profile & Fleets"
                               className="rounded-lg text-muted-foreground hover:text-foreground"
                             >
                               <Info className="size-4" />
@@ -1869,7 +1930,7 @@ export default function UsersAdminPage() {
                 <Building2 className="size-5 text-[#3f78e0]" /> Client Organization Profile
               </SheetTitle>
               <SheetDescription className="text-xs">
-                Corporate fleet parameters, assigned stations, and linked employees.
+                Corporate fleet parameters, assigned locations, and connected EVSE chargers.
               </SheetDescription>
             </SheetHeader>
 
@@ -1888,12 +1949,94 @@ export default function UsersAdminPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="p-3 bg-card rounded-xl border border-border/50 text-center">
                     <span className="text-[10px] uppercase text-muted-foreground font-semibold">Linked Drivers</span>
-                    <p className="text-xl font-black text-foreground">{selectedClientForDetails.usersCount}</p>
+                    <p className="text-xl font-black text-foreground">{clientFullDetails?.usersCount ?? selectedClientForDetails.usersCount}</p>
                   </div>
                   <div className="p-3 bg-card rounded-xl border border-border/50 text-center">
                     <span className="text-[10px] uppercase text-muted-foreground font-semibold">Assigned Chargers</span>
-                    <p className="text-xl font-black text-foreground">{selectedClientForDetails.chargersCount}</p>
+                    <p className="text-xl font-black text-foreground">{clientFullDetails?.metrics?.totalChargers ?? clientFullDetails?.chargersCount ?? selectedClientForDetails.chargersCount}</p>
                   </div>
+                </div>
+
+                {/* Assigned Stations & Fleet Section */}
+                <div className="space-y-2 border-t border-border/60 pt-4">
+                  <div className="flex items-center justify-between">
+                    <h5 className="font-bold text-foreground uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+                      <Zap className="size-3.5 text-[#3f78e0]" /> Assigned Stations & Fleets ({clientFullDetails?.chargingStations?.length || 0})
+                    </h5>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 text-[10px] px-2 gap-1 rounded-md"
+                        onClick={() => handleSyncCompanyStations(selectedClientForDetails.id)}
+                        disabled={isSyncingStations}
+                        title="Auto-link stations owned by this company's users"
+                      >
+                        <RefreshCw className={`size-3 ${isSyncingStations ? "animate-spin" : ""}`} />
+                        Auto-Link
+                      </Button>
+                      <Link href={`/stations/new?companyId=${selectedClientForDetails.id}`}>
+                        <Button size="sm" variant="secondary" className="h-6 text-[10px] px-2 gap-1 rounded-md">
+                          <Plus className="size-3" /> Add Location
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+
+                  {isLoadingClientDetails ? (
+                    <div className="p-4 text-center text-muted-foreground">
+                      <Loader2 className="size-4 animate-spin mx-auto mb-1" />
+                      Loading fleet details...
+                    </div>
+                  ) : clientFullDetails?.chargingStations && clientFullDetails.chargingStations.length > 0 ? (
+                    <div className="space-y-2">
+                      {clientFullDetails.chargingStations.map((st: any) => (
+                        <div key={st.id} className="p-3 bg-card rounded-xl border border-border/60 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="font-bold text-foreground flex items-center gap-1.5">
+                              <MapPin className="size-3.5 text-muted-foreground" />
+                              {st.station_name}
+                              {st.city && <span className="text-[11px] font-normal text-muted-foreground">({st.city})</span>}
+                            </div>
+                            <Badge variant="outline" className="text-[10px]">
+                              {st.chargers?.length || 0} EVSEs
+                            </Badge>
+                          </div>
+
+                          {st.chargers && st.chargers.length > 0 && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                              {st.chargers.map((ch: any) => (
+                                <div key={ch.charger_id} className="p-2 rounded-lg bg-muted/30 border border-border/40 flex items-center justify-between text-[11px]">
+                                  <span className="font-medium text-foreground truncate max-w-[120px]">{ch.name}</span>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[9px] px-1.5 py-0 ${
+                                      ch.status === "Charging"
+                                        ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                        : ch.status === "Available"
+                                        ? "bg-[#54a8c7]/10 text-[#54a8c7] border-[#54a8c7]/20"
+                                        : "bg-muted text-muted-foreground"
+                                    }`}
+                                  >
+                                    {ch.status}
+                                  </Badge>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl border border-dashed border-border/80 text-center space-y-2 bg-muted/10">
+                      <p className="text-muted-foreground">No charging locations currently assigned.</p>
+                      <Link href={`/stations/new?companyId=${selectedClientForDetails.id}`}>
+                        <Button size="sm" variant="outline" className="text-xs gap-1">
+                          <Plus className="size-3.5" /> Add Location to Fleet
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2 border-t border-border/60 pt-4">
@@ -1943,7 +2086,12 @@ export default function UsersAdminPage() {
                   </div>
                 </div>
 
-                <div className="pt-4 flex justify-end gap-2">
+                <div className="pt-4 flex justify-between items-center gap-2">
+                  <Link href={`/chargers/new`}>
+                    <Button variant="outline" className="rounded-xl text-xs gap-1">
+                      <Plus className="size-3.5" /> Register Charger
+                    </Button>
+                  </Link>
                   <Button
                     onClick={() => {
                       const c = selectedClientForDetails;

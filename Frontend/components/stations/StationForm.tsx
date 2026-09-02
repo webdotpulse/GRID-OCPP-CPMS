@@ -5,14 +5,14 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Loader2, MapPin } from "lucide-react";
+import { Loader2, MapPin, Building2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEffect } from "react";
@@ -33,18 +33,23 @@ const stationSchema = z.object({
   isGroundPlanEnabled: z.boolean().optional(),
   maxPower: z.number().min(0).optional().nullable(),
   owner_id: z.number().optional(),
+  companyId: z.number().optional().nullable(),
 });
 
 type StationFormValues = z.infer<typeof stationSchema>;
 
 interface StationFormProps {
-  initialData?: StationFormValues & { id: number, owner_id?: number };
+  initialData?: StationFormValues & { id: number, owner_id?: number, companyId?: number | null };
 }
 
 export function StationForm({ initialData }: StationFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryCompanyId = searchParams?.get('companyId') ? parseInt(searchParams.get('companyId')!, 10) : undefined;
+
   const [isLoading, setIsLoading] = useState(false);
   const [usersList, setUsersList] = useState<any[]>([]);
+  const [companiesList, setCompaniesList] = useState<any[]>([]);
   const { user } = useAuth();
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<StationFormValues>({
@@ -52,6 +57,7 @@ export function StationForm({ initialData }: StationFormProps) {
     defaultValues: initialData || {
       latitude: 0,
       longitude: 0,
+      companyId: queryCompanyId,
     },
   });
 
@@ -94,6 +100,11 @@ export function StationForm({ initialData }: StationFormProps) {
       api.get('/users').then(res => {
         const list = Array.isArray(res.data?.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
         setUsersList(list);
+      }).catch(err => logger.error(err));
+
+      api.get('/companies').then(res => {
+        const list = Array.isArray(res.data?.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
+        setCompaniesList(list);
       }).catch(err => logger.error(err));
     }
   }, [user]);
@@ -139,6 +150,7 @@ export function StationForm({ initialData }: StationFormProps) {
       const payload = {
         ...data,
         owner_id: data.owner_id || initialData?.owner_id || user?.id,
+        companyId: data.companyId !== undefined ? data.companyId : (initialData?.companyId ?? null),
       };
       if (initialData) {
         await api.put(`/stations/${initialData.id}`, payload);
@@ -270,24 +282,51 @@ export function StationForm({ initialData }: StationFormProps) {
           </div>
 
           {(user?.role === 'admin' || user?.role === 'superadmin') && (
-            <div className="space-y-2">
-              <Label htmlFor="owner_id">Assign to Client</Label>
-              <Select
-                value={watch('owner_id')?.toString() || initialData?.owner_id?.toString() || user.id.toString()}
-                onValueChange={(val) => setValue('owner_id', parseInt(val))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a client user" />
-                </SelectTrigger>
-                <SelectContent>
-                  {usersList.map(u => (
-                    <SelectItem key={u.id} value={u.id.toString()}>
-                      {u.email} ({u.role})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">Select the user who will manage this station.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="companyId" className="flex items-center gap-1.5 font-semibold text-foreground">
+                  <Building2 className="size-4 text-[#3f78e0]" /> Corporate Client (Company)
+                </Label>
+                <Select
+                  value={watch('companyId')?.toString() || 'none'}
+                  onValueChange={(val) => setValue('companyId', val === 'none' ? null : parseInt(val, 10))}
+                >
+                  <SelectTrigger id="companyId">
+                    <SelectValue placeholder="Select Corporate Account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Corporate Account (Private / Standalone)</SelectItem>
+                    {companiesList.map(c => (
+                      <SelectItem key={c.id} value={c.id.toString()}>
+                        {c.name} {c.clientNumber ? `(${c.clientNumber})` : ''} {c.city ? `— ${c.city}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Links this location & its EVSEs directly to the corporate account's fleet ledger.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="owner_id">Assign Station Manager / User</Label>
+                <Select
+                  value={watch('owner_id')?.toString() || initialData?.owner_id?.toString() || user.id.toString()}
+                  onValueChange={(val) => setValue('owner_id', parseInt(val))}
+                >
+                  <SelectTrigger id="owner_id">
+                    <SelectValue placeholder="Select a user" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {usersList.map(u => (
+                      <SelectItem key={u.id} value={u.id.toString()}>
+                        {u.name ? `${u.name} (${u.email})` : u.email} — {u.role}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Primary contact user with station management rights.</p>
+              </div>
             </div>
           )}
         </CardContent>

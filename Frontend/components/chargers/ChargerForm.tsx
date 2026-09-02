@@ -51,6 +51,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const nameParam = searchParams.get('name');
+  const stationParam = searchParams.get('stationId');
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<ChargerFormValues>({
     resolver: zodResolver(chargerSchema),
@@ -67,6 +68,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
       localSolarKwp: initialData?.localSolarKwp || undefined,
     } : {
       name: nameParam || '',
+      charging_station_id: stationParam ? parseInt(stationParam, 10) : (undefined as any),
       isPublic: false,
       thirdPartyBackendUrl: undefined,
       isStraightThroughProxy: false,
@@ -150,7 +152,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
               {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="charging_station_id">Assign to Station</Label>
+              <Label htmlFor="charging_station_id">Assign to Station / Location</Label>
               <Select 
                 value={stationId ? stationId.toString() : ''} 
                 onValueChange={(val) => {
@@ -158,13 +160,23 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
                   setValue('charging_station_id', isNaN(num) ? undefined as any : num);
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger id="charging_station_id">
                   <SelectValue placeholder="Select a station" />
                 </SelectTrigger>
                 <SelectContent>
                   {stations.map(station => (
                     <SelectItem key={station.id || station.station_id} value={String(station.id || station.station_id)}>
-                      {station.station_name || station.name || `Station #${station.id}`}
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="font-semibold">{station.station_name || station.name || `Station #${station.id}`}</span>
+                        {station.company?.name && (
+                          <span className="text-[10px] font-bold text-[#3f78e0] bg-[#3f78e0]/10 border border-[#3f78e0]/20 px-1.5 py-0.5 rounded">
+                            🏢 {station.company.name}
+                          </span>
+                        )}
+                        {station.city && (
+                          <span className="text-[11px] text-muted-foreground">({station.city})</span>
+                        )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>

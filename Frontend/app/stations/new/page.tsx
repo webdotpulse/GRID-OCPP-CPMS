@@ -3,6 +3,7 @@ import { StationForm } from "@/components/stations/StationForm";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Suspense } from "react";
 
 export default function NewStationPage() {
   return (
@@ -18,7 +19,9 @@ export default function NewStationPage() {
           <p className="text-muted-foreground">Register a new physical location for your EV chargers.</p>
         </div>
       </div>
-      <StationForm />
+      <Suspense fallback={<div className="p-8 text-center text-muted-foreground text-sm">Loading location form...</div>}>
+        <StationForm />
+      </Suspense>
     </AppShell>
   );
 }

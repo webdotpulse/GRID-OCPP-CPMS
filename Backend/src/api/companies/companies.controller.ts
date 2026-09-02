@@ -225,10 +225,32 @@ export const getCompanyById = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Fetch all stations directly linked to company or owned by users in the company
+    const allCompanyStations = await prisma.chargingStation.findMany({
+      where: {
+        OR: [
+          { companyId: id },
+          { owner: { companyId: id } },
+        ],
+      },
+      include: {
+        chargers: {
+          select: {
+            charger_id: true,
+            name: true,
+            model: true,
+            status: true,
+            power_capacity: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
     let totalChargersCount = 0;
     let totalPowerCapacityKw = 0;
 
-    for (const station of company.chargingStations) {
+    for (const station of allCompanyStations) {
       for (const charger of station.chargers) {
         totalChargersCount += 1;
         totalPowerCapacityKw += charger.power_capacity || 0;
@@ -239,10 +261,11 @@ export const getCompanyById = async (req: AuthRequest, res: Response) => {
       success: true,
       data: {
         ...company,
+        chargingStations: allCompanyStations,
         clientNumber: company.clientNumber || `CLI-${company.id.toString().padStart(4, "0")}`,
         metrics: {
           totalUsers: company._count.users,
-          totalStations: company._count.chargingStations,
+          totalStations: allCompanyStations.length,
           totalChargers: totalChargersCount,
           totalPowerCapacityKw,
           totalInvoices: company._count.invoices,
@@ -252,6 +275,51 @@ export const getCompanyById = async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     logger.error(`Error getting company: ${error.message}`);
     res.status(500).json({ success: false, error: "Failed to get company details" });
+  }
+};
+
+/**
+ * POST /api/companies/:id/sync-stations - Auto-link stations owned by company users
+ */
+export const syncCompanyStations = async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) {
+      return res.status(400).json({ success: false, error: "Invalid company ID" });
+    }
+
+    if (req.userRole !== "superadmin" && req.userRole !== "admin") {
+      const currentUser = await prisma.user.findUnique({ where: { id: req.userId }, select: { companyId: true } });
+      if (!currentUser?.companyId || currentUser.companyId !== id) {
+        return res.status(403).json({ success: false, error: "Access denied" });
+      }
+    }
+
+    const companyUsers = await prisma.user.findMany({
+      where: { companyId: id },
+      select: { id: true },
+    });
+    const userIds = companyUsers.map((u) => u.id);
+
+    const updateResult = await prisma.chargingStation.updateMany({
+      where: {
+        owner_id: { in: userIds },
+        companyId: null,
+      },
+      data: {
+        companyId: id,
+      },
+    });
+
+    logger.info(`Auto-linked ${updateResult.count} stations to company ID ${id}`);
+    res.json({
+      success: true,
+      message: `Successfully linked ${updateResult.count} station(s) to company fleet`,
+      linkedCount: updateResult.count,
+    });
+  } catch (error: any) {
+    logger.error(`Error syncing company stations: ${error.message}`);
+    res.status(500).json({ success: false, error: "Failed to sync company stations" });
   }
 };
 

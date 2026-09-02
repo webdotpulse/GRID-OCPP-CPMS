@@ -60,7 +60,8 @@ export const getAllStations = async (req: Request, res: Response) => {
         take,
         where,
         include: {
-          owner: { select: { id: true, email: true } },
+          owner: { select: { id: true, email: true, companyId: true } },
+          company: { select: { id: true, name: true, clientNumber: true } },
           parkingSpots: true,
           chargers: {
             include: { evses: { include: { connectors: true } } },
@@ -120,6 +121,7 @@ export const getStationById = async (req: Request, res: Response) => {
       where: { id: stationId },
       include: {
         owner: { select: { id: true, email: true, companyId: true } },
+        company: { select: { id: true, name: true, clientNumber: true } },
         parkingSpots: true,
         chargers: {
           include: { evses: { include: { connectors: true } } },
@@ -253,8 +255,15 @@ export const createStation = async (req: Request, res: Response) => {
       });
     }
 
-    let companyId = (data as any).companyId || owner.companyId || null;
-    if (userRole !== "superadmin") {
+    let companyId: number | null = null;
+    if ((data as any).companyId !== undefined) {
+      const parsed = (data as any).companyId === null || (data as any).companyId === "" ? null : Number((data as any).companyId);
+      companyId = !isNaN(parsed as number) && parsed !== null ? parsed : null;
+    } else {
+      companyId = owner.companyId || null;
+    }
+
+    if (userRole !== "superadmin" && userRole !== "admin") {
       const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
       companyId = currentUser?.companyId || owner.companyId || null;
     }
@@ -265,7 +274,11 @@ export const createStation = async (req: Request, res: Response) => {
         owner_id: targetOwnerId,
         companyId,
       } as any,
-      include: { owner: true, chargers: true },
+      include: {
+        owner: true,
+        company: { select: { id: true, name: true, clientNumber: true } },
+        chargers: true,
+      },
     });
 
     if (station.owner) {
@@ -325,7 +338,12 @@ export const updateStation = async (req: Request, res: Response) => {
     }
 
     const updatePayload = { ...req.body };
-    if (userRole !== "superadmin") {
+    if (updatePayload.companyId !== undefined) {
+      const parsed = updatePayload.companyId === null || updatePayload.companyId === "" ? null : Number(updatePayload.companyId);
+      updatePayload.companyId = !isNaN(parsed as number) && parsed !== null ? parsed : null;
+    }
+
+    if (userRole !== "superadmin" && userRole !== "admin") {
       delete updatePayload.companyId;
       delete updatePayload.owner_id;
     }
@@ -333,7 +351,11 @@ export const updateStation = async (req: Request, res: Response) => {
     const station = await prisma.chargingStation.update({
       where: { id: stationId },
       data: updatePayload,
-      include: { owner: true, chargers: true },
+      include: {
+        owner: true,
+        company: { select: { id: true, name: true, clientNumber: true } },
+        chargers: true,
+      },
     });
 
     if (station.owner) {
