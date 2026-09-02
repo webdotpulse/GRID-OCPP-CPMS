@@ -89,14 +89,28 @@ export async function normalizeMeterValues(
 /**
  * Resolves a mapped card ID / idTag based on quirk profile rules.
  * Supports:
- * 1. Object format: rules.cardIdMapping = { "SOLAR_TAG": "REAL_TAG" } or rules.solarCardIdMapping = { ... }
- * 2. Array format: rules.cardMappings = [{ from: "SOLAR_TAG", to: "REAL_TAG" }]
- * 3. Case-insensitive lookup fallback
- * 4. Fallback / Wildcard mapping: rules.cardIdMapping["*"] or rules.defaultForwardCardId
+ * 1. Single Universal Card mode: rules.mapAllCardsTo = "TARGET_TAG" (maps all incoming cards to 1 single target card)
+ * 2. Object format: rules.cardIdMapping = { "SOLAR_TAG": "REAL_TAG" } or rules.solarCardIdMapping = { ... }
+ * 3. Array format: rules.cardMappings = [{ from: "SOLAR_TAG", to: "REAL_TAG" }]
+ * 4. Case-insensitive lookup fallback
+ * 5. Fallback / Wildcard mapping: rules.cardIdMapping["*"] / ["ALL"] or rules.defaultForwardCardId / rules.singleCardId
  */
 export function resolveMappedCardId(originalCardId: string, rules?: any): string {
   if (!originalCardId || !rules) {
     return originalCardId;
+  }
+
+  // 1. Check explicit "map all incoming cards to 1 single card" property
+  const universalCardId =
+    rules.mapAllCardsTo ||
+    rules.singleCardId ||
+    rules.mapAllTo ||
+    rules.allCardsMappedTo ||
+    rules.defaultForwardCardId;
+
+  if (typeof universalCardId === "string" && universalCardId.trim()) {
+    logger.debug(`[Quirk] Mapped all incoming cards (${originalCardId}) to single card ID: ${universalCardId.trim()}`);
+    return universalCardId.trim();
   }
 
   const rawMappings = rules.cardIdMapping || rules.solarCardIdMapping || rules.cardMappings || rules.idTagMapping;
@@ -104,8 +118,9 @@ export function resolveMappedCardId(originalCardId: string, rules?: any): string
     return originalCardId;
   }
 
-  // 1. Array of mappings: [{ from: "A", to: "B" }]
+  // 2. Array of mappings: [{ from: "A", to: "B" }]
   if (Array.isArray(rawMappings)) {
+    // Specific match
     const match = rawMappings.find(
       (m: any) => m && (m.from === originalCardId || (typeof m.from === "string" && m.from.toUpperCase() === originalCardId.toUpperCase()))
     );
@@ -113,9 +128,18 @@ export function resolveMappedCardId(originalCardId: string, rules?: any): string
       logger.debug(`[Quirk] Resolved card ID from ${originalCardId} to ${match.to}`);
       return match.to;
     }
+
+    // Wildcard match in array: from: "*" or "ALL" or "ANY"
+    const wildcardMatch = rawMappings.find(
+      (m: any) => m && typeof m.from === "string" && (m.from === "*" || m.from.toUpperCase() === "ALL" || m.from.toUpperCase() === "ANY")
+    );
+    if (wildcardMatch && wildcardMatch.to) {
+      logger.debug(`[Quirk] Resolved card ID via array wildcard from ${originalCardId} to ${wildcardMatch.to}`);
+      return wildcardMatch.to;
+    }
   }
 
-  // 2. Object of key-value pairs: { "A": "B" }
+  // 3. Object of key-value pairs: { "A": "B" }
   if (typeof rawMappings === "object" && !Array.isArray(rawMappings)) {
     // Exact match
     if (rawMappings[originalCardId]) {
@@ -130,17 +154,18 @@ export function resolveMappedCardId(originalCardId: string, rules?: any): string
         return rawMappings[key];
       }
     }
-    // Wildcard match
-    if (rawMappings["*"]) {
-      logger.debug(`[Quirk] Resolved card ID via wildcard from ${originalCardId} to ${rawMappings["*"]}`);
-      return rawMappings["*"];
-    }
-  }
+    // Wildcard match ("*", "ALL", "ANY")
+    const wildcardVal =
+      rawMappings["*"] ||
+      rawMappings["ALL"] ||
+      rawMappings["all"] ||
+      rawMappings["ANY"] ||
+      rawMappings["any"];
 
-  // 3. Fallback defaultForwardCardId if specified
-  if (rules.defaultForwardCardId) {
-    logger.debug(`[Quirk] Resolved card ID via defaultForwardCardId from ${originalCardId} to ${rules.defaultForwardCardId}`);
-    return rules.defaultForwardCardId;
+    if (wildcardVal && typeof wildcardVal === "string") {
+      logger.debug(`[Quirk] Resolved card ID via wildcard from ${originalCardId} to ${wildcardVal}`);
+      return wildcardVal;
+    }
   }
 
   return originalCardId;

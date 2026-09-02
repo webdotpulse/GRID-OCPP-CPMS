@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { Plus, Trash, Download, Upload, Save, Edit, Sun, CreditCard, ArrowRight, ShieldAlert, Sparkles, Layers, Info } from "lucide-react";
+import { Plus, Trash, Download, Upload, Save, Edit, Sun, CreditCard, ArrowRight, ShieldAlert, Sparkles, Layers } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,8 @@ export default function QuirkProfilesPage() {
   // Form states
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [mapAllCards, setMapAllCards] = useState(false);
+  const [singleTargetCardId, setSingleTargetCardId] = useState("");
   const [cardMappings, setCardMappings] = useState<CardMapping[]>([]);
   const [ignoreMeterStart, setIgnoreMeterStart] = useState(false);
   const [calculatePower, setCalculatePower] = useState(false);
@@ -71,9 +74,27 @@ export default function QuirkProfilesPage() {
 
     // Parse object format: rules.cardIdMapping or rules.solarCardIdMapping
     const rawMap = rulesObj?.cardIdMapping || rulesObj?.solarCardIdMapping || rulesObj?.idTagMapping;
+
+    // Check if universal single card mapping is configured
+    const universalCardId =
+      rulesObj?.mapAllCardsTo ||
+      rulesObj?.singleCardId ||
+      rulesObj?.mapAllTo ||
+      rulesObj?.allCardsMappedTo ||
+      rulesObj?.defaultForwardCardId ||
+      (rawMap && typeof rawMap === "object" && !Array.isArray(rawMap) && (rawMap["*"] || rawMap["ALL"] || rawMap["any"]));
+
+    if (universalCardId && typeof universalCardId === "string") {
+      setMapAllCards(true);
+      setSingleTargetCardId(universalCardId);
+    } else {
+      setMapAllCards(false);
+      setSingleTargetCardId("");
+    }
+
     if (rawMap && typeof rawMap === "object" && !Array.isArray(rawMap)) {
       for (const [from, to] of Object.entries(rawMap)) {
-        if (typeof to === "string") {
+        if (typeof to === "string" && from !== "*" && from !== "ALL" && from !== "any") {
           mappings.push({ from, to });
         }
       }
@@ -95,7 +116,9 @@ export default function QuirkProfilesPage() {
     mappings: CardMapping[],
     ignoreStart: boolean,
     calcPwr: boolean,
-    estEnergy: boolean
+    estEnergy: boolean,
+    isMapAll: boolean = mapAllCards,
+    targetSingleCard: string = singleTargetCardId
   ) => {
     let currentObj: any = {};
     try {
@@ -104,19 +127,31 @@ export default function QuirkProfilesPage() {
       currentObj = {};
     }
 
-    // Build cardIdMapping map
-    if (mappings.length > 0) {
-      const mapObj: Record<string, string> = {};
-      mappings.forEach((m) => {
-        if (m.from.trim() && m.to.trim()) {
-          mapObj[m.from.trim()] = m.to.trim();
-        }
-      });
-      currentObj.cardIdMapping = mapObj;
-    } else {
-      delete currentObj.cardIdMapping;
+    if (isMapAll && targetSingleCard.trim()) {
+      currentObj.mapAllCardsTo = targetSingleCard.trim();
+      currentObj.cardIdMapping = { "*": targetSingleCard.trim() };
       delete currentObj.solarCardIdMapping;
       delete currentObj.cardMappings;
+    } else {
+      delete currentObj.mapAllCardsTo;
+      delete currentObj.singleCardId;
+      delete currentObj.mapAllTo;
+      delete currentObj.allCardsMappedTo;
+      delete currentObj.defaultForwardCardId;
+
+      if (mappings.length > 0) {
+        const mapObj: Record<string, string> = {};
+        mappings.forEach((m) => {
+          if (m.from.trim() && m.to.trim()) {
+            mapObj[m.from.trim()] = m.to.trim();
+          }
+        });
+        currentObj.cardIdMapping = mapObj;
+      } else {
+        delete currentObj.cardIdMapping;
+        delete currentObj.solarCardIdMapping;
+        delete currentObj.cardMappings;
+      }
     }
 
     if (ignoreStart) {
@@ -152,6 +187,8 @@ export default function QuirkProfilesPage() {
       setEditingProfile(null);
       setName("");
       setDescription("");
+      setMapAllCards(false);
+      setSingleTargetCardId("");
       setCardMappings([]);
       setIgnoreMeterStart(false);
       setCalculatePower(false);
@@ -165,43 +202,57 @@ export default function QuirkProfilesPage() {
   const handleAddCardMapping = () => {
     const updated = [...cardMappings, { from: "", to: "" }];
     setCardMappings(updated);
-    syncVisualStateToJson(updated, ignoreMeterStart, calculatePower, estimateEnergy);
+    syncVisualStateToJson(updated, ignoreMeterStart, calculatePower, estimateEnergy, mapAllCards, singleTargetCardId);
   };
 
   const handleUpdateCardMapping = (index: number, field: "from" | "to", value: string) => {
     const updated = [...cardMappings];
     updated[index][field] = value;
     setCardMappings(updated);
-    syncVisualStateToJson(updated, ignoreMeterStart, calculatePower, estimateEnergy);
+    syncVisualStateToJson(updated, ignoreMeterStart, calculatePower, estimateEnergy, mapAllCards, singleTargetCardId);
   };
 
   const handleRemoveCardMapping = (index: number) => {
     const updated = cardMappings.filter((_, i) => i !== index);
     setCardMappings(updated);
-    syncVisualStateToJson(updated, ignoreMeterStart, calculatePower, estimateEnergy);
+    syncVisualStateToJson(updated, ignoreMeterStart, calculatePower, estimateEnergy, mapAllCards, singleTargetCardId);
   };
 
   const handleToggleIgnoreMeterStart = (val: boolean) => {
     setIgnoreMeterStart(val);
-    syncVisualStateToJson(cardMappings, val, calculatePower, estimateEnergy);
+    syncVisualStateToJson(cardMappings, val, calculatePower, estimateEnergy, mapAllCards, singleTargetCardId);
   };
 
   const handleToggleCalculatePower = (val: boolean) => {
     setCalculatePower(val);
-    syncVisualStateToJson(cardMappings, ignoreMeterStart, val, estimateEnergy);
+    syncVisualStateToJson(cardMappings, ignoreMeterStart, val, estimateEnergy, mapAllCards, singleTargetCardId);
   };
 
   const handleApplyTemplate = (templateName: string) => {
-    if (templateName === "solar") {
+    if (templateName === "universal") {
+      setName((prev) => prev || "Universal Single Card Mapping");
+      setDescription(
+        (prev) =>
+          prev ||
+          "Maps all incoming RFID card swipes, Plug & Charge tokens, and solar tags to a single master RFID card."
+      );
+      setMapAllCards(true);
+      setSingleTargetCardId("NL-MINT-00012345");
+      setCardMappings([]);
+      syncVisualStateToJson([], ignoreMeterStart, calculatePower, estimateEnergy, true, "NL-MINT-00012345");
+      toast.success("Loaded Universal Single Card template");
+    } else if (templateName === "solar") {
       setName((prev) => prev || "Solar Mode Card ID Translation");
       setDescription(
         (prev) =>
           prev ||
           "Translates solar modus RFID tag emitted by charger into the customer card ID for 3rd-party backend proxying."
       );
+      setMapAllCards(false);
+      setSingleTargetCardId("");
       const newMappings = [{ from: "SOLAR_DEFAULT", to: "NL-MINT-00012345" }];
       setCardMappings(newMappings);
-      syncVisualStateToJson(newMappings, ignoreMeterStart, calculatePower, estimateEnergy);
+      syncVisualStateToJson(newMappings, ignoreMeterStart, calculatePower, estimateEnergy, false, "");
       toast.success("Loaded Solar Mode Translation template");
     } else if (templateName === "alfen") {
       setName((prev) => prev || "Alfen Solar & Zero-TxId Quirk");
@@ -210,10 +261,12 @@ export default function QuirkProfilesPage() {
           prev ||
           "Remaps solar smart charging tag to roaming tag and handles Alfen meterStart quirks."
       );
+      setMapAllCards(false);
+      setSingleTargetCardId("");
       const newMappings = [{ from: "EVE_SOLAR", to: "NL-ALL-99887766" }];
       setCardMappings(newMappings);
       setIgnoreMeterStart(true);
-      syncVisualStateToJson(newMappings, true, calculatePower, estimateEnergy);
+      syncVisualStateToJson(newMappings, true, calculatePower, estimateEnergy, false, "");
       toast.success("Loaded Alfen Quirk template");
     }
   };
@@ -267,15 +320,15 @@ export default function QuirkProfilesPage() {
 
   const handleExport = (profile: QuirkProfile) => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(profile, null, 2));
-    const downloadAnchorNode = document.createElement("a");
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `${profile.name.replace(/\s+/g, "_")}_quirk_profile.json`);
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+    const downloadAnchor = document.createElement("a");
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `quirk-profile-${profile.name.toLowerCase().replace(/\s+/g, "-")}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -283,20 +336,16 @@ export default function QuirkProfilesPage() {
     reader.onload = async (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
-        if (Array.isArray(json)) {
-          await api.post("/quirk-profiles/import", json);
-          toast.success("Profiles imported successfully");
-          fetchProfiles();
-        } else if (json.name && json.rules) {
+        if (json.name && json.rules) {
           await api.post("/quirk-profiles", {
-            name: `${json.name} (Imported)`,
-            description: json.description,
+            name: json.name + " (Imported)",
+            description: json.description || null,
             rules: json.rules,
           });
           toast.success("Profile imported successfully");
           fetchProfiles();
         } else {
-          toast.error("Invalid profile format");
+          toast.error("Invalid quirk profile JSON format");
         }
       } catch {
         toast.error("Failed to parse JSON");
@@ -307,6 +356,9 @@ export default function QuirkProfilesPage() {
   };
 
   const getProfileMappingsCount = (rules: any) => {
+    if (rules?.mapAllCardsTo || rules?.singleCardId || rules?.mapAllTo || rules?.cardIdMapping?.["*"] || rules?.cardIdMapping?.["ALL"]) {
+      return 1;
+    }
     const map = rules?.cardIdMapping || rules?.solarCardIdMapping || rules?.idTagMapping;
     if (map && typeof map === "object" && !Array.isArray(map)) {
       return Object.keys(map).length;
@@ -388,6 +440,15 @@ export default function QuirkProfilesPage() {
                       variant="outline"
                       size="sm"
                       className="h-7 text-xs bg-background/50 hover:bg-background"
+                      onClick={() => handleApplyTemplate("universal")}
+                    >
+                      <CreditCard className="w-3 h-3 mr-1 text-emerald-500" /> Single Universal Card
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs bg-background/50 hover:bg-background"
                       onClick={() => handleApplyTemplate("solar")}
                     >
                       <Sun className="w-3 h-3 mr-1 text-amber-500" /> Solar Mode Translation
@@ -434,36 +495,83 @@ export default function QuirkProfilesPage() {
                   {activeTab === "visual" ? (
                     <div className="space-y-6">
                       {/* Solar Card ID / Hardware Card Translation Section */}
-                      <div className="p-4 border rounded-xl bg-card/60 space-y-3">
-                        <div className="flex justify-between items-center">
+                      <div className="p-4 border rounded-xl bg-card/60 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div>
                             <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
                               <CreditCard className="w-4 h-4 text-amber-500" />
                               Solar Mode & Charge Card ID Translation
                             </h4>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              When a charger emits an internal solar mode card ID, CPMS translates it to the forwarded card ID before sending to the 3rd-party backend URL.
+                              Translate solar mode tags and hardware RFID cards to designated target card IDs for local authorization and 3rd-party backend proxying.
                             </p>
                           </div>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            onClick={handleAddCardMapping}
-                            className="h-8 text-xs"
-                          >
-                            <Plus className="w-3.5 h-3.5 mr-1" /> Add Card Mapping
-                          </Button>
+                          {!mapAllCards && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              onClick={handleAddCardMapping}
+                              className="h-8 text-xs shrink-0 self-start sm:self-auto"
+                            >
+                              <Plus className="w-3.5 h-3.5 mr-1" /> Add Card Mapping
+                            </Button>
+                          )}
                         </div>
 
-                        {cardMappings.length === 0 ? (
+                        {/* Mode Toggle: Map All to 1 Single Card */}
+                        <div className="p-3 bg-muted/40 rounded-lg border border-border/60 flex items-center justify-between gap-4">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="map-all-cards" className="text-xs font-semibold cursor-pointer flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Map ALL incoming RFID cards to 1 single card ID
+                            </Label>
+                            <p className="text-[11px] text-muted-foreground">
+                              Every scanned RFID card, solar mode tag, or Plug & Charge token will be automatically translated to one universal card ID.
+                            </p>
+                          </div>
+                          <Switch
+                            id="map-all-cards"
+                            checked={mapAllCards}
+                            onCheckedChange={(checked) => {
+                              setMapAllCards(checked);
+                              if (checked && !singleTargetCardId) {
+                                setSingleTargetCardId("NL-MINT-00012345");
+                                syncVisualStateToJson(cardMappings, ignoreMeterStart, calculatePower, estimateEnergy, true, "NL-MINT-00012345");
+                              } else {
+                                syncVisualStateToJson(cardMappings, ignoreMeterStart, calculatePower, estimateEnergy, checked, singleTargetCardId);
+                              }
+                            }}
+                          />
+                        </div>
+
+                        {mapAllCards ? (
+                          <div className="p-3.5 bg-card/90 rounded-lg border border-primary/20 space-y-2">
+                            <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                              <CreditCard className="w-3.5 h-3.5 text-emerald-500" />
+                              Universal Target Master RFID Card ID
+                            </Label>
+                            <Input
+                              value={singleTargetCardId}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setSingleTargetCardId(val);
+                                syncVisualStateToJson(cardMappings, ignoreMeterStart, calculatePower, estimateEnergy, true, val);
+                              }}
+                              placeholder="e.g. NL-MINT-00012345 or FLEET_MASTER_CARD"
+                              className="h-9 text-xs font-mono"
+                            />
+                            <p className="text-[11px] text-muted-foreground">
+                              All incoming sessions will be assigned to this target card tag for whitelisting, roaming, and 3rd-party backend forwarding.
+                            </p>
+                          </div>
+                        ) : cardMappings.length === 0 ? (
                           <div className="text-xs text-muted-foreground border border-dashed rounded-lg p-4 text-center">
-                            No card ID mappings configured. Click <strong>Add Card Mapping</strong> to remap solar tags to customer card IDs.
+                            No card ID mappings configured. Click <strong>Add Card Mapping</strong> or toggle <strong>Map ALL incoming cards</strong> above.
                           </div>
                         ) : (
                           <div className="space-y-2">
                             <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-muted-foreground px-1">
-                              <div className="col-span-5">Source Card ID (Solar Mode / Hardware Tag)</div>
+                              <div className="col-span-5">Source Card ID (Solar Mode / Hardware Tag or *)</div>
                               <div className="col-span-1 text-center"></div>
                               <div className="col-span-5">Forwarded Target Card ID (Upstream / Roaming)</div>
                               <div className="col-span-1"></div>
@@ -474,7 +582,7 @@ export default function QuirkProfilesPage() {
                                   <Input
                                     value={mapping.from}
                                     onChange={(e) => handleUpdateCardMapping(idx, "from", e.target.value)}
-                                    placeholder="e.g. SOLAR_DEFAULT or EVE001"
+                                    placeholder="e.g. SOLAR_DEFAULT or *"
                                     className="h-8 text-xs font-mono"
                                   />
                                 </div>
@@ -558,7 +666,7 @@ export default function QuirkProfilesPage() {
                             // wait for valid JSON
                           }
                         }}
-                        placeholder='{ "cardIdMapping": { "SOLAR_TAG": "TARGET_TAG" }, "ignoreMeterStart": true }'
+                        placeholder='{ "mapAllCardsTo": "NL-MINT-00012345", "ignoreMeterStart": true }'
                         rows={12}
                         className="font-mono text-xs"
                       />
@@ -594,6 +702,24 @@ export default function QuirkProfilesPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {profiles.map((profile) => {
+              const isUniversal = Boolean(
+                profile.rules?.mapAllCardsTo ||
+                profile.rules?.singleCardId ||
+                profile.rules?.mapAllTo ||
+                profile.rules?.allCardsMappedTo ||
+                profile.rules?.defaultForwardCardId ||
+                profile.rules?.cardIdMapping?.["*"] ||
+                profile.rules?.cardIdMapping?.["ALL"]
+              );
+              const universalId =
+                profile.rules?.mapAllCardsTo ||
+                profile.rules?.singleCardId ||
+                profile.rules?.mapAllTo ||
+                profile.rules?.allCardsMappedTo ||
+                profile.rules?.defaultForwardCardId ||
+                profile.rules?.cardIdMapping?.["*"] ||
+                profile.rules?.cardIdMapping?.["ALL"];
+
               const mappingsCount = getProfileMappingsCount(profile.rules);
               const hasSolarMapping = mappingsCount > 0;
               const hasIgnoreMeterStart = Boolean(profile.rules?.ignoreMeterStart);
@@ -617,12 +743,17 @@ export default function QuirkProfilesPage() {
                   <CardContent className="space-y-4 flex-1 flex flex-col justify-between">
                     <div className="space-y-2">
                       <div className="flex flex-wrap gap-1.5">
-                        {hasSolarMapping && (
+                        {isUniversal ? (
+                          <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-xs border border-emerald-500/20">
+                            <CreditCard className="w-3 h-3 mr-1" />
+                            Universal Single Card
+                          </Badge>
+                        ) : hasSolarMapping ? (
                           <Badge variant="secondary" className="bg-amber-500/15 text-amber-600 dark:text-amber-400 text-xs border border-amber-500/20">
                             <Sun className="w-3 h-3 mr-1" />
                             Card Translation ({mappingsCount})
                           </Badge>
-                        )}
+                        ) : null}
                         {hasIgnoreMeterStart && (
                           <Badge variant="outline" className="text-xs">
                             Ignore MeterStart
@@ -635,7 +766,18 @@ export default function QuirkProfilesPage() {
                         )}
                       </div>
 
-                      {hasSolarMapping && (
+                      {isUniversal && universalId ? (
+                        <div className="p-2.5 bg-muted/40 rounded-lg text-xs space-y-1 font-mono text-muted-foreground">
+                          <div className="text-[10px] font-sans font-medium uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                            <Sparkles className="w-3 h-3" /> All Cards Mapped To:
+                          </div>
+                          <div className="truncate flex items-center gap-1.5">
+                            <span className="text-muted-foreground font-semibold">ALL Cards (*)</span>
+                            <span>→</span>
+                            <span className="text-emerald-500 font-semibold">{String(universalId)}</span>
+                          </div>
+                        </div>
+                      ) : hasSolarMapping ? (
                         <div className="p-2.5 bg-muted/40 rounded-lg text-xs space-y-1 font-mono text-muted-foreground">
                           <div className="text-[10px] font-sans font-medium uppercase tracking-wider text-muted-foreground/80">
                             Active Mappings:
@@ -657,7 +799,7 @@ export default function QuirkProfilesPage() {
                             return null;
                           })()}
                         </div>
-                      )}
+                      ) : null}
                     </div>
 
                     <div className="flex flex-wrap gap-2 pt-2 border-t">

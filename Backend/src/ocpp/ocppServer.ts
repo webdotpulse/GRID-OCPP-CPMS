@@ -380,11 +380,7 @@ class OcppServer {
       chargerRegistry.register(chargerId, charger.name, ws);
 
       if (charger.thirdPartyBackendUrl) {
-        let thirdPartyUrl = charger.thirdPartyBackendUrl;
-        if (thirdPartyUrl && !thirdPartyUrl.endsWith(charger.name)) {
-            thirdPartyUrl = thirdPartyUrl.endsWith('/') ? thirdPartyUrl + charger.name : thirdPartyUrl + '/' + charger.name;
-        }
-        proxyRouter.setupProxy(chargerId, thirdPartyUrl, ws.protocol);
+        proxyRouter.setupProxy(chargerId, charger.thirdPartyBackendUrl, ws.protocol, charger.name);
       }
 
       ws.on("message", async (data: Buffer) => {
@@ -398,7 +394,7 @@ class OcppServer {
           // Log incoming message
           logger.info(`📩 [OCPP IN] Charger ${chargerId} [${ws.protocol}]: ${JSON.stringify(message)}`);
 
-          if (proxyRouter.hasProxy(chargerId)) {
+          if (proxyRouter.isProxyConfigured(chargerId) || proxyRouter.hasProxy(chargerId)) {
             await proxyRouter.handleMessageFromCharger(chargerId, message, ws.protocol);
           } else {
             await this.handleOcppMessage(chargerId, message, ws.protocol);

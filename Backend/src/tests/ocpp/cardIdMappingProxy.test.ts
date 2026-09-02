@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 
-jest.mock('../../config/redis.js', () => ({
+jest.unstable_mockModule('../../config/redis.js', () => ({
   redisPublisher: {
     publish: jest.fn().mockResolvedValue(1 as never),
   },
@@ -12,66 +12,41 @@ jest.mock('../../config/redis.js', () => ({
   },
   redisClient: {
     get: jest.fn(),
+    hget: jest.fn(),
     set: jest.fn(),
     expire: jest.fn(),
+    exists: jest.fn(),
   },
 }));
 
-jest.mock('../../config/database.js', () => ({
-  prisma: {
-    charger: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      update: jest.fn(),
-    },
-    rfidUser: {
-      findUnique: jest.fn(),
-    },
-    vehicleContractCertificate: {
-      findUnique: jest.fn(),
-    },
-    chargeGroupUser: {
-      findUnique: jest.fn(),
-    },
-    transaction: {
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-    },
-    rfidSession: {
-      create: jest.fn(),
-      updateMany: jest.fn(),
-    },
-    connector: {
-      findFirst: jest.fn(),
-      update: jest.fn(),
-      upsert: jest.fn(),
-    },
-    evse: {
-      upsert: jest.fn(),
-    },
-    ocppLog: {
-      create: jest.fn(),
-    },
-  },
-  pgliteInstance: {
-    waitReady: Promise.resolve(),
-    query: (jest.fn() as any).mockResolvedValue({ rows: [] }),
-  },
-}));
+const { prisma } = await import('../../config/database.js');
+const { resolveMappedCardId } = await import('../../ocpp/quirkNormalizer.js');
+const { proxyRouter, formatProxyUrl } = await import('../../ocpp/proxyRouter.js');
+const { chargerRegistry } = await import('../../ocpp/chargerRegistry.js');
+const v16Handlers = await import('../../ocpp/handlers/v16Handlers.js');
+const v21Handlers = await import('../../ocpp/handlers/v21Handlers.js');
 
-import { resolveMappedCardId } from '../../ocpp/quirkNormalizer.js';
-import { proxyRouter } from '../../ocpp/proxyRouter.js';
-import { prisma } from '../../config/database.js';
-import * as v16Handlers from '../../ocpp/handlers/v16Handlers.js';
-import * as v21Handlers from '../../ocpp/handlers/v21Handlers.js';
-
-describe("Solar Mode Card ID Translation & Proxy Forwarding", () => {
+describe("Solar Mode Card ID Translation & Resilient Proxy Routing", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     proxyRouter.clearQuirkRulesCache();
-    (prisma.ocppLog.create as any).mockResolvedValue({} as any);
+    jest.spyOn(prisma.ocppLog, 'create').mockResolvedValue({} as any);
+  });
+
+  describe("formatProxyUrl helper", () => {
+    it("should format plain ws and wss URLs correctly", () => {
+      expect(formatProxyUrl("ws://127.0.0.1:9000/ocpp", "CP001")).toBe("ws://127.0.0.1:9000/ocpp/CP001");
+      expect(formatProxyUrl("wss://steve.cpo.com/ocpp/", "CP001")).toBe("wss://steve.cpo.com/ocpp/CP001");
+    });
+
+    it("should convert http and https URLs to ws and wss", () => {
+      expect(formatProxyUrl("http://localhost:9000/ocpp", "CP001")).toBe("ws://localhost:9000/ocpp/CP001");
+      expect(formatProxyUrl("https://csms.cpo.com/ocpp", "CP001")).toBe("wss://csms.cpo.com/ocpp/CP001");
+    });
+
+    it("should not double-append charger identifier if already in path", () => {
+      expect(formatProxyUrl("wss://csms.cpo.com/ocpp/CP001", "CP001")).toBe("wss://csms.cpo.com/ocpp/CP001");
+    });
   });
 
   describe("resolveMappedCardId helper", () => {
@@ -130,6 +105,37 @@ describe("Solar Mode Card ID Translation & Proxy Forwarding", () => {
       expect(resolveMappedCardId("ANY_UNKNOWN_TAG", rules)).toBe("NL-DEFAULT-ROAMING");
     });
 
+    it("should map ALL incoming cards to 1 single target card when mapAllCardsTo is configured", () => {
+      const rules = {
+        mapAllCardsTo: "NL-MASTER-UNIVERSAL-01",
+      };
+
+      expect(resolveMappedCardId("SOLAR_001", rules)).toBe("NL-MASTER-UNIVERSAL-01");
+      expect(resolveMappedCardId("CUSTOM_TAG_999", rules)).toBe("NL-MASTER-UNIVERSAL-01");
+      expect(resolveMappedCardId("UNKNOWN_ROAMING_CARD", rules)).toBe("NL-MASTER-UNIVERSAL-01");
+      expect(resolveMappedCardId("ISO15118_EMAID_XYZ", rules)).toBe("NL-MASTER-UNIVERSAL-01");
+    });
+
+    it("should map ALL incoming cards to 1 single target card when singleCardId is configured", () => {
+      const rules = {
+        singleCardId: "NL-SINGLE-FLEET-CARD",
+      };
+
+      expect(resolveMappedCardId("ANY_CARD_ABC", rules)).toBe("NL-SINGLE-FLEET-CARD");
+      expect(resolveMappedCardId("EVE_SOLAR_TAG", rules)).toBe("NL-SINGLE-FLEET-CARD");
+    });
+
+    it("should support ALL wildcard in cardIdMapping to map all incoming cards to 1 single card", () => {
+      const rules = {
+        cardIdMapping: {
+          ALL: "NL-ALL-CARDS-SINGLE",
+        },
+      };
+
+      expect(resolveMappedCardId("CARD_1", rules)).toBe("NL-ALL-CARDS-SINGLE");
+      expect(resolveMappedCardId("CARD_2", rules)).toBe("NL-ALL-CARDS-SINGLE");
+    });
+
     it("should support solarCardIdMapping alias", () => {
       const rules = {
         solarCardIdMapping: {
@@ -154,19 +160,18 @@ describe("Solar Mode Card ID Translation & Proxy Forwarding", () => {
         },
       };
 
-      (prisma.charger.findUnique as any).mockResolvedValue({
+      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
         charger_id: chargerId,
         name: "ALFEN-01",
         quirkProfileId: 1,
         quirkProfile,
-      });
+      } as any);
 
       const mockRemoteWs: any = {
         readyState: 1, // WebSocket.OPEN
         send: jest.fn(),
       };
 
-      // Set active proxy
       (proxyRouter as any).activeProxies.set(chargerId, mockRemoteWs);
 
       const incomingMessage = [
@@ -190,7 +195,6 @@ describe("Solar Mode Card ID Translation & Proxy Forwarding", () => {
       expect(sentMessage[0]).toBe(2);
       expect(sentMessage[1]).toBe("msg-start-001");
       expect(sentMessage[2]).toBe("StartTransaction");
-      // The forwarded message must have the mapped roaming card ID instead of the solar tag!
       expect(sentMessage[3].idTag).toBe("NL-ROAMING-998877");
     });
 
@@ -206,12 +210,12 @@ describe("Solar Mode Card ID Translation & Proxy Forwarding", () => {
         },
       };
 
-      (prisma.charger.findUnique as any).mockResolvedValue({
+      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
         charger_id: chargerId,
         name: "CHARGER-02",
         quirkProfileId: 2,
         quirkProfile,
-      });
+      } as any);
 
       const mockRemoteWs: any = {
         readyState: 1,
@@ -248,12 +252,12 @@ describe("Solar Mode Card ID Translation & Proxy Forwarding", () => {
         },
       };
 
-      (prisma.charger.findUnique as any).mockResolvedValue({
+      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
         charger_id: chargerId,
         name: "CHARGER-03",
         quirkProfileId: 3,
         quirkProfile,
-      });
+      } as any);
 
       const mockRemoteWs: any = {
         readyState: 1,
@@ -286,6 +290,47 @@ describe("Solar Mode Card ID Translation & Proxy Forwarding", () => {
     });
   });
 
+  describe("Proxy Resilience: Local Responses when Upstream is Disconnected", () => {
+    it("should deliver local CALLRESULT to physical charger when remoteWs is not connected", async () => {
+      const chargerId = 104;
+      const mockLocalWs: any = {
+        readyState: 1,
+        send: jest.fn(),
+      };
+
+      jest.spyOn(chargerRegistry, 'getConnection').mockReturnValue({
+        ws: mockLocalWs,
+        chargerId,
+        chargerName: "OFFLINE_PROXY_CHARGER",
+        connectedAt: new Date(),
+        lastHeartbeat: new Date(),
+        transactions: new Map(),
+      } as any);
+
+      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
+        charger_id: chargerId,
+        name: "OFFLINE_PROXY_CHARGER",
+        quirkProfile: null,
+      } as any);
+
+      jest.spyOn(prisma.charger, 'update').mockResolvedValue({} as any);
+
+      // No remote WS in activeProxies
+      (proxyRouter as any).activeProxies.delete(chargerId);
+
+      const incomingHeartbeat = [2, "hb-104", "Heartbeat", {}];
+
+      await proxyRouter.handleMessageFromCharger(chargerId, incomingHeartbeat, "ocpp1.6");
+
+      // Verify local response is immediately delivered to charger connection so it doesn't time out
+      expect(mockLocalWs.send).toHaveBeenCalledTimes(1);
+      const sentResponse = JSON.parse(mockLocalWs.send.mock.calls[0][0] as string);
+      expect(sentResponse[0]).toBe(3); // CALLRESULT
+      expect(sentResponse[1]).toBe("hb-104");
+      expect(sentResponse[2]).toHaveProperty("currentTime");
+    });
+  });
+
   describe("OCPP Handlers local resolution with Quirk rules", () => {
     it("should authorize solar mode tag using quirk mapping against real RfidUser in v16", async () => {
       const chargerId = 201;
@@ -299,14 +344,15 @@ describe("Solar Mode Card ID Translation & Proxy Forwarding", () => {
         },
       };
 
-      (prisma.charger.findUnique as any).mockResolvedValue({
+      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
         charger_id: chargerId,
+        owner_id: 1,
+        isPublic: true,
         chargeGroupId: null,
         quirkProfile,
-      });
+      } as any);
 
-      // Mapped tag exists in DB as an active user
-      (prisma.rfidUser.findUnique as any).mockImplementation(async ({ where }: any) => {
+      (jest.spyOn(prisma.rfidUser, 'findUnique') as any).mockImplementation(async ({ where }: any) => {
         if (where.rfid_tag === "REAL_RFID_USER_TAG") {
           return {
             rfid_user_id: 42,
@@ -338,13 +384,15 @@ describe("Solar Mode Card ID Translation & Proxy Forwarding", () => {
         },
       };
 
-      (prisma.charger.findUnique as any).mockResolvedValue({
+      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
         charger_id: chargerId,
+        owner_id: 1,
+        isPublic: true,
         chargeGroupId: null,
         quirkProfile,
-      });
+      } as any);
 
-      (prisma.rfidUser.findUnique as any).mockImplementation(async ({ where }: any) => {
+      (jest.spyOn(prisma.rfidUser, 'findUnique') as any).mockImplementation(async ({ where }: any) => {
         if (where.rfid_tag === "REAL_V21_USER") {
           return {
             rfid_user_id: 55,

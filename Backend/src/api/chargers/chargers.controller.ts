@@ -10,6 +10,7 @@ import { parseId, parsePagination } from "../../utils/validation.js";
 import type { CreateChargerDto, UpdateChargerDto } from "../../types/index.js";
 import { redisClient } from "../../config/redis.js";
 import { chargerRegistry } from "../../ocpp/chargerRegistry.js";
+import { proxyRouter } from "../../ocpp/proxyRouter.js";
 
 /**
  * GET /api/chargers - Get all chargers
@@ -584,6 +585,22 @@ export const updateCharger = async (req: Request, res: Response) => {
 
     if (charger.owner) {
       charger.owner = sanitizeUser(charger.owner) as any;
+    }
+
+    if (safeData.thirdPartyBackendUrl !== undefined) {
+      const activeConn = chargerRegistry.getConnection(chargerId);
+      if (activeConn?.ws) {
+        if (charger.thirdPartyBackendUrl && charger.thirdPartyBackendUrl.trim() !== "") {
+          proxyRouter.setupProxy(
+            chargerId,
+            charger.thirdPartyBackendUrl,
+            activeConn.ws.protocol || "ocpp1.6",
+            charger.name
+          );
+        } else {
+          proxyRouter.removeProxy(chargerId);
+        }
+      }
     }
 
     logger.info(`Charger updated: ${charger.name}`);
