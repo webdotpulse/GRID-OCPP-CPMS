@@ -5,6 +5,8 @@ import { redisClient } from "../../../config/redis.js";
 import { config } from "../../../config/index.js";
 import { chargerRegistry } from "../../../ocpp/chargerRegistry.js";
 import { logger } from "../../../utils/logger.js";
+import { DatabaseBackupService } from "../../../services/DatabaseBackupService.js";
+import { AuthRequest } from "../../../middleware/auth.js";
 
 /**
  * Helper to calculate overall CPU usage percentage from os.cpus()
@@ -453,3 +455,139 @@ export const runEnvironmentPing = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: "Failed to execute diagnostic ping" });
   }
 };
+
+/**
+ * GET /api/settings/environment/backup/export
+ * Export full PostgreSQL SQL or JSON database snapshot.
+ */
+export const exportDatabaseBackup = async (req: AuthRequest, res: Response) => {
+  try {
+    const format = req.query.format === "json" ? "json" : "sql";
+    const includeData = req.query.includeData !== "false";
+
+    if (format === "json") {
+      const backup = await DatabaseBackupService.exportJsonBackup();
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${backup.filename}"`);
+      res.setHeader("X-Database-Tables", String(backup.stats.tableCount));
+      res.setHeader("X-Database-Rows", String(backup.stats.rowCount));
+      
+      // Log export action in AuditLog
+      try {
+        await prisma.auditLog.create({
+          data: {
+            userId: req.userId || null,
+            action: "DATABASE_BACKUP_EXPORT",
+            target: "Database",
+            targetId: "JSON",
+            payload: { format: "json", tableCount: backup.stats.tableCount, rowCount: backup.stats.rowCount },
+            ip: req.ip || "127.0.0.1",
+            userAgent: req.get("User-Agent") || "CPMS Admin",
+          },
+        });
+      } catch {
+        // ignore audit log write failures
+      }
+
+      return res.send(backup.json);
+    }
+
+    const backup = await DatabaseBackupService.exportSqlBackup({ includeData });
+    res.setHeader("Content-Type", "application/sql; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${backup.filename}"`);
+    res.setHeader("X-Database-Tables", String(backup.stats.tableCount));
+    res.setHeader("X-Database-Rows", String(backup.stats.rowCount));
+
+    // Log export action in AuditLog
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: req.userId || null,
+          action: "DATABASE_BACKUP_EXPORT",
+          target: "Database",
+          targetId: "PostgreSQL",
+          payload: { format: "sql", tableCount: backup.stats.tableCount, rowCount: backup.stats.rowCount },
+          ip: req.ip || "127.0.0.1",
+          userAgent: req.get("User-Agent") || "CPMS Admin",
+        },
+      });
+    } catch {
+      // ignore audit log write failures
+    }
+
+    return res.send(backup.sql);
+  } catch (error: any) {
+    logger.error(`Error generating database backup: ${error}`);
+    return res.status(500).json({
+      success: false,
+      error: `Failed to generate database backup: ${error.message || error}`,
+    });
+  }
+};
+
+/**
+ * POST /api/settings/environment/backup/import
+ * Import and execute a SQL backup within an atomic transaction.
+ * Supports multipart file upload (`file`) and JSON body `{ sql: string, mode, dryRun }`.
+ */
+export const importDatabaseBackup = async (req: AuthRequest, res: Response) => {
+  try {
+    let sqlContent = "";
+    
+    // Check if uploaded as a multipart file
+    if (req.file && req.file.buffer) {
+      sqlContent = req.file.buffer.toString("utf8");
+    } else if (req.body && typeof req.body.sql === "string") {
+      sqlContent = req.body.sql;
+    }
+
+    if (!sqlContent || !sqlContent.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: "No SQL backup content provided. Please upload a .sql file or provide SQL script content.",
+      });
+    }
+
+    const mode = req.body?.mode === "incremental" ? "incremental" : "restore";
+    const dryRun = req.body?.dryRun === true || req.body?.dryRun === "true";
+
+    const result = await DatabaseBackupService.importSqlBackup(sqlContent, {
+      mode,
+      dryRun,
+      userId: req.userId,
+      ip: req.ip,
+    });
+
+    return res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    logger.error(`Error importing database backup: ${error}`);
+    return res.status(400).json({
+      success: false,
+      error: error.message || "Failed to import database backup",
+    });
+  }
+};
+
+/**
+ * GET /api/settings/environment/backup/stats
+ * Get table inventory, row counts, and database metadata for backup planning.
+ */
+export const getDatabaseBackupStats = async (_req: AuthRequest, res: Response) => {
+  try {
+    const stats = await DatabaseBackupService.getDatabaseStats();
+    return res.json({
+      success: true,
+      data: stats,
+    });
+  } catch (error: any) {
+    logger.error(`Error fetching database stats: ${error}`);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to retrieve database inventory statistics",
+    });
+  }
+};
+

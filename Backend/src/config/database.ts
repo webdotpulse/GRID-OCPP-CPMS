@@ -94,7 +94,7 @@ if (usePglite) {
 
 const adapter = new PrismaPg(pool as any);
 export const prisma = new PrismaClient({ adapter });
-export { pgliteInstance };
+export { pool, pgliteInstance };
 
 // Graceful shutdown handler
 process.on("beforeExit", async () => {

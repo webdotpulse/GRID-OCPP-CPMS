@@ -33,6 +33,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
   Activity,
   Cpu,
   HardDrive,
@@ -57,6 +70,15 @@ import {
   Bot,
   Play,
   RotateCcw,
+  Upload,
+  FileCode,
+  FileText,
+  ShieldAlert,
+  Check,
+  Copy,
+  Sparkles,
+  Trash2,
+  Search,
 } from "lucide-react";
 
 interface EnvironmentMetrics {
@@ -279,6 +301,211 @@ export default function ServerEnvironmentPage() {
     toast.success("Diagnostic report downloaded successfully");
   };
 
+  // Database Backup & Restore State
+  const [isExportingSql, setIsExportingSql] = useState(false);
+  const [isExportingJson, setIsExportingJson] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importMode, setImportMode] = useState<"restore" | "incremental">("restore");
+  const [isDryRun, setIsDryRun] = useState(false);
+  const [rawSqlScript, setRawSqlScript] = useState("");
+  const [activeBackupTab, setActiveBackupTab] = useState<"upload" | "sql">("upload");
+  const [restoreModalOpen, setRestoreModalOpen] = useState(false);
+  const [confirmRestoreText, setConfirmRestoreText] = useState("");
+  const [lastRestoreResult, setLastRestoreResult] = useState<{
+    success: boolean;
+    message: string;
+    dryRun: boolean;
+    mode: string;
+    durationMs: number;
+    timestamp: string;
+  } | null>(null);
+  const [backupStats, setBackupStats] = useState<{
+    tableCount: number;
+    rowCount: number;
+    databaseVersion: string;
+    tables: { name: string; rowCount: number }[];
+  } | null>(null);
+  const [isLoadingBackupStats, setIsLoadingBackupStats] = useState(false);
+  const [tableSearchQuery, setTableSearchQuery] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Fetch database backup stats
+  const fetchBackupStats = useCallback(async () => {
+    setIsLoadingBackupStats(true);
+    try {
+      const res = await api.get("/settings/environment/backup/stats");
+      const data = res.data?.data || res.data;
+      if (data && data.tables) {
+        setBackupStats(data);
+      }
+    } catch (err) {
+      logger.error("Failed to fetch database backup stats", err);
+    } finally {
+      setIsLoadingBackupStats(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "database") {
+      fetchBackupStats();
+    }
+  }, [activeTab, fetchBackupStats]);
+
+  // Export SQL Backup (.sql)
+  const handleExportSql = async (includeData = true) => {
+    setIsExportingSql(true);
+    try {
+      toast.info("Generating PostgreSQL database backup dump...");
+      const res = await api.get(`/settings/environment/backup/export?format=sql&includeData=${includeData}`, {
+        responseType: "blob",
+      });
+
+      const blob = new Blob([res.data], { type: "application/sql" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const filename = `GRID_CPMS_Database_Backup_${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.sql`;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success("Database SQL backup downloaded successfully");
+    } catch (err: any) {
+      logger.error("Failed to export SQL database backup", err);
+      toast.error("Failed to generate database SQL backup");
+    } finally {
+      setIsExportingSql(false);
+    }
+  };
+
+  // Export JSON Snapshot (.json)
+  const handleExportJson = async () => {
+    setIsExportingJson(true);
+    try {
+      toast.info("Generating JSON snapshot of database tables...");
+      const res = await api.get("/settings/environment/backup/export?format=json", {
+        responseType: "blob",
+      });
+
+      const blob = new Blob([res.data], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const filename = `GRID_CPMS_Database_Backup_${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.json`;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success("Database JSON snapshot downloaded successfully");
+    } catch (err: any) {
+      logger.error("Failed to export JSON database snapshot", err);
+      toast.error("Failed to generate JSON database snapshot");
+    } finally {
+      setIsExportingJson(false);
+    }
+  };
+
+  // Run Dry-Run Simulation
+  const handleRunDryRun = async () => {
+    if (activeBackupTab === "upload" && !importFile) {
+      toast.error("Please select a .sql backup file to test");
+      return;
+    }
+    if (activeBackupTab === "sql" && !rawSqlScript.trim()) {
+      toast.error("Please enter a SQL script to test");
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      let res;
+      if (activeBackupTab === "upload" && importFile) {
+        const formData = new FormData();
+        formData.append("file", importFile);
+        formData.append("mode", importMode);
+        formData.append("dryRun", "true");
+        res = await api.post("/settings/environment/backup/import", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } else {
+        res = await api.post("/settings/environment/backup/import", {
+          sql: rawSqlScript,
+          mode: importMode,
+          dryRun: true,
+        });
+      }
+
+      const result = res.data?.data || res.data;
+      setLastRestoreResult(result);
+      toast.success("Dry-run validation successful! No database changes were written.");
+    } catch (err: any) {
+      logger.error("Dry-run test failed", err);
+      const msg = err.response?.data?.error || err.message || "Dry-run validation failed";
+      toast.error(`Dry-run validation failed: ${msg}`);
+      setLastRestoreResult({
+        success: false,
+        message: msg,
+        dryRun: true,
+        mode: importMode,
+        durationMs: 0,
+        timestamp: new Date().toISOString(),
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  // Execute Live Restore (after confirmation)
+  const handleConfirmRestore = async () => {
+    setIsImporting(true);
+    setRestoreModalOpen(false);
+    setConfirmRestoreText("");
+
+    try {
+      let res;
+      if (activeBackupTab === "upload" && importFile) {
+        const formData = new FormData();
+        formData.append("file", importFile);
+        formData.append("mode", importMode);
+        formData.append("dryRun", "false");
+        res = await api.post("/settings/environment/backup/import", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } else {
+        res = await api.post("/settings/environment/backup/import", {
+          sql: rawSqlScript,
+          mode: importMode,
+          dryRun: false,
+        });
+      }
+
+      const result = res.data?.data || res.data;
+      setLastRestoreResult(result);
+      toast.success("Database backup restored successfully!");
+      fetchMetrics(true);
+      fetchBackupStats();
+    } catch (err: any) {
+      logger.error("Database restore failed", err);
+      const msg = err.response?.data?.error || err.message || "Database restore failed";
+      toast.error(`Database restore failed: ${msg}`);
+      setLastRestoreResult({
+        success: false,
+        message: msg,
+        dryRun: false,
+        mode: importMode,
+        durationMs: 0,
+        timestamp: new Date().toISOString(),
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   if (isLoading && !metrics) {
     return (
       <AppShell>
@@ -410,11 +637,23 @@ export default function ServerEnvironmentPage() {
             {/* Export Diagnostics */}
             <Button
               size="sm"
+              variant="outline"
               onClick={handleExportReport}
-              className="rounded-xl bg-[#54a8c7] text-white hover:bg-[#4695b2] h-9 gap-1.5 text-xs font-semibold shadow-xs"
+              className="rounded-xl border-border/80 h-9 gap-1.5 text-xs font-semibold shadow-xs hover:bg-muted"
             >
-              <Download className="size-3.5" />
-              <span>Export Report</span>
+              <Download className="size-3.5 text-muted-foreground" />
+              <span>Export Diagnostics</span>
+            </Button>
+
+            {/* Export SQL Backup */}
+            <Button
+              size="sm"
+              onClick={() => handleExportSql(true)}
+              disabled={isExportingSql}
+              className="rounded-xl bg-[#45c4a0] text-white hover:bg-[#3db392] h-9 gap-1.5 text-xs font-semibold shadow-xs"
+            >
+              <Database className={`size-3.5 ${isExportingSql ? "animate-spin" : ""}`} />
+              <span>{isExportingSql ? "Exporting SQL..." : "Export SQL Backup"}</span>
             </Button>
           </div>
         </div>
@@ -976,8 +1215,9 @@ export default function ServerEnvironmentPage() {
             </div>
           </TabsContent>
 
-          {/* TAB 4: Database Entities & Storage */}
+          {/* TAB 4: Database Entities & Storage / Backup & Restore */}
           <TabsContent value="database" className="space-y-6">
+            {/* KPI Entity Counters */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {[
                 { label: "Physical Chargers", value: metrics?.database?.counts?.chargers, icon: Radio },
@@ -1004,18 +1244,555 @@ export default function ServerEnvironmentPage() {
               })}
             </div>
 
-            <Card className="rounded-2xl border-border/80 p-4 space-y-2">
-              <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Database Engine & Connection Pool</h4>
-              <p className="text-xs font-mono text-muted-foreground">
-                {metrics?.database?.version}
-              </p>
-              <div className="pt-2 flex items-center gap-4 text-xs text-muted-foreground">
-                <span>Query Response Time: <strong className="text-foreground">{metrics?.database?.latencyMs} ms</strong></span>
-                <span>Status: <strong className="text-emerald-400">Connected</strong></span>
-              </div>
+            {/* Live Restore Result Feedback Banner (if executed) */}
+            {lastRestoreResult && (
+              <Alert
+                className={`rounded-2xl ${
+                  lastRestoreResult.success
+                    ? lastRestoreResult.dryRun
+                      ? "border-[#54a8c7]/40 bg-[#54a8c7]/10"
+                      : "border-emerald-500/40 bg-emerald-500/10"
+                    : "border-rose-500/40 bg-rose-500/10"
+                }`}
+              >
+                <div className="flex items-start justify-between w-full">
+                  <div className="flex items-start gap-3">
+                    {lastRestoreResult.success ? (
+                      lastRestoreResult.dryRun ? (
+                        <Sparkles className="size-5 text-[#54a8c7] mt-0.5" />
+                      ) : (
+                        <CheckCircle2 className="size-5 text-emerald-400 mt-0.5" />
+                      )
+                    ) : (
+                      <AlertTriangle className="size-5 text-rose-400 mt-0.5" />
+                    )}
+                    <div className="space-y-1">
+                      <AlertTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+                        {lastRestoreResult.dryRun
+                          ? "Dry-Run Simulation Complete"
+                          : lastRestoreResult.success
+                          ? "Database Restore Succeeded"
+                          : "Database Restore Failed"}
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] uppercase font-mono ${
+                            lastRestoreResult.dryRun
+                              ? "bg-[#54a8c7]/20 text-[#54a8c7] border-[#54a8c7]/40"
+                              : lastRestoreResult.success
+                              ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                              : "bg-rose-500/20 text-rose-400 border-rose-500/40"
+                          }`}
+                        >
+                          {lastRestoreResult.dryRun ? "SIMULATION ONLY" : lastRestoreResult.mode.toUpperCase()}
+                        </Badge>
+                      </AlertTitle>
+                      <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
+                        {lastRestoreResult.message}
+                        {lastRestoreResult.durationMs > 0 && (
+                          <span className="block mt-1 font-mono text-[11px] text-foreground">
+                            Execution time: {lastRestoreResult.durationMs}ms | Timestamp:{" "}
+                            {new Date(lastRestoreResult.timestamp).toLocaleTimeString()}
+                          </span>
+                        )}
+                      </AlertDescription>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLastRestoreResult(null)}
+                    className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              </Alert>
+            )}
+
+            {/* Database Backup & Restore Suite Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* CARD 1: Database Export & Snapshots */}
+              <Card className="rounded-2xl border-border/80 shadow-xs flex flex-col justify-between">
+                <CardHeader className="pb-4 border-b border-border/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="size-9 rounded-xl bg-[#45c4a0]/15 text-[#45c4a0] flex items-center justify-center">
+                        <Database className="size-5" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base font-bold">PostgreSQL Database Snapshots</CardTitle>
+                        <CardDescription className="text-xs">
+                          Export complete schema, sequences, and table records
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="bg-[#45c4a0]/10 text-[#45c4a0] border-[#45c4a0]/30 font-mono text-[10px]">
+                      ACID EXPORT
+                    </Badge>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="pt-5 space-y-5">
+                  <div className="p-3.5 bg-muted/30 rounded-xl space-y-2 text-xs">
+                    <div className="flex justify-between items-center text-muted-foreground">
+                      <span>Database Engine:</span>
+                      <strong className="text-foreground font-mono">{metrics?.database?.version}</strong>
+                    </div>
+                    <div className="flex justify-between items-center text-muted-foreground">
+                      <span>Tables in Public Schema:</span>
+                      <strong className="text-foreground font-mono">{backupStats?.tableCount || metrics?.database?.counts ? 15 : 0} Tables</strong>
+                    </div>
+                    <div className="flex justify-between items-center text-muted-foreground">
+                      <span>Total Database Records:</span>
+                      <strong className="text-foreground font-mono">
+                        {(backupStats?.rowCount || 0).toLocaleString()} Rows
+                      </strong>
+                    </div>
+                    <div className="flex justify-between items-center text-muted-foreground">
+                      <span>Connection Latency:</span>
+                      <span className="text-emerald-400 font-mono font-bold">{metrics?.database?.latencyMs} ms</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-xs">
+                    <span className="font-semibold text-foreground">Disaster Recovery Features:</span>
+                    <ul className="space-y-1.5 text-muted-foreground text-[11px]">
+                      <li className="flex items-center gap-2">
+                        <Check className="size-3.5 text-[#45c4a0]" />
+                        <span>Sets <code className="text-foreground font-mono bg-muted px-1 py-0.5 rounded text-[10px]">session_replication_role = &apos;replica&apos;</code> to bypass foreign key deadlocks.</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="size-3.5 text-[#45c4a0]" />
+                        <span>Dynamic sequence resynchronization block to maintain auto-increment IDs.</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="size-3.5 text-[#45c4a0]" />
+                        <span>Atomic transaction wrapper (<code className="text-foreground font-mono bg-muted px-1 py-0.5 rounded text-[10px]">BEGIN; ... COMMIT;</code>).</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="size-3.5 text-[#45c4a0]" />
+                        <span>Full compatibility with PostgreSQL 14+, Neon, Supabase, Docker, and PGlite.</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="pt-2 flex flex-wrap gap-2.5">
+                    <Button
+                      onClick={() => handleExportSql(true)}
+                      disabled={isExportingSql}
+                      className="rounded-xl bg-[#45c4a0] text-white hover:bg-[#3db392] h-9 gap-1.5 text-xs font-semibold shadow-xs flex-1"
+                    >
+                      <Download className={`size-3.5 ${isExportingSql ? "animate-spin" : ""}`} />
+                      <span>{isExportingSql ? "Generating SQL Dump..." : "Export Full SQL Backup (.sql)"}</span>
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      onClick={handleExportJson}
+                      disabled={isExportingJson}
+                      className="rounded-xl border-border/80 h-9 gap-1.5 text-xs font-semibold shadow-xs hover:bg-muted"
+                    >
+                      <FileCode className="size-3.5 text-[#3f78e0]" />
+                      <span>JSON Snapshot</span>
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleExportSql(false)}
+                      disabled={isExportingSql}
+                      className="rounded-xl h-9 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <span>Schema Only</span>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* CARD 2: Database Restore & SQL Import */}
+              <Card className="rounded-2xl border-border/80 shadow-xs flex flex-col justify-between">
+                <CardHeader className="pb-4 border-b border-border/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="size-9 rounded-xl bg-[#3f78e0]/15 text-[#3f78e0] flex items-center justify-center">
+                        <Upload className="size-5" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base font-bold">Database Restore & SQL Runner</CardTitle>
+                        <CardDescription className="text-xs">
+                          Restore database from .sql backup file or execute custom script
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="bg-[#3f78e0]/10 text-[#3f78e0] border-[#3f78e0]/30 font-mono text-[10px]">
+                      TRANSACTIONAL
+                    </Badge>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="pt-5 space-y-4">
+                  {/* Mode Tabs */}
+                  <Tabs value={activeBackupTab} onValueChange={(v) => setActiveBackupTab(v as any)} className="w-full">
+                    <TabsList className="grid grid-cols-2 bg-muted/50 rounded-xl p-1 mb-3">
+                      <TabsTrigger value="upload" className="rounded-lg text-xs font-semibold">
+                        <FileText className="size-3.5 mr-1.5" /> Upload .SQL File
+                      </TabsTrigger>
+                      <TabsTrigger value="sql" className="rounded-lg text-xs font-semibold">
+                        <Terminal className="size-3.5 mr-1.5" /> SQL Script Runner
+                      </TabsTrigger>
+                    </TabsList>
+
+                    {/* Tab A: Upload SQL File */}
+                    <TabsContent value="upload" className="space-y-3 mt-0">
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          setIsDragging(true);
+                        }}
+                        onDragLeave={() => setIsDragging(false)}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setIsDragging(false);
+                          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                            const file = e.dataTransfer.files[0];
+                            if (file.name.endsWith(".sql") || file.name.endsWith(".txt")) {
+                              setImportFile(file);
+                            } else {
+                              toast.error("Please upload a .sql database backup file");
+                            }
+                          }
+                        }}
+                        className={`border-2 border-dashed rounded-xl p-5 text-center transition-all cursor-pointer ${
+                          isDragging
+                            ? "border-[#54a8c7] bg-[#54a8c7]/10"
+                            : importFile
+                            ? "border-emerald-500/40 bg-emerald-500/5"
+                            : "border-border/70 bg-muted/20 hover:border-border hover:bg-muted/30"
+                        }`}
+                        onClick={() => {
+                          const fileInput = document.getElementById("sql-backup-file-input") as HTMLInputElement;
+                          if (fileInput) fileInput.click();
+                        }}
+                      >
+                        <input
+                          id="sql-backup-file-input"
+                          type="file"
+                          accept=".sql,.txt"
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              setImportFile(e.target.files[0]);
+                            }
+                          }}
+                        />
+
+                        {importFile ? (
+                          <div className="flex items-center justify-between text-left">
+                            <div className="flex items-center gap-3">
+                              <div className="size-9 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                                <FileCode className="size-5" />
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-foreground truncate max-w-[220px]">
+                                  {importFile.name}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground font-mono">
+                                  {formatBytes(importFile.size)} • Last modified:{" "}
+                                  {new Date(importFile.lastModified).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setImportFile(null);
+                              }}
+                              className="size-8 p-0 text-muted-foreground hover:text-rose-400"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5 py-1">
+                            <Upload className="size-6 mx-auto text-muted-foreground" />
+                            <p className="text-xs font-semibold text-foreground">
+                              Drop your <span className="font-mono text-[#54a8c7]">.sql</span> backup file here, or click to browse
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              Accepts PostgreSQL SQL dumps with batch INSERTs (Max 100 MB)
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    {/* Tab B: Raw SQL Script Runner */}
+                    <TabsContent value="sql" className="space-y-2 mt-0">
+                      <div className="relative">
+                        <Textarea
+                          placeholder="Paste or write SQL statements here (e.g. TRUNCATE TABLE &quot;User&quot;; INSERT INTO ...)"
+                          value={rawSqlScript}
+                          onChange={(e) => setRawSqlScript(e.target.value)}
+                          className="font-mono text-xs h-32 rounded-xl bg-muted/30 border-border/70 resize-none"
+                        />
+                        {rawSqlScript && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setRawSqlScript("")}
+                            className="absolute top-2 right-2 h-6 text-[10px] text-muted-foreground hover:text-foreground"
+                          >
+                            Clear
+                          </Button>
+                        )}
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+
+                  {/* Options: Mode & Dry-Run */}
+                  <div className="p-3 bg-muted/20 rounded-xl space-y-3 border border-border/40">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs font-semibold text-foreground">Restore Strategy</Label>
+                        <p className="text-[10px] text-muted-foreground">
+                          {importMode === "restore"
+                            ? "Full wipe & replace from backup file"
+                            : "Execute statements incrementally without wiping"}
+                        </p>
+                      </div>
+                      <Select value={importMode} onValueChange={(v) => setImportMode(v as any)}>
+                        <SelectTrigger className="h-7 w-44 rounded-lg text-xs font-semibold bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl text-xs">
+                          <SelectItem value="restore">Full Restore (Replace)</SelectItem>
+                          <SelectItem value="incremental">Incremental Script</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="dry-run-toggle" className="text-xs font-semibold text-foreground cursor-pointer">
+                          Dry-Run Simulation Mode
+                        </Label>
+                        <p className="text-[10px] text-muted-foreground">
+                          Tests SQL syntax and constraints inside a rolled-back transaction
+                        </p>
+                      </div>
+                      <Switch
+                        id="dry-run-toggle"
+                        checked={isDryRun}
+                        onCheckedChange={setIsDryRun}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="pt-1 flex flex-wrap gap-2.5">
+                    <Button
+                      variant="outline"
+                      onClick={handleRunDryRun}
+                      disabled={isImporting || (activeBackupTab === "upload" && !importFile) || (activeBackupTab === "sql" && !rawSqlScript.trim())}
+                      className="rounded-xl border-[#54a8c7]/40 bg-[#54a8c7]/10 text-[#54a8c7] hover:bg-[#54a8c7]/20 h-9 gap-1.5 text-xs font-semibold flex-1"
+                    >
+                      <Sparkles className={`size-3.5 ${isImporting && isDryRun ? "animate-spin" : ""}`} />
+                      <span>{isImporting && isDryRun ? "Simulating..." : "Test Dry-Run"}</span>
+                    </Button>
+
+                    <Button
+                      onClick={() => {
+                        if (activeBackupTab === "upload" && !importFile) {
+                          toast.error("Please select a .sql file to restore");
+                          return;
+                        }
+                        if (activeBackupTab === "sql" && !rawSqlScript.trim()) {
+                          toast.error("Please enter a SQL script to restore");
+                          return;
+                        }
+                        setRestoreModalOpen(true);
+                      }}
+                      disabled={isImporting || (activeBackupTab === "upload" && !importFile) || (activeBackupTab === "sql" && !rawSqlScript.trim())}
+                      className="rounded-xl bg-rose-600 hover:bg-rose-500 text-white h-9 gap-1.5 text-xs font-semibold shadow-xs flex-1"
+                    >
+                      <ShieldAlert className="size-3.5" />
+                      <span>Execute Restore...</span>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* CARD 3: Table Inventory & Row Distribution */}
+            <Card className="rounded-2xl border-border/80 shadow-xs">
+              <CardHeader className="pb-3 border-b border-border/50">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                      <Layers className="size-4 text-[#54a8c7]" /> Database Public Tables Inventory
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Live table catalog in public PostgreSQL schema ({backupStats?.tables?.length || 0} tables discovered)
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="relative w-48 sm:w-64">
+                      <Search className="size-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
+                      <Input
+                        placeholder="Search tables..."
+                        value={tableSearchQuery}
+                        onChange={(e) => setTableSearchQuery(e.target.value)}
+                        className="h-8 pl-8 text-xs rounded-xl bg-muted/30"
+                      />
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchBackupStats}
+                      disabled={isLoadingBackupStats}
+                      className="h-8 text-xs rounded-xl gap-1"
+                    >
+                      <RefreshCw className={`size-3 ${isLoadingBackupStats ? "animate-spin text-[#54a8c7]" : ""}`} />
+                      <span>Sync</span>
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="max-h-80 overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Table Name</TableHead>
+                        <TableHead className="text-xs">Row Count</TableHead>
+                        <TableHead className="text-xs">Storage Footprint</TableHead>
+                        <TableHead className="text-right text-xs">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {isLoadingBackupStats && !backupStats?.tables?.length ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="h-24 text-center text-xs text-muted-foreground">
+                            Scanning database tables...
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        (backupStats?.tables || [])
+                          .filter((t) => t.name.toLowerCase().includes(tableSearchQuery.toLowerCase()))
+                          .map((table) => (
+                            <TableRow key={table.name}>
+                              <TableCell className="font-mono text-xs font-bold text-foreground">
+                                &quot;public&quot;.&quot;{table.name}&quot;
+                              </TableCell>
+                              <TableCell className="font-mono text-xs">
+                                <Badge variant="outline" className="text-[11px] font-mono font-bold">
+                                  {table.rowCount.toLocaleString()} rows
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground">
+                                ~{formatBytes(Math.max(8192, table.rowCount * 250))}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-400 font-semibold">
+                                  <span className="size-1.5 rounded-full bg-emerald-400" /> Operational
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Restore Confirmation Dialog */}
+        <Dialog open={restoreModalOpen} onOpenChange={setRestoreModalOpen}>
+          <DialogContent className="max-w-md rounded-2xl p-6">
+            <DialogHeader className="space-y-2">
+              <div className="size-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center mx-auto">
+                <ShieldAlert className="size-5" />
+              </div>
+              <DialogTitle className="text-center text-lg font-bold text-foreground">
+                Confirm Live Database Restore
+              </DialogTitle>
+              <DialogDescription className="text-center text-xs text-muted-foreground">
+                You are about to execute a live SQL database restore in{" "}
+                <span className="font-bold text-foreground uppercase">{importMode}</span> mode.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 my-2 text-xs">
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl space-y-1 text-rose-300 text-[11px]">
+                <p className="font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="size-3.5 text-rose-400" />
+                  Warning: Existing Data Overwrite
+                </p>
+                <p>
+                  This operation executes database queries inside a transaction. In full restore mode, existing table records will be wiped and replaced with the snapshot data.
+                </p>
+              </div>
+
+              <div className="p-3 bg-muted/40 rounded-xl space-y-1.5 font-mono text-[11px]">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Target Source:</span>
+                  <span className="text-foreground font-bold">
+                    {activeBackupTab === "upload" ? importFile?.name : "Custom SQL Script"}
+                  </span>
+                </div>
+                {importFile && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>File Size:</span>
+                    <span className="text-foreground">{formatBytes(importFile.size)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Execution Strategy:</span>
+                  <span className="text-foreground capitalize">{importMode}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 pt-1">
+                <Label htmlFor="confirm-restore-input" className="text-xs font-semibold text-foreground">
+                  Type <span className="font-mono text-rose-400 font-bold">RESTORE</span> to confirm:
+                </Label>
+                <Input
+                  id="confirm-restore-input"
+                  placeholder="RESTORE"
+                  value={confirmRestoreText}
+                  onChange={(e) => setConfirmRestoreText(e.target.value)}
+                  className="font-mono text-xs rounded-xl"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setRestoreModalOpen(false);
+                  setConfirmRestoreText("");
+                }}
+                className="rounded-xl text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleConfirmRestore}
+                disabled={confirmRestoreText.trim().toUpperCase() !== "RESTORE" || isImporting}
+                className="rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold gap-1.5 shadow-xs"
+              >
+                <Database className={`size-3.5 ${isImporting ? "animate-spin" : ""}`} />
+                <span>{isImporting ? "Applying Restore..." : "Confirm & Restore Database"}</span>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppShell>
   );
