@@ -103,12 +103,12 @@ export class RoamingTestSuiteService {
    * Intelligently resolve valid OCPI token: custom -> env -> db -> test token
    */
   private static async resolveOcpiToken(explicitToken?: string): Promise<string> {
-    if (
-      explicitToken &&
-      explicitToken !== "DEFAULT_OCPI_TOKEN" &&
-      explicitToken !== "TEST_ROAMING_SUITE_TOKEN"
-    ) {
-      return explicitToken;
+    if (explicitToken === "DEFAULT_OCPI_TOKEN" || explicitToken === "TEST_ROAMING_SUITE_TOKEN") {
+      return "TEST_ROAMING_SUITE_TOKEN";
+    }
+
+    if (explicitToken && explicitToken.trim().length > 0) {
+      return explicitToken.trim();
     }
 
     if (process.env.OCPI_SERVER_TOKEN) {
@@ -167,12 +167,11 @@ export class RoamingTestSuiteService {
       ...extraHeaders,
     };
 
-    if (token) {
-      if (token.startsWith("Bearer ") || token.startsWith("Token ")) {
-        headers["Authorization"] = token;
-      } else {
-        headers["Authorization"] = `Token ${token}`;
-      }
+    const effectiveToken = token || "TEST_ROAMING_SUITE_TOKEN";
+    if (effectiveToken.startsWith("Bearer ") || effectiveToken.startsWith("Token ")) {
+      headers["Authorization"] = effectiveToken;
+    } else {
+      headers["Authorization"] = `Token ${effectiveToken}`;
     }
 
     const fullRequest = {
