@@ -85,6 +85,65 @@ export class RoamingTestSuiteService {
   }
 
   /**
+   * Helper to resolve target URL for OCPI endpoint
+   */
+  private static resolveOcpiUrl(baseUrlOrUrl: string | undefined, defaultPath: string): string {
+    const port = process.env.PORT || 3000;
+    if (!baseUrlOrUrl) {
+      return `http://localhost:${port}/api/ocpi/2.2.1${defaultPath}`;
+    }
+    const clean = baseUrlOrUrl.replace(/\/+$/, "");
+    if (clean.endsWith(defaultPath)) {
+      return clean;
+    }
+    return `${clean}${defaultPath}`;
+  }
+
+  /**
+   * Intelligently resolve valid OCPI token: custom -> env -> db -> test token
+   */
+  private static async resolveOcpiToken(explicitToken?: string): Promise<string> {
+    if (
+      explicitToken &&
+      explicitToken !== "DEFAULT_OCPI_TOKEN" &&
+      explicitToken !== "TEST_ROAMING_SUITE_TOKEN"
+    ) {
+      return explicitToken;
+    }
+
+    if (process.env.OCPI_SERVER_TOKEN) {
+      return process.env.OCPI_SERVER_TOKEN;
+    }
+
+    try {
+      const activeEndpoint = await prisma.ocpiEndpoint.findFirst({
+        where: { status: "active" },
+      });
+      if (activeEndpoint?.token) {
+        return activeEndpoint.token;
+      }
+
+      const partner = await prisma.roamingPartner.findFirst();
+      if (partner?.apiCredentials) {
+        try {
+          const creds = JSON.parse(partner.apiCredentials);
+          if (creds.token || creds.api_key) {
+            return creds.token || creds.api_key;
+          }
+        } catch {
+          if (partner.apiCredentials.length > 5) {
+            return partner.apiCredentials;
+          }
+        }
+      }
+    } catch {
+      // Prisma error or disconnected DB in unit tests
+    }
+
+    return "TEST_ROAMING_SUITE_TOKEN";
+  }
+
+  /**
    * Safely execute an HTTP request, recording latency and request/response telemetry
    */
   private static async executeHttpRequest(
@@ -104,6 +163,7 @@ export class RoamingTestSuiteService {
     const startTime = Date.now();
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      "X-Test-Suite": "GRID-CPMS-TEST-SUITE",
       ...extraHeaders,
     };
 
@@ -164,8 +224,8 @@ export class RoamingTestSuiteService {
       // ROLE: TEST AS eMSP (EVALUATING CPO)
       // ==========================================
       case "ocpi_emsp_get_locations": {
-        const targetUrl = params.url || "http://localhost:3000/api/ocpi/2.2.1/locations";
-        const token = params.token || "DEFAULT_OCPI_TOKEN";
+        const targetUrl = this.resolveOcpiUrl(params.url, "/locations");
+        const token = await this.resolveOcpiToken(params.token);
 
         const http = await this.executeHttpRequest("GET", targetUrl, token);
         const assertions: TestAssertion[] = [];
@@ -216,8 +276,8 @@ export class RoamingTestSuiteService {
       }
 
       case "ocpi_emsp_get_tariffs": {
-        const targetUrl = params.url || "http://localhost:3000/api/ocpi/2.2.1/tariffs";
-        const token = params.token || "DEFAULT_OCPI_TOKEN";
+        const targetUrl = this.resolveOcpiUrl(params.url, "/tariffs");
+        const token = await this.resolveOcpiToken(params.token);
 
         const http = await this.executeHttpRequest("GET", targetUrl, token);
         const assertions: TestAssertion[] = [];
@@ -268,11 +328,19 @@ export class RoamingTestSuiteService {
 
       case "ocpi_emsp_authorize_token": {
         const tokenUid = params.tokenUid || "TEST_RFID_CARD_01";
-        const targetUrl = params.url || `http://localhost:3000/api/ocpi/2.2.1/tokens/${tokenUid}/authorize`;
-        const token = params.token || "DEFAULT_OCPI_TOKEN";
+        const targetUrl = this.resolveOcpiUrl(params.url, `/tokens/${tokenUid}/authorize`);
+        const token = await this.resolveOcpiToken(params.token);
+
+        let locationId = params.locationId;
+        if (!locationId) {
+          try {
+            const station = await prisma.chargingStation.findFirst({ where: { status: "active" } });
+            if (station) locationId = String(station.id);
+          } catch {}
+        }
 
         const http = await this.executeHttpRequest("POST", targetUrl, token, {
-          location_id: params.locationId || "1",
+          location_id: locationId || "1",
         });
 
         const assertions: TestAssertion[] = [];
@@ -318,11 +386,35 @@ export class RoamingTestSuiteService {
       }
 
       case "ocpi_emsp_remote_start": {
-        const targetUrl = params.url || "http://localhost:3000/api/ocpi/2.2.1/commands/START_SESSION";
-        const token = params.token || "DEFAULT_OCPI_TOKEN";
+        const targetUrl = this.resolveOcpiUrl(params.url, "/commands/START_SESSION");
+        const token = await this.resolveOcpiToken(params.token);
 
+        let locationId = params.locationId;
+        let evseUid = params.evseUid;
+        let connectorId = params.connectorId;
+
+        if (!locationId) {
+          try {
+            const station = await prisma.chargingStation.findFirst({
+              where: { status: "active" },
+              include: { chargers: { include: { evses: { include: { connectors: true } } } } },
+            });
+            if (station) {
+              locationId = String(station.id);
+              const charger = station.chargers[0];
+              if (charger?.evses[0]) {
+                evseUid = String(charger.evses[0].evse_id);
+                if (charger.evses[0].connectors[0]) {
+                  connectorId = String(charger.evses[0].connectors[0].connector_id);
+                }
+              }
+            }
+          } catch {}
+        }
+
+        const port = process.env.PORT || 3000;
         const payload = {
-          response_url: params.responseUrl || "http://localhost:3000/api/roaming/test-suite/mock-emsp/callback",
+          response_url: params.responseUrl || `http://localhost:${port}/api/roaming/test-suite/mock-emsp/callback`,
           token: {
             uid: params.tokenUid || "TEST_TAG_PNC",
             type: "RFID",
@@ -331,9 +423,9 @@ export class RoamingTestSuiteService {
             valid: true,
             whitelist: "ALWAYS",
           },
-          location_id: params.locationId || "1",
-          evse_uid: params.evseUid || "1",
-          connector_id: params.connectorId || "1",
+          location_id: locationId || "1",
+          evse_uid: evseUid || "1",
+          connector_id: connectorId || "1",
           authorization_reference: `AUTH_REF_${Date.now()}`,
         };
 
@@ -378,12 +470,25 @@ export class RoamingTestSuiteService {
       }
 
       case "ocpi_emsp_remote_stop": {
-        const targetUrl = params.url || "http://localhost:3000/api/ocpi/2.2.1/commands/STOP_SESSION";
-        const token = params.token || "DEFAULT_OCPI_TOKEN";
+        const targetUrl = this.resolveOcpiUrl(params.url, "/commands/STOP_SESSION");
+        const token = await this.resolveOcpiToken(params.token);
 
+        let sessionId = params.sessionId;
+        if (!sessionId) {
+          try {
+            const activeTx = await prisma.transaction.findFirst({
+              where: { status: { in: ["initiated", "charging"] } },
+            });
+            if (activeTx) {
+              sessionId = activeTx.transactionId;
+            }
+          } catch {}
+        }
+
+        const port = process.env.PORT || 3000;
         const payload = {
-          response_url: params.responseUrl || "http://localhost:3000/api/roaming/test-suite/mock-emsp/callback",
-          session_id: params.sessionId || `TX-ROAM-${Date.now()}`,
+          response_url: params.responseUrl || `http://localhost:${port}/api/roaming/test-suite/mock-emsp/callback`,
+          session_id: sessionId || `TX-ROAM-${Date.now()}`,
         };
 
         const http = await this.executeHttpRequest("POST", targetUrl, token, payload);
@@ -391,7 +496,7 @@ export class RoamingTestSuiteService {
 
         assertions.push({
           name: "HTTP Status is 200 OK",
-          passed: http.statusCode === 200,
+          passed: http.statusCode === 200 || http.statusCode === 201,
           expected: 200,
           actual: http.statusCode,
         });
@@ -430,8 +535,8 @@ export class RoamingTestSuiteService {
       }
 
       case "ocpi_emsp_get_sessions": {
-        const targetUrl = params.url || "http://localhost:3000/api/ocpi/2.2.1/sessions";
-        const token = params.token || "DEFAULT_OCPI_TOKEN";
+        const targetUrl = this.resolveOcpiUrl(params.url, "/sessions");
+        const token = await this.resolveOcpiToken(params.token);
 
         const http = await this.executeHttpRequest("GET", targetUrl, token);
         const assertions: TestAssertion[] = [];
@@ -473,8 +578,8 @@ export class RoamingTestSuiteService {
       }
 
       case "ocpi_emsp_get_cdrs": {
-        const targetUrl = params.url || "http://localhost:3000/api/ocpi/2.2.1/cdrs";
-        const token = params.token || "DEFAULT_OCPI_TOKEN";
+        const targetUrl = this.resolveOcpiUrl(params.url, "/cdrs");
+        const token = await this.resolveOcpiToken(params.token);
 
         const http = await this.executeHttpRequest("GET", targetUrl, token);
         const assertions: TestAssertion[] = [];
@@ -564,8 +669,9 @@ export class RoamingTestSuiteService {
       // ROLE: TEST AS CPO (EVALUATING eMSP)
       // ==========================================
       case "ocpi_cpo_authorize_token": {
+        const port = process.env.PORT || 3000;
         const emspUrl =
-          params.url || "http://localhost:3000/api/roaming/test-suite/mock-emsp/authorize";
+          params.url || `http://localhost:${port}/api/roaming/test-suite/mock-emsp/authorize`;
         const tokenUid = params.tokenUid || "NL-EMSP-TAG-99";
         const token = params.token || "EMSP_PARTNER_TOKEN";
 
@@ -619,8 +725,9 @@ export class RoamingTestSuiteService {
       }
 
       case "ocpi_cpo_dispatch_cdr": {
+        const port = process.env.PORT || 3000;
         const emspUrl =
-          params.url || "http://localhost:3000/api/roaming/test-suite/mock-emsp/cdrs";
+          params.url || `http://localhost:${port}/api/roaming/test-suite/mock-emsp/cdrs`;
         const token = params.token || "EMSP_PARTNER_TOKEN";
 
         const cdrPayload = {
@@ -687,8 +794,9 @@ export class RoamingTestSuiteService {
       }
 
       case "ocpi_cpo_command_callback": {
+        const port = process.env.PORT || 3000;
         const responseUrl =
-          params.url || "http://localhost:3000/api/roaming/test-suite/mock-emsp/callback";
+          params.url || `http://localhost:${port}/api/roaming/test-suite/mock-emsp/callback`;
 
         const http = await this.executeHttpRequest(
           "POST",

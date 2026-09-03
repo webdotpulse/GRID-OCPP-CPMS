@@ -228,5 +228,57 @@ describe("RoamingTestSuiteService - OCPI 2.2.1 & OICP 2.3 Dual-Role Test Engine"
       expect(scenario.passed).toBe(true);
       expect(scenario.results).toHaveLength(3);
     });
+
+    it("should execute ocpi_full_cycle scenario sequentially with 7 steps and pass all assertions", async () => {
+      // 1. Locations
+      mockAxios.mockResolvedValueOnce({
+        status: 200,
+        data: { data: [{ id: "LOC-1" }], status_code: 1000 },
+      });
+      // 2. Tariffs
+      mockAxios.mockResolvedValueOnce({
+        status: 200,
+        data: { data: [{ id: "TAR-1", elements: [] }], status_code: 1000 },
+      });
+      // 3. Authorize Token
+      mockAxios.mockResolvedValueOnce({
+        status: 200,
+        data: { data: { result: "ALLOWED", allowed: true, token: { uid: "TAG-1" } }, status_code: 1000 },
+      });
+      // 4. Remote Start
+      mockAxios.mockResolvedValueOnce({
+        status: 200,
+        data: { data: { result: "ACCEPTED" }, status_code: 1000 },
+      });
+      // 5. Sessions
+      mockAxios.mockResolvedValueOnce({
+        status: 200,
+        data: { data: [{ id: "SESS-1" }], status_code: 1000 },
+      });
+      // 6. Remote Stop
+      mockAxios.mockResolvedValueOnce({
+        status: 200,
+        data: { data: { result: "ACCEPTED" }, status_code: 1000 },
+      });
+      // 7. CDRs
+      mockAxios.mockResolvedValueOnce({
+        status: 200,
+        data: { data: [{ id: "CDR-1" }], status_code: 1000 },
+      });
+
+      const scenario = await RoamingTestSuiteService.runScenario("ocpi_full_cycle");
+      expect(scenario.scenarioId).toBe("ocpi_full_cycle");
+      expect(scenario.totalTests).toBe(7);
+      expect(scenario.passedTests).toBe(7);
+      expect(scenario.failedTests).toBe(0);
+      expect(scenario.passed).toBe(true);
+      expect(scenario.results).toHaveLength(7);
+
+      // Verify each test passed
+      for (const res of scenario.results) {
+        expect(res.passed).toBe(true);
+        expect(res.statusCode).toBe(200);
+      }
+    });
   });
 });

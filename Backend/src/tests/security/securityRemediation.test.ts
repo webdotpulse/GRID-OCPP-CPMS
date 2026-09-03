@@ -214,6 +214,73 @@ describe("Security Remediation Suite (SEC-01 through SEC-06)", () => {
 
       mockFind.mockRestore();
     });
+
+    it("should authenticate loopback requests using TEST_ROAMING_SUITE_TOKEN", async () => {
+      const { authenticateOcpiToken } = await import("../../middleware/ocpiAuth.js");
+      const req: any = {
+        headers: { authorization: "Token TEST_ROAMING_SUITE_TOKEN" },
+        method: "GET",
+        originalUrl: "/api/ocpi/2.2.1/locations",
+        ip: "127.0.0.1",
+      };
+      const res: any = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+      const next = jest.fn();
+
+      await authenticateOcpiToken(req, res, next);
+      expect(next).toHaveBeenCalled();
+      expect(req.ocpiEndpoint).toBeDefined();
+      expect(req.ocpiEndpoint.name).toBe("Local CPMS Test Sandbox");
+    });
+
+    it("should authenticate loopback requests using X-Test-Suite header", async () => {
+      const { authenticateOcpiToken } = await import("../../middleware/ocpiAuth.js");
+      const req: any = {
+        headers: {
+          authorization: "Token ANY_LOCAL_TOKEN",
+          "x-test-suite": "GRID-CPMS-TEST-SUITE",
+        },
+        method: "GET",
+        originalUrl: "/api/ocpi/2.2.1/locations",
+        ip: "::1",
+      };
+      const res: any = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+      const next = jest.fn();
+
+      await authenticateOcpiToken(req, res, next);
+      expect(next).toHaveBeenCalled();
+      expect(req.ocpiEndpoint).toBeDefined();
+    });
+
+    it("should reject TEST_ROAMING_SUITE_TOKEN from non-loopback external IP with 401", async () => {
+      const { authenticateOcpiToken } = await import("../../middleware/ocpiAuth.js");
+      const mockFind = jest.spyOn(prisma.ocpiEndpoint, "findFirst").mockResolvedValue(null as any);
+      const mockPartner = jest.spyOn(prisma.roamingPartner, "findMany").mockResolvedValue([] as any);
+
+      const req: any = {
+        headers: { authorization: "Token TEST_ROAMING_SUITE_TOKEN" },
+        method: "GET",
+        originalUrl: "/api/ocpi/2.2.1/locations",
+        ip: "198.51.100.42",
+      };
+      const res: any = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+      const next = jest.fn();
+
+      await authenticateOcpiToken(req, res, next);
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(next).not.toHaveBeenCalled();
+
+      mockFind.mockRestore();
+      mockPartner.mockRestore();
+    });
   });
 
   describe("Rate Limiting Exemption for Admin & Super Admin (isSuperAdminOrAdmin)", () => {

@@ -36,7 +36,7 @@ export const postStartSession = async (req: Request, res: Response) => {
     });
 
     if (!station || station.chargers.length === 0) {
-      return res.status(404).json(buildOcpiResponse({ result: "REJECTED" }, 2003, "Location or Charger not found"));
+      return res.status(200).json(buildOcpiResponse({ result: "REJECTED", timeout: 0 }, 2003, "Location or Charger not found"));
     }
 
     const charger = station.chargers[0];
@@ -115,7 +115,7 @@ export const postStopSession = async (req: Request, res: Response) => {
     });
 
     if (!tx) {
-      return res.status(404).json(buildOcpiResponse({ result: "REJECTED" }, 2003, "Active session not found"));
+      return res.status(200).json(buildOcpiResponse({ result: "REJECTED", timeout: 0 }, 2003, "Active session not found"));
     }
 
     // 2. Issue RemoteStopTransaction
@@ -166,7 +166,7 @@ export const postUnlockConnector = async (req: Request, res: Response) => {
     });
 
     if (!station || station.chargers.length === 0) {
-      return res.status(404).json(buildOcpiResponse({ result: "REJECTED" }, 2003, "Location not found"));
+      return res.status(200).json(buildOcpiResponse({ result: "REJECTED" }, 2003, "Location not found"));
     }
 
     const charger = station.chargers[0];
