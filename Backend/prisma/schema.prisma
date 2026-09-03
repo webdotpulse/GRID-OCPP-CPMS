@@ -290,7 +290,7 @@ model RfidUser {
   rfid_user_id Int      @id @default(autoincrement())
   rfid_tag     String   @unique
   external_id  String?
-  name         String
+  name         String   @default("")
   email        String?
   phone        String?
   company_name String?

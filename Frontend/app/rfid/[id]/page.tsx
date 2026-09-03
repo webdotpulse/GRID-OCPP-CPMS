@@ -9,7 +9,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Edit, CreditCard, Mail, Phone, Building, MapPin, Globe, Building2, User } from "lucide-react";
+import { ChevronLeft, Edit, CreditCard, Globe, Building2, User } from "lucide-react";
 import { RfidSessionHistory } from "@/components/rfid/RfidSessionHistory";
 import { GoogleWalletModal } from "@/components/rfid/GoogleWalletModal";
 
@@ -68,7 +68,10 @@ export default function RfidDetailPage() {
               </Badge>
             )}
           </div>
-          <p className="text-muted-foreground">Assigned to: <span className="font-medium text-foreground">{tag.name}</span></p>
+          {(() => {
+            const assignedHolder = tag.holderCompany?.name || tag.holderUser?.name || tag.holderUser?.email || (tag.name && tag.name !== 'Unassigned' ? tag.name : 'Unassigned');
+            return <p className="text-muted-foreground">Assigned Holder: <span className="font-semibold text-foreground">{assignedHolder}</span></p>;
+          })()}
         </div>
         <div className="flex items-center gap-2">
           {/* Apple Wallet Button */}
@@ -147,8 +150,7 @@ export default function RfidDetailPage() {
                 </div>
               ) : (
                 <div>
-                  <p className="font-bold text-foreground text-sm">{tag.name || 'Unassigned'}</p>
-                  {tag.email && <p className="text-xs text-muted-foreground mt-0.5">{tag.email}</p>}
+                  <p className="font-bold text-foreground text-sm">{tag.name && tag.name !== 'Unassigned' ? tag.name : 'Unassigned'}</p>
                 </div>
               )}
             </div>
@@ -225,44 +227,32 @@ export default function RfidDetailPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <Card className="col-span-1">
           <CardHeader>
-            <CardTitle>Holder Information</CardTitle>
+            <CardTitle>Card Specifications</CardTitle>
+            <CardDescription>Authentication parameters & scope</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {tag.email && (
-              <div className="flex items-center gap-3">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{tag.email}</span>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between pb-2 border-b border-border/40">
+                <span className="text-muted-foreground">Tag UID</span>
+                <span className="font-mono font-bold">{tag.rfid_tag}</span>
               </div>
-            )}
-            {tag.phone && (
-              <div className="flex items-center gap-3">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{tag.phone}</span>
+              <div className="flex items-center justify-between pb-2 border-b border-border/40">
+                <span className="text-muted-foreground">External ID</span>
+                <span className="font-mono text-xs">{tag.external_id || "None"}</span>
               </div>
-            )}
-            {tag.company_name && (
-              <div className="flex items-center gap-3">
-                <Building className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{tag.company_name}</span>
-              </div>
-            )}
-            {tag.address && (
-              <div className="flex items-start gap-3">
-                <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                <span className="text-sm">{tag.address}</span>
-              </div>
-            )}
-            
-            <div className="pt-4 border-t mt-4 grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Account Type</p>
+              <div className="flex items-center justify-between pb-2 border-b border-border/40">
+                <span className="text-muted-foreground">Account Type</span>
                 <Badge variant="secondary" className="capitalize">{tag.type}</Badge>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Authorization Scope</p>
+              <div className="flex items-center justify-between pb-2 border-b border-border/40">
+                <span className="text-muted-foreground">Authorization Scope</span>
                 <Badge variant="outline" className="capitalize font-semibold">
                   {tag.cardScope || "Roaming"}
                 </Badge>
+              </div>
+              <div className="flex items-center justify-between pb-2 border-b border-border/40">
+                <span className="text-muted-foreground">Registered Date</span>
+                <span className="text-xs text-muted-foreground">{new Date(tag.createdAt).toLocaleDateString()}</span>
               </div>
             </div>
           </CardContent>
@@ -285,7 +275,7 @@ export default function RfidDetailPage() {
         onClose={() => setIsWalletModalOpen(false)}
         rfidUserId={tag?.rfid_user_id || null}
         rfidTag={tag?.rfid_tag}
-        cardholderName={tag?.name}
+        cardholderName={tag.holderCompany?.name || tag.holderUser?.name || tag.holderUser?.email || (tag.name && tag.name !== 'Unassigned' ? tag.name : undefined)}
       />
     </AppShell>
   );

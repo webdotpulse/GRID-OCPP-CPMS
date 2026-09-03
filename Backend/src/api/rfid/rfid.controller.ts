@@ -33,6 +33,9 @@ export const getAllRfidUsers = async (req: Request, res: Response) => {
         { name: { contains: search as string, mode: "insensitive" } },
         { rfid_tag: { contains: search as string, mode: "insensitive" } },
         { email: { contains: search as string, mode: "insensitive" } },
+        { holderUser: { name: { contains: search as string, mode: "insensitive" } } },
+        { holderUser: { email: { contains: search as string, mode: "insensitive" } } },
+        { holderCompany: { name: { contains: search as string, mode: "insensitive" } } },
       ];
     }
 
@@ -180,9 +183,28 @@ export const createRfidUser = async (req: Request, res: Response) => {
       });
     }
 
+    // Resolve name from connected holder entity if not explicitly provided
+    let derivedName = data.name;
+    if (!derivedName || derivedName.trim() === "") {
+      if (data.holderType === "company" && data.holderCompanyId) {
+        const comp = await prisma.company.findUnique({ where: { id: Number(data.holderCompanyId) } });
+        if (comp) derivedName = comp.name;
+      } else if (data.holderUserId) {
+        const u = await prisma.user.findUnique({ where: { id: Number(data.holderUserId) } });
+        if (u) derivedName = u.name || u.email;
+      } else if (data.ownerCompanyId) {
+        const comp = await prisma.company.findUnique({ where: { id: Number(data.ownerCompanyId) } });
+        if (comp) derivedName = comp.name;
+      } else if (data.owner_id) {
+        const u = await prisma.user.findUnique({ where: { id: Number(data.owner_id) } });
+        if (u) derivedName = u.name || u.email;
+      }
+    }
+
     const rfidUser = await prisma.rfidUser.create({
       data: {
         ...data,
+        name: derivedName || "Unassigned",
         ownerType: data.ownerType || "user",
         ownerCompanyId: data.ownerCompanyId ? Number(data.ownerCompanyId) : null,
         holderType: data.holderType || "user",
@@ -262,10 +284,29 @@ export const updateRfidUser = async (req: Request, res: Response) => {
 
     const data = req.body as UpdateRfidUserDto;
 
+    // Resolve derived name if holder was updated and name was not explicitly provided
+    let derivedName = data.name;
+    if (derivedName === undefined && (data.holderUserId !== undefined || data.holderCompanyId !== undefined || data.holderType !== undefined)) {
+      const hType = data.holderType !== undefined ? data.holderType : existing.holderType;
+      const hCompId = data.holderCompanyId !== undefined ? data.holderCompanyId : existing.holderCompanyId;
+      const hUserId = data.holderUserId !== undefined ? data.holderUserId : existing.holderUserId;
+
+      if (hType === "company" && hCompId) {
+        const comp = await prisma.company.findUnique({ where: { id: Number(hCompId) } });
+        if (comp) derivedName = comp.name;
+      } else if (hUserId) {
+        const u = await prisma.user.findUnique({ where: { id: Number(hUserId) } });
+        if (u) derivedName = u.name || u.email;
+      } else if (hCompId === null && hUserId === null) {
+        derivedName = "Unassigned";
+      }
+    }
+
     const rfidUser = await prisma.rfidUser.update({
       where: { rfid_user_id: rfidUserId },
       data: {
         ...data,
+        ...(derivedName !== undefined ? { name: derivedName } : {}),
         ownerCompanyId: data.ownerCompanyId !== undefined ? (data.ownerCompanyId ? Number(data.ownerCompanyId) : null) : undefined,
         holderUserId: data.holderUserId !== undefined ? (data.holderUserId ? Number(data.holderUserId) : null) : undefined,
         holderCompanyId: data.holderCompanyId !== undefined ? (data.holderCompanyId ? Number(data.holderCompanyId) : null) : undefined,

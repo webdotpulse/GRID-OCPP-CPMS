@@ -15,6 +15,11 @@ export const downloadAppleWalletPass = async (req: Request, res: Response) => {
 
     const rfidCard = await prisma.rfidUser.findUnique({
       where: { rfid_user_id: id },
+      include: {
+        holderUser: { select: { id: true, name: true, email: true } },
+        holderCompany: true,
+        ownerCompany: true,
+      },
     });
 
     if (!rfidCard) {
@@ -56,6 +61,11 @@ export const getGoogleWalletUrl = async (req: Request, res: Response) => {
 
     const rfidCard = await prisma.rfidUser.findUnique({
       where: { rfid_user_id: id },
+      include: {
+        holderUser: { select: { id: true, name: true, email: true } },
+        holderCompany: true,
+        ownerCompany: true,
+      },
     });
 
     if (!rfidCard) {

@@ -8,7 +8,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Edit, Trash2, CreditCard, ArrowUpDown, Search, ShieldCheck, Globe, Building2 } from "lucide-react";
+import { Plus, Edit, Trash2, CreditCard, ArrowUpDown, Search, ShieldCheck, Globe, Building2, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -17,12 +17,34 @@ import { GoogleWalletModal } from "@/components/rfid/GoogleWalletModal";
 interface RfidTag {
   rfid_user_id: number;
   rfid_tag: string;
-  name: string;
+  name?: string;
   type: string;
   cardScope?: string;
   active: boolean;
   createdAt: string;
+  holderType?: string | null;
+  holderUserId?: number | null;
+  holderCompanyId?: number | null;
+  holderUser?: { id: number; email: string; name?: string | null } | null;
+  holderCompany?: { id: number; name: string } | null;
+  owner?: { id: number; email: string; name?: string | null } | null;
+  ownerCompany?: { id: number; name: string } | null;
 }
+
+const getAssignedHolder = (tag: RfidTag) => {
+  if (tag.holderCompany?.name) {
+    return { name: tag.holderCompany.name, type: 'company' as const };
+  }
+  if (tag.holderUser) {
+    const name = tag.holderUser.name || tag.holderUser.email;
+    const sub = tag.holderUser.name ? tag.holderUser.email : undefined;
+    return { name, sub, type: 'user' as const };
+  }
+  if (tag.name && tag.name.trim() !== '' && tag.name !== 'Unassigned') {
+    return { name: tag.name, type: 'legacy' as const };
+  }
+  return { name: 'Unassigned', type: 'none' as const };
+};
 
 export default function RfidPage() {
   const { user } = useAuth();
@@ -86,8 +108,13 @@ export default function RfidPage() {
     if (!sortConfig) return 0;
     const { key, direction } = sortConfig;
 
-    const aVal: any = a[key as keyof RfidTag];
-    const bVal: any = b[key as keyof RfidTag];
+    let aVal: any = a[key as keyof RfidTag];
+    let bVal: any = b[key as keyof RfidTag];
+
+    if (key === 'name') {
+      aVal = getAssignedHolder(a).name.toLowerCase();
+      bVal = getAssignedHolder(b).name.toLowerCase();
+    }
 
     if (aVal < bVal) return direction === 'asc' ? -1 : 1;
     if (aVal > bVal) return direction === 'asc' ? 1 : -1;
@@ -189,8 +216,42 @@ export default function RfidPage() {
                         <span>{tag.rfid_tag}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="font-semibold text-sm text-foreground">
-                      {tag.name || 'Unassigned'}
+                    <TableCell>
+                      {(() => {
+                        const holder = getAssignedHolder(tag);
+                        if (holder.type === 'company') {
+                          return (
+                            <div className="flex items-center gap-2">
+                              <div className="size-7 rounded-lg bg-[#54a8c7]/15 text-[#54a8c7] flex items-center justify-center shrink-0">
+                                <Building2 className="size-3.5" />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-sm text-foreground">{holder.name}</span>
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 bg-[#54a8c7]/10 text-[#54a8c7] border-[#54a8c7]/30">Company</Badge>
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        }
+                        if (holder.type === 'user') {
+                          return (
+                            <div className="flex items-center gap-2">
+                              <div className="size-7 rounded-lg bg-[#3f78e0]/15 text-[#3f78e0] flex items-center justify-center shrink-0">
+                                <User className="size-3.5" />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-sm text-foreground">{holder.name}</span>
+                                {holder.sub && <span className="text-xs text-muted-foreground">{holder.sub}</span>}
+                              </div>
+                            </div>
+                          );
+                        }
+                        if (holder.type === 'legacy') {
+                          return <span className="font-semibold text-sm text-foreground">{holder.name}</span>;
+                        }
+                        return <span className="text-sm text-muted-foreground/70 italic">Unassigned</span>;
+                      })()}
                     </TableCell>
                     <TableCell>
                       {tag.cardScope?.toLowerCase() === 'local' ? (
@@ -295,7 +356,7 @@ export default function RfidPage() {
         }}
         rfidUserId={selectedWalletTag?.rfid_user_id || null}
         rfidTag={selectedWalletTag?.rfid_tag}
-        cardholderName={selectedWalletTag?.name}
+        cardholderName={selectedWalletTag ? getAssignedHolder(selectedWalletTag).name : undefined}
       />
     </AppShell>
   );

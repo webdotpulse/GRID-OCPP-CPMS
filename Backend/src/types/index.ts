@@ -161,7 +161,7 @@ export interface CreateConnectorDto {
 export interface CreateRfidUserDto {
   rfid_tag: string;
   external_id?: string;
-  name: string;
+  name?: string;
   email?: string;
   phone?: string;
   company_name?: string;

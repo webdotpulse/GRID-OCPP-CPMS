@@ -9,10 +9,13 @@ import { logger } from "../utils/logger.js";
 export interface RfidCardPassData {
   rfid_user_id: number;
   rfid_tag: string;
-  name: string;
-  cardScope: string;
+  name?: string | null;
+  cardScope?: string;
   company_name?: string | null;
   active: boolean;
+  holderUser?: { name?: string | null; email: string } | null;
+  holderCompany?: { name: string } | null;
+  ownerCompany?: { name: string } | null;
 }
 
 export interface GoogleWalletPassDetails {
@@ -37,6 +40,9 @@ export class WalletPassService {
    */
   public static async generateApplePkPass(rfidCard: RfidCardPassData): Promise<Buffer> {
     const zip = new JSZip();
+
+    const cardholderName = rfidCard.holderCompany?.name || rfidCard.holderUser?.name || rfidCard.holderUser?.email || rfidCard.name || "EV Driver";
+    const networkName = rfidCard.holderCompany?.name || rfidCard.ownerCompany?.name || rfidCard.company_name || "GRID Open CPMS";
 
     // 1. Construct pass.json
     const passJson = {
@@ -74,7 +80,7 @@ export class WalletPassService {
           {
             key: "cardholder",
             label: "CARDHOLDER",
-            value: rfidCard.name || "EV Driver",
+            value: cardholderName,
           },
         ],
         secondaryFields: [
@@ -93,7 +99,7 @@ export class WalletPassService {
           {
             key: "network",
             label: "NETWORK",
-            value: rfidCard.company_name || "GRID Open CPMS",
+            value: networkName,
           },
         ],
       },
@@ -238,14 +244,17 @@ export class WalletPassService {
       logger.error(`Error generating QR code for Google Wallet pass: ${err}`);
     }
 
+    const cardholderName = rfidCard.holderCompany?.name || rfidCard.holderUser?.name || rfidCard.holderUser?.email || rfidCard.name || "EV Driver";
+    const companyName = rfidCard.holderCompany?.name || rfidCard.ownerCompany?.name || rfidCard.company_name || "GRID Open CPMS";
+
     return {
       saveUrl,
       token,
       qrCodeDataUrl,
       rfidTag: rfidCard.rfid_tag,
-      name: rfidCard.name,
+      name: cardholderName,
       cardScope: rfidCard.cardScope || "Roaming",
-      companyName: rfidCard.company_name || "GRID Open CPMS",
+      companyName,
       active: rfidCard.active,
       smartTapValue: rfidCard.rfid_tag,
       isProductionConfigured,

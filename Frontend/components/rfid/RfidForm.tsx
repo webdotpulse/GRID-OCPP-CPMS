@@ -20,11 +20,7 @@ import { EntitySelectInput, EntityUser, EntityCompany } from "@/components/ui/En
 const rfidSchema = z.object({
   rfid_tag: z.string().min(4, "RFID Tag ID is required"),
   external_id: z.string().optional(),
-  name: z.string().min(2, "Holder name is required"),
-  email: z.string().email().optional().or(z.literal('')),
-  phone: z.string().optional(),
-  company_name: z.string().optional(),
-  address: z.string().optional(),
+  name: z.string().optional(),
   type: z.string().min(1),
   cardScope: z.string().optional(),
   active: z.boolean(),
@@ -53,7 +49,7 @@ export function RfidForm({ initialData }: { initialData?: any }) {
     defaultValues: initialData ? {
       ...initialData,
       cardScope: initialData?.cardScope || "Roaming",
-      email: initialData?.email || "",
+      name: initialData?.name || "",
       owner_id: initialData?.owner_id,
       ownerType: initialData?.ownerType || (initialData?.ownerCompanyId ? "company" : "user"),
       ownerCompanyId: initialData?.ownerCompanyId ?? null,
@@ -68,7 +64,6 @@ export function RfidForm({ initialData }: { initialData?: any }) {
       type: "postpaid",
       cardScope: "Roaming",
       active: true,
-      email: "",
       owner_id: user?.id,
       ownerType: "user",
       ownerCompanyId: null,
@@ -103,14 +98,34 @@ export function RfidForm({ initialData }: { initialData?: any }) {
   const onSubmit = async (data: RfidFormValues) => {
     setIsLoading(true);
     try {
+      const selectedHolderType = watch("holderType") || initialData?.holderType || "user";
+      const selectedHolderUserId = watch("holderUserId") ?? initialData?.holderUserId ?? null;
+      const selectedHolderCompanyId = watch("holderCompanyId") ?? initialData?.holderCompanyId ?? null;
+
+      let derivedName = data.name;
+      if (!derivedName || derivedName.trim() === "") {
+        if (selectedHolderType === "company" && selectedHolderCompanyId) {
+          const c = companiesList.find(x => x.id === selectedHolderCompanyId);
+          if (c) derivedName = c.name;
+        } else if (selectedHolderUserId) {
+          const u = usersList.find(x => x.id === selectedHolderUserId);
+          if (u) derivedName = u.name || u.email;
+        }
+      }
+
       const payload = {
-        ...data,
+        rfid_tag: data.rfid_tag,
+        external_id: data.external_id || undefined,
+        name: derivedName || "Unassigned",
+        type: data.type,
+        cardScope: data.cardScope,
+        active: data.active,
         owner_id: data.owner_id || initialData?.owner_id || user?.id,
         ownerType: watch("ownerType") || initialData?.ownerType || "user",
         ownerCompanyId: watch("ownerCompanyId") ?? initialData?.ownerCompanyId ?? null,
-        holderType: watch("holderType") || initialData?.holderType || "user",
-        holderUserId: watch("holderUserId") ?? initialData?.holderUserId ?? null,
-        holderCompanyId: watch("holderCompanyId") ?? initialData?.holderCompanyId ?? null,
+        holderType: selectedHolderType,
+        holderUserId: selectedHolderUserId,
+        holderCompanyId: selectedHolderCompanyId,
         transactionPayerType: watch("transactionPayerType") ?? initialData?.transactionPayerType ?? null,
         transactionPayerUserId: watch("transactionPayerUserId") ?? initialData?.transactionPayerUserId ?? null,
         transactionPayerCompanyId: watch("transactionPayerCompanyId") ?? initialData?.transactionPayerCompanyId ?? null,
@@ -150,38 +165,7 @@ export function RfidForm({ initialData }: { initialData?: any }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
-             <div className="space-y-2">
-              <Label htmlFor="name">Holder Full Name</Label>
-              <Input id="name" {...register('name')} />
-              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address (Optional)</Label>
-              <Input id="email" type="email" {...register('email')} />
-              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
-             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number (Optional)</Label>
-              <Input id="phone" {...register('phone')} />
-              {errors.phone && <p className="text-sm text-destructive">{errors.phone.message}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="company_name">Company Name (Optional)</Label>
-              <Input id="company_name" {...register('company_name')} />
-              {errors.company_name && <p className="text-sm text-destructive">{errors.company_name.message}</p>}
-            </div>
-             <div className="space-y-2">
-              <Label htmlFor="address">Address (Optional)</Label>
-              <Input id="address" {...register('address')} />
-              {errors.address && <p className="text-sm text-destructive">{errors.address.message}</p>}
-            </div>
-          </div>
 
           {/* Card Scope Selection: Roaming vs Local */}
           <div className="space-y-3 border-t pt-4">
@@ -286,12 +270,11 @@ export function RfidForm({ initialData }: { initialData?: any }) {
                   setValue("holderUserId", userId);
                   if (userId) {
                     const u = usersList.find(x => x.id === userId);
-                    if (u && (!watch('name') || watch('name').trim() === '')) {
+                    if (u) {
                       setValue('name', u.name || u.email);
                     }
-                    if (u && (!watch('email') || watch('email')?.trim() === '')) {
-                      setValue('email', u.email);
-                    }
+                  } else {
+                    setValue('name', '');
                   }
                 }}
                 selectedCompanyId={watch("holderCompanyId") ?? initialData?.holderCompanyId}
@@ -299,18 +282,17 @@ export function RfidForm({ initialData }: { initialData?: any }) {
                   setValue("holderCompanyId", companyId);
                   if (companyId) {
                     const c = companiesList.find(x => x.id === companyId);
-                    if (c && (!watch('name') || watch('name').trim() === '')) {
+                    if (c) {
                       setValue('name', c.name);
                     }
-                    if (c && (!watch('company_name') || watch('company_name')?.trim() === '')) {
-                      setValue('company_name', c.name);
-                    }
+                  } else {
+                    setValue('name', '');
                   }
                 }}
                 usersList={usersList}
                 companiesList={companiesList}
                 allowUnassigned={true}
-                unassignedLabel="Custom/External Driver (Enter details above)"
+                unassignedLabel="Unassigned (No driver or company assigned)"
               />
 
               {/* 2. The Owner */}
