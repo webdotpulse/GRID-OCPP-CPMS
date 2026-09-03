@@ -98,11 +98,29 @@ export const getChargeGroupById = async (req: Request, res: Response) => {
 };
 
 /**
+ * Helper to compute 3-phase AC current per phase from power (kW)
+ * Assuming European standard 230V phase-to-neutral / 400V line-to-line
+ */
+function compute3PhaseAmpsFromKw(kw: number): number {
+  if (!kw || kw <= 0) return 0;
+  return Math.round(((kw * 1000) / (3 * 230)) * 10) / 10;
+}
+
+/**
  * POST /api/charge-groups
  */
 export const createChargeGroup = async (req: Request, res: Response) => {
   try {
-    const { name, description, chargerIds, users, maxPower } = req.body;
+    const {
+      name,
+      description,
+      chargerIds,
+      users,
+      maxPower,
+      maxAmperage,
+      maxPhaseCurrent,
+      maxPhaseUnbalance,
+    } = req.body;
 
     if (!name) return res.status(400).json({ success: false, error: "Name is required" });
 
@@ -113,6 +131,25 @@ export const createChargeGroup = async (req: Request, res: Response) => {
     if (users && !Array.isArray(users)) {
       return res.status(400).json({ success: false, error: "users must be an array" });
     }
+
+    // Auto-calculate electrical current limits if not explicitly provided
+    const parsedMaxPower = maxPower !== undefined && maxPower !== null && maxPower !== "" ? Number(maxPower) : null;
+    const computedAmps = parsedMaxPower ? compute3PhaseAmpsFromKw(parsedMaxPower) : null;
+
+    const parsedMaxAmperage =
+      maxAmperage !== undefined && maxAmperage !== null && maxAmperage !== ""
+        ? Number(maxAmperage)
+        : computedAmps;
+
+    const parsedMaxPhaseCurrent =
+      maxPhaseCurrent !== undefined && maxPhaseCurrent !== null && maxPhaseCurrent !== ""
+        ? Number(maxPhaseCurrent)
+        : (computedAmps ?? 80.0);
+
+    const parsedMaxPhaseUnbalance =
+      maxPhaseUnbalance !== undefined && maxPhaseUnbalance !== null && maxPhaseUnbalance !== ""
+        ? Number(maxPhaseUnbalance)
+        : 16.0;
 
     // @ts-expect-error userRole is attached by authenticateToken middleware
     const userRole = req.userRole;
@@ -142,7 +179,10 @@ export const createChargeGroup = async (req: Request, res: Response) => {
       data: {
         name,
         description,
-        maxPower,
+        maxPower: parsedMaxPower,
+        maxAmperage: parsedMaxAmperage,
+        maxPhaseCurrent: parsedMaxPhaseCurrent,
+        maxPhaseUnbalance: parsedMaxPhaseUnbalance,
         users: {
           create: users?.map((u: any) => ({ userId: u.userId, tariffId: u.tariffId })) || []
         }
@@ -181,7 +221,16 @@ export const updateChargeGroup = async (req: Request, res: Response) => {
     const id = parseId(req.params.id);
     if (!id) return res.status(400).json({ success: false, error: "Invalid ID" });
 
-    const { name, description, chargerIds, users, maxPower } = req.body;
+    const {
+      name,
+      description,
+      chargerIds,
+      users,
+      maxPower,
+      maxAmperage,
+      maxPhaseCurrent,
+      maxPhaseUnbalance,
+    } = req.body;
 
     if (chargerIds && !Array.isArray(chargerIds)) {
       return res.status(400).json({ success: false, error: "chargerIds must be an array" });
@@ -190,6 +239,25 @@ export const updateChargeGroup = async (req: Request, res: Response) => {
     if (users && !Array.isArray(users)) {
       return res.status(400).json({ success: false, error: "users must be an array" });
     }
+
+    // Auto-calculate electrical current limits if not explicitly provided
+    const parsedMaxPower = maxPower !== undefined ? (maxPower !== null && maxPower !== "" ? Number(maxPower) : null) : undefined;
+    const computedAmps = parsedMaxPower ? compute3PhaseAmpsFromKw(parsedMaxPower) : null;
+
+    const parsedMaxAmperage =
+      maxAmperage !== undefined
+        ? (maxAmperage !== null && maxAmperage !== "" ? Number(maxAmperage) : null)
+        : (computedAmps ?? undefined);
+
+    const parsedMaxPhaseCurrent =
+      maxPhaseCurrent !== undefined
+        ? (maxPhaseCurrent !== null && maxPhaseCurrent !== "" ? Number(maxPhaseCurrent) : undefined)
+        : (computedAmps ?? undefined);
+
+    const parsedMaxPhaseUnbalance =
+      maxPhaseUnbalance !== undefined
+        ? (maxPhaseUnbalance !== null && maxPhaseUnbalance !== "" ? Number(maxPhaseUnbalance) : undefined)
+        : undefined;
 
     // @ts-expect-error userRole is attached by authenticateToken middleware
     const userRole = req.userRole;
@@ -237,14 +305,19 @@ export const updateChargeGroup = async (req: Request, res: Response) => {
         await tx.chargeGroupUser.deleteMany({ where: { chargeGroupId: id } });
       }
 
+      const updateData: any = {
+        name,
+        description,
+        ...(parsedMaxPower !== undefined && { maxPower: parsedMaxPower }),
+        ...(parsedMaxAmperage !== undefined && { maxAmperage: parsedMaxAmperage }),
+        ...(parsedMaxPhaseCurrent !== undefined && { maxPhaseCurrent: parsedMaxPhaseCurrent }),
+        ...(parsedMaxPhaseUnbalance !== undefined && { maxPhaseUnbalance: parsedMaxPhaseUnbalance }),
+        users: users ? { create: users.map((u: any) => ({ userId: u.userId, tariffId: u.tariffId })) } : undefined
+      };
+
       return tx.chargeGroup.update({
         where: { id },
-        data: {
-          name,
-          description,
-          maxPower,
-          users: users ? { create: users.map((u: any) => ({ userId: u.userId, tariffId: u.tariffId })) } : undefined
-        },
+        data: updateData,
         include: { chargers: true, users: true }
       });
     });

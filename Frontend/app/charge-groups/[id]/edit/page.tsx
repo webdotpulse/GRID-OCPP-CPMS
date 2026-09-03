@@ -23,6 +23,10 @@ export default function EditChargeGroupPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [maxPower, setMaxPower] = useState<number | "">("");
+  const [maxAmperage, setMaxAmperage] = useState<number | "">("");
+  const [maxPhaseCurrent, setMaxPhaseCurrent] = useState<number | "">("");
+  const [maxPhaseUnbalance, setMaxPhaseUnbalance] = useState<number | "">("");
+  const [autoSyncAmps, setAutoSyncAmps] = useState(false);
 
   const [allTariffs, setAllTariffs] = useState<any[]>([]);
 
@@ -39,6 +43,32 @@ export default function EditChargeGroupPage() {
   const [selectedChargersDetails, setSelectedChargersDetails] = useState<any[]>([]);
   const [selectedUsersDetails, setSelectedUsersDetails] = useState<any[]>([]);
 
+  const calculate3PhaseAmps = (kw: number) => {
+    if (!kw || kw <= 0) return 0;
+    return Math.round(((kw * 1000) / (3 * 230)) * 10) / 10;
+  };
+
+  const handleMaxPowerChange = (val: string) => {
+    const num = val === "" ? "" : Number(val);
+    setMaxPower(num);
+    if (autoSyncAmps && typeof num === "number" && num > 0) {
+      const amps = calculate3PhaseAmps(num);
+      setMaxAmperage(amps);
+      setMaxPhaseCurrent(amps);
+    }
+  };
+
+  const applyAutoCalculatedAmps = () => {
+    if (maxPower !== "" && !isNaN(Number(maxPower)) && Number(maxPower) > 0) {
+      const amps = calculate3PhaseAmps(Number(maxPower));
+      setMaxAmperage(amps);
+      setMaxPhaseCurrent(amps);
+      setMaxPhaseUnbalance(16);
+      setAutoSyncAmps(true);
+      toast.success(`Calculated 3-phase current: ${amps} A per phase (230V/400V)`);
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -49,10 +79,13 @@ export default function EditChargeGroupPage() {
 
         setAllTariffs(tariffsRes.data?.data || tariffsRes.data);
 
-        const groupData = groupRes.data;
+        const groupData = groupRes.data?.data || groupRes.data;
         setName(groupData.name);
         setDescription(groupData.description || "");
-        setMaxPower(groupData.maxPower !== null ? groupData.maxPower : "");
+        setMaxPower(groupData.maxPower !== null && groupData.maxPower !== undefined ? groupData.maxPower : "");
+        setMaxAmperage(groupData.maxAmperage !== null && groupData.maxAmperage !== undefined ? groupData.maxAmperage : "");
+        setMaxPhaseCurrent(groupData.maxPhaseCurrent !== null && groupData.maxPhaseCurrent !== undefined ? groupData.maxPhaseCurrent : 80);
+        setMaxPhaseUnbalance(groupData.maxPhaseUnbalance !== null && groupData.maxPhaseUnbalance !== undefined ? groupData.maxPhaseUnbalance : 16);
 
         const initialChargers = groupData.chargers || [];
         setSelectedChargers(initialChargers.map((c: any) => c.charger_id));
@@ -137,13 +170,16 @@ export default function EditChargeGroupPage() {
         name,
         description,
         maxPower: maxPower === "" ? null : Number(maxPower),
+        maxAmperage: maxAmperage === "" ? null : Number(maxAmperage),
+        maxPhaseCurrent: maxPhaseCurrent === "" ? null : Number(maxPhaseCurrent),
+        maxPhaseUnbalance: maxPhaseUnbalance === "" ? null : Number(maxPhaseUnbalance),
         chargerIds: selectedChargers,
         users: groupUsers
       });
       toast.success("Charge group updated");
       router.push('/charge-groups');
     } catch {
-      toast.error("Failed to create charge group");
+      toast.error("Failed to update charge group");
     } finally {
       setIsLoading(false);
     }
@@ -171,15 +207,70 @@ export default function EditChargeGroupPage() {
                   <Textarea value={description} onChange={(e: any) => setDescription(e.target.value)} placeholder="Optional details..." />
                 </div>
                 <div className="space-y-2 pt-2 border-t">
-                  <Label>Maximum Group Power Capacity (kW)</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Maximum Group Power Capacity (kW)</Label>
+                    {maxPower !== "" && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={applyAutoCalculatedAmps}
+                        className="h-7 text-xs text-[#54a8c7] hover:text-[#54a8c7] hover:bg-[#54a8c7]/10"
+                      >
+                        ⚡ Auto-calc Amps (3-Phase)
+                      </Button>
+                    )}
+                  </div>
                   <Input
                     type="number"
                     step="any"
                     value={maxPower}
-                    onChange={(e: any) => setMaxPower(e.target.value)}
-                    placeholder="e.g. 150"
+                    onChange={(e: any) => handleMaxPowerChange(e.target.value)}
+                    placeholder="e.g. 40"
                   />
                   <p className="text-xs text-muted-foreground">Used for Smart Charging Load Management to dynamically throttle chargers if group load approaches this limit.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Max Current (A)</Label>
+                    <Input
+                      type="number"
+                      step="any"
+                      value={maxAmperage}
+                      onChange={(e: any) => {
+                        setAutoSyncAmps(false);
+                        setMaxAmperage(e.target.value === "" ? "" : Number(e.target.value));
+                      }}
+                      placeholder="e.g. 58"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Total cluster draw limit</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Per-Phase Limit (A)</Label>
+                    <Input
+                      type="number"
+                      step="any"
+                      value={maxPhaseCurrent}
+                      onChange={(e: any) => {
+                        setAutoSyncAmps(false);
+                        setMaxPhaseCurrent(e.target.value === "" ? "" : Number(e.target.value));
+                      }}
+                      placeholder="e.g. 58"
+                    />
+                    <p className="text-[10px] text-muted-foreground">L1/L2/L3 upper fuse</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Max Unbalance (A)</Label>
+                    <Input
+                      type="number"
+                      step="any"
+                      value={maxPhaseUnbalance}
+                      onChange={(e: any) => setMaxPhaseUnbalance(e.target.value === "" ? "" : Number(e.target.value))}
+                      placeholder="e.g. 16"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Neutral safety (±16A)</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>

@@ -74,6 +74,9 @@ export default function TariffsPage() {
     } else if (key === 'electricity_rate') {
       aVal = Number(a.electricity_rate);
       bVal = Number(b.electricity_rate);
+    } else if (key === 'chargers' || key === 'chargerCount') {
+      aVal = a._count?.chargers ?? a.chargers?.length ?? 0;
+      bVal = b._count?.chargers ?? b.chargers?.length ?? 0;
     }
 
     if (aVal < bVal) return direction === 'asc' ? -1 : 1;
@@ -143,6 +146,9 @@ export default function TariffsPage() {
                   <div className="flex items-center gap-1.5">Plan Name <ArrowUpDown className="size-3" /></div>
                 </TableHead>
                 <TableHead>Pricing Model</TableHead>
+                <TableHead className="text-center cursor-pointer hover:bg-muted/50" onClick={() => handleSort('chargers')}>
+                  <div className="flex items-center justify-center gap-1.5">Attached Chargers <ArrowUpDown className="size-3" /></div>
+                </TableHead>
                 <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('charge')}>
                   <div className="flex items-center justify-end gap-1.5">Fixed / Monthly <ArrowUpDown className="size-3" /></div>
                 </TableHead>
@@ -157,7 +163,7 @@ export default function TariffsPage() {
             <TableBody>
               {isLoading && tariffs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <div className="size-6 border-2 border-[#54a8c7] border-t-transparent rounded-full animate-spin"></div>
                       <span className="text-xs">Loading pricing plans...</span>
@@ -166,7 +172,7 @@ export default function TariffsPage() {
                 </TableRow>
               ) : sortedTariffs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-1.5">
                       <WalletCards className="size-8 text-muted-foreground/50" />
                       <p className="font-semibold text-foreground text-sm">No Tariff Plans Configured</p>
@@ -195,6 +201,31 @@ export default function TariffsPage() {
                           Fixed Flat Rate
                         </Badge>
                       )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {(() => {
+                        const count = tariff._count?.chargers ?? tariff.chargers?.length ?? 0;
+                        const chargerNames = (tariff.chargers || []).map((c: any) => c.name).filter(Boolean).join(", ");
+                        return (
+                          <div className="flex items-center justify-center">
+                            <Badge
+                              variant={count > 0 ? "soft-primary" : "soft-secondary"}
+                              className={`text-xs font-semibold gap-1.5 ${
+                                count > 0
+                                  ? "bg-[#54a8c7]/15 text-[#54a8c7] border-[#54a8c7]/30"
+                                  : "text-muted-foreground bg-muted/40 border-border/40"
+                              }`}
+                              title={chargerNames ? `Attached chargers:\n${chargerNames}` : "No chargers attached"}
+                            >
+                              <Zap className={`size-3 ${count > 0 ? "text-[#54a8c7]" : "text-muted-foreground"}`} />
+                              <span>{count}</span>
+                              <span className="text-[11px] font-normal opacity-80">
+                                {count === 1 ? "charger" : "chargers"}
+                              </span>
+                            </Badge>
+                          </div>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-right font-mono font-bold text-xs text-foreground">
                       {tariff.tariffType === "DYNAMIC_EPEX"

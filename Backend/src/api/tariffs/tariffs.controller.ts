@@ -50,6 +50,11 @@ export const getAllTariffs = async (req: Request, res: Response) => {
               status: true,
             },
           },
+          _count: {
+            select: {
+              chargers: true,
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
       }),
@@ -106,6 +111,11 @@ export const getTariffById = async (req: Request, res: Response) => {
                 state: true,
               },
             },
+          },
+        },
+        _count: {
+          select: {
+            chargers: true,
           },
         },
       },

@@ -1647,6 +1647,16 @@ export class SimulatorServiceManager {
           maxPhaseUnbalance: 16.0,
         },
       });
+    } else if (group.maxPower && group.maxPower <= 100 && group.maxAmperage && group.maxAmperage >= 500) {
+      // Synchronize legacy test group where maxPower was adjusted down (e.g. 40kW) but maxAmperage was left at 800A
+      const calculatedAmps = Math.round(((group.maxPower * 1000) / (3 * 230)) * 10) / 10;
+      group = await prisma.chargeGroup.update({
+        where: { id: group.id },
+        data: {
+          maxAmperage: calculatedAmps,
+          maxPhaseCurrent: calculatedAmps,
+        },
+      });
     }
 
     return group;
