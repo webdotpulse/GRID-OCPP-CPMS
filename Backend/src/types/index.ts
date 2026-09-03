@@ -144,7 +144,10 @@ export interface CreateStationDto {
   on_site_contact_details?: string;
   emergency_contact?: string;
   status?: string;
-  maxPower?: number;
+  maxPower?: number | null;
+  maxAmperage?: number | null;
+  maxPhaseCurrent?: number | null;
+  maxPhaseUnbalance?: number | null;
   owner_id: number;
 }
 

@@ -131,6 +131,9 @@ model ChargingStation {
   emergency_contact       String?
   status                  String   @default("active")
   maxPower                Float? // Maximum allowed capacity in kW/Amps
+  maxAmperage             Float?
+  maxPhaseCurrent         Float?   @default(80.0)
+  maxPhaseUnbalance       Float?   @default(16.0)
   owner_id                Int
   companyId               Int?
   createdAt               DateTime @default(now())

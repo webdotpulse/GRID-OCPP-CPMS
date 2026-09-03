@@ -152,7 +152,9 @@ export class LoadManagementService {
         0
       );
 
-      const safeLimitKw = station.maxPower * 0.95;
+      const maxPowerFromAmps = station.maxAmperage ? (station.maxAmperage * 3 * 230) / 1000 : Infinity;
+      const effectiveLimitKw = Math.min(station.maxPower, maxPowerFromAmps);
+      const safeLimitKw = effectiveLimitKw * 0.95;
 
       // If THEORETICAL max load is safely under limits, clear limits.
       if (theoreticalMaxLoadKw <= safeLimitKw) {

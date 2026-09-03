@@ -9,7 +9,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Edit, MapPin, Phone, User, ExternalLink } from "lucide-react";
+import { ChevronLeft, Edit, MapPin, Phone, User, ExternalLink, Zap } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface StationDetail {
@@ -25,6 +25,10 @@ interface StationDetail {
   on_site_person_name: string;
   on_site_contact_details: string;
   emergency_contact: string;
+  maxPower?: number | null;
+  maxAmperage?: number | null;
+  maxPhaseCurrent?: number | null;
+  maxPhaseUnbalance?: number | null;
   createdAt: string;
   chargers: Array<{
     charger_id: number;
@@ -149,6 +153,55 @@ export default function StationDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dynamic Load Management & Site Grid Limits */}
+      <Card className="rounded-2xl border-border/70 shadow-xs mb-6">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <div className="size-8 rounded-lg bg-[#54a8c7]/10 text-[#54a8c7] flex items-center justify-center">
+              <Zap className="size-4" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-bold">Dynamic Load Management & Site Grid Limits</CardTitle>
+              <CardDescription className="text-xs">
+                Automated site power and phase limits enforced across all chargers installed at this location.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-xl bg-muted/30 border border-border/60">
+            <div>
+              <span className="text-xs text-muted-foreground font-medium block">Power Limit (kW)</span>
+              <span className="text-sm font-bold text-foreground">
+                {station.maxPower !== null && station.maxPower !== undefined ? `${station.maxPower} kW` : "Unlimited (Site Max)"}
+              </span>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Dynamic throttling ceiling</p>
+            </div>
+            <div>
+              <span className="text-xs text-muted-foreground font-medium block">Max Current (A)</span>
+              <span className="text-sm font-bold text-foreground">
+                {station.maxAmperage ? `${station.maxAmperage} A` : (station.maxPower ? `${Math.round(((station.maxPower * 1000) / (3 * 230)) * 10) / 10} A (calculated)` : "Unlimited")}
+              </span>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Total site draw limit</p>
+            </div>
+            <div>
+              <span className="text-xs text-muted-foreground font-medium block">Per-Phase Limit</span>
+              <span className="text-sm font-bold text-foreground">
+                {station.maxPhaseCurrent ?? 80.0} A
+              </span>
+              <p className="text-[11px] text-muted-foreground mt-0.5">L1 / L2 / L3 upper fuse</p>
+            </div>
+            <div>
+              <span className="text-xs text-muted-foreground font-medium block">Max Phase Unbalance</span>
+              <span className="text-sm font-bold text-foreground">
+                ±{station.maxPhaseUnbalance ?? 16.0} A
+              </span>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Neutral conductor safety</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

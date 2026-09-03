@@ -228,6 +228,15 @@ export const getStationChargers = async (req: Request, res: Response) => {
 };
 
 /**
+ * Helper to compute 3-phase AC current per phase from power (kW)
+ * Assuming European standard 230V phase-to-neutral / 400V line-to-line
+ */
+function compute3PhaseAmpsFromKw(kw: number): number {
+  if (!kw || kw <= 0) return 0;
+  return Math.round(((kw * 1000) / (3 * 230)) * 10) / 10;
+}
+
+/**
  * POST /api/stations - Create new station
  */
 export const createStation = async (req: Request, res: Response) => {
@@ -268,9 +277,32 @@ export const createStation = async (req: Request, res: Response) => {
       companyId = currentUser?.companyId || owner.companyId || null;
     }
 
+    // Auto-calculate electrical current limits if not explicitly provided
+    const parsedMaxPower = data.maxPower !== undefined && data.maxPower !== null && (data as any).maxPower !== "" ? Number(data.maxPower) : null;
+    const computedAmps = parsedMaxPower ? compute3PhaseAmpsFromKw(parsedMaxPower) : null;
+
+    const parsedMaxAmperage =
+      (data as any).maxAmperage !== undefined && (data as any).maxAmperage !== null && (data as any).maxAmperage !== ""
+        ? Number((data as any).maxAmperage)
+        : computedAmps;
+
+    const parsedMaxPhaseCurrent =
+      (data as any).maxPhaseCurrent !== undefined && (data as any).maxPhaseCurrent !== null && (data as any).maxPhaseCurrent !== ""
+        ? Number((data as any).maxPhaseCurrent)
+        : (computedAmps ?? 80.0);
+
+    const parsedMaxPhaseUnbalance =
+      (data as any).maxPhaseUnbalance !== undefined && (data as any).maxPhaseUnbalance !== null && (data as any).maxPhaseUnbalance !== ""
+        ? Number((data as any).maxPhaseUnbalance)
+        : 16.0;
+
     const station = await prisma.chargingStation.create({
       data: {
         ...data,
+        maxPower: parsedMaxPower,
+        maxAmperage: parsedMaxAmperage,
+        maxPhaseCurrent: parsedMaxPhaseCurrent,
+        maxPhaseUnbalance: parsedMaxPhaseUnbalance,
         owner_id: targetOwnerId,
         companyId,
       } as any,
@@ -346,6 +378,32 @@ export const updateStation = async (req: Request, res: Response) => {
     if (userRole !== "superadmin" && userRole !== "admin") {
       delete updatePayload.companyId;
       delete updatePayload.owner_id;
+    }
+
+    if (updatePayload.maxPower !== undefined) {
+      const parsedMaxPower = updatePayload.maxPower !== null && updatePayload.maxPower !== "" ? Number(updatePayload.maxPower) : null;
+      updatePayload.maxPower = parsedMaxPower;
+      const computedAmps = parsedMaxPower ? compute3PhaseAmpsFromKw(parsedMaxPower) : null;
+
+      if (updatePayload.maxAmperage === undefined && computedAmps !== null) {
+        updatePayload.maxAmperage = computedAmps;
+      }
+      if (updatePayload.maxPhaseCurrent === undefined && computedAmps !== null) {
+        updatePayload.maxPhaseCurrent = computedAmps;
+      }
+      if (updatePayload.maxPhaseUnbalance === undefined) {
+        updatePayload.maxPhaseUnbalance = 16.0;
+      }
+    }
+
+    if (updatePayload.maxAmperage !== undefined) {
+      updatePayload.maxAmperage = updatePayload.maxAmperage !== null && updatePayload.maxAmperage !== "" ? Number(updatePayload.maxAmperage) : null;
+    }
+    if (updatePayload.maxPhaseCurrent !== undefined) {
+      updatePayload.maxPhaseCurrent = updatePayload.maxPhaseCurrent !== null && updatePayload.maxPhaseCurrent !== "" ? Number(updatePayload.maxPhaseCurrent) : null;
+    }
+    if (updatePayload.maxPhaseUnbalance !== undefined) {
+      updatePayload.maxPhaseUnbalance = updatePayload.maxPhaseUnbalance !== null && updatePayload.maxPhaseUnbalance !== "" ? Number(updatePayload.maxPhaseUnbalance) : null;
     }
 
     const station = await prisma.chargingStation.update({

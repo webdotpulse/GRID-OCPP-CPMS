@@ -32,6 +32,9 @@ const stationSchema = z.object({
   emergency_contact: z.string().optional(),
   isGroundPlanEnabled: z.boolean().optional(),
   maxPower: z.number().min(0).optional().nullable(),
+  maxAmperage: z.number().min(0).optional().nullable(),
+  maxPhaseCurrent: z.number().min(0).optional().nullable(),
+  maxPhaseUnbalance: z.number().min(0).optional().nullable(),
   owner_id: z.number().optional(),
   companyId: z.number().optional().nullable(),
 });
@@ -39,7 +42,14 @@ const stationSchema = z.object({
 type StationFormValues = z.infer<typeof stationSchema>;
 
 interface StationFormProps {
-  initialData?: StationFormValues & { id: number, owner_id?: number, companyId?: number | null };
+  initialData?: StationFormValues & {
+    id: number;
+    owner_id?: number;
+    companyId?: number | null;
+    maxAmperage?: number | null;
+    maxPhaseCurrent?: number | null;
+    maxPhaseUnbalance?: number | null;
+  };
 }
 
 export function StationForm({ initialData }: StationFormProps) {
@@ -50,6 +60,7 @@ export function StationForm({ initialData }: StationFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [companiesList, setCompaniesList] = useState<any[]>([]);
+  const [autoSyncAmps, setAutoSyncAmps] = useState(false);
   const { user } = useAuth();
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<StationFormValues>({
@@ -58,8 +69,42 @@ export function StationForm({ initialData }: StationFormProps) {
       latitude: 0,
       longitude: 0,
       companyId: queryCompanyId,
+      maxPhaseCurrent: 80,
+      maxPhaseUnbalance: 16,
     },
   });
+
+  const calculate3PhaseAmps = (kw: number) => {
+    if (!kw || kw <= 0) return 0;
+    return Math.round(((kw * 1000) / (3 * 230)) * 10) / 10;
+  };
+
+  const handleMaxPowerChange = (val: string) => {
+    const num = val === "" ? null : parseFloat(val);
+    setValue('maxPower', num, { shouldValidate: true });
+    if (autoSyncAmps && num && num > 0) {
+      const amps = calculate3PhaseAmps(num);
+      setValue('maxAmperage', amps, { shouldValidate: true });
+      setValue('maxPhaseCurrent', amps, { shouldValidate: true });
+      if (!watch('maxPhaseUnbalance')) {
+        setValue('maxPhaseUnbalance', 16, { shouldValidate: true });
+      }
+    }
+  };
+
+  const applyAutoCalculatedAmps = () => {
+    const p = watch('maxPower');
+    if (p && p > 0) {
+      const amps = calculate3PhaseAmps(p);
+      setValue('maxAmperage', amps, { shouldValidate: true });
+      setValue('maxPhaseCurrent', amps, { shouldValidate: true });
+      setValue('maxPhaseUnbalance', 16, { shouldValidate: true });
+      setAutoSyncAmps(true);
+      toast.success(`Calculated 3-phase current: ${amps} A per phase (230V/400V)`);
+    } else {
+      toast.error('Please enter a valid power capacity in kW first');
+    }
+  };
 
   const europeanCountries = [
     { code: "AT", name: "Austria" },
@@ -267,18 +312,80 @@ export function StationForm({ initialData }: StationFormProps) {
             {errors.emergency_contact && <p className="text-sm text-destructive">{errors.emergency_contact.message}</p>}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="maxPower">Maximum Site Power Capacity (kW)</Label>
-            <Input
-              id="maxPower"
-              type="number"
-              step="any"
-              {...register('maxPower', {
-                setValueAs: v => v === "" ? null : parseFloat(v)
-              })}
-            />
-            {errors.maxPower && <p className="text-sm text-destructive">{errors.maxPower.message}</p>}
-            <p className="text-xs text-muted-foreground">Used for Smart Charging Load Management to dynamically throttle chargers if site load approaches this limit.</p>
+          <div className="space-y-3 border-t pt-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="maxPower">Maximum Site Power Capacity (kW)</Label>
+                {watch('maxPower') && Number(watch('maxPower')) > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={applyAutoCalculatedAmps}
+                    className="h-7 text-xs text-[#54a8c7] hover:text-[#54a8c7] hover:bg-[#54a8c7]/10"
+                  >
+                    ⚡ Auto-calc Amps (3-Phase)
+                  </Button>
+                )}
+              </div>
+              <Input
+                id="maxPower"
+                type="number"
+                step="any"
+                value={watch('maxPower') ?? ""}
+                onChange={(e) => handleMaxPowerChange(e.target.value)}
+                placeholder="e.g. 50"
+              />
+              {errors.maxPower && <p className="text-sm text-destructive">{errors.maxPower.message}</p>}
+              <p className="text-xs text-muted-foreground">Used for Smart Charging Load Management to dynamically throttle chargers if site load approaches this limit.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div className="space-y-1.5">
+                <Label htmlFor="maxAmperage" className="text-xs">Max Current (A)</Label>
+                <Input
+                  id="maxAmperage"
+                  type="number"
+                  step="any"
+                  value={watch('maxAmperage') ?? ""}
+                  onChange={(e) => {
+                    setAutoSyncAmps(false);
+                    setValue('maxAmperage', e.target.value === "" ? null : parseFloat(e.target.value), { shouldValidate: true });
+                  }}
+                  placeholder="e.g. 72"
+                />
+                <p className="text-[10px] text-muted-foreground">Total site draw limit</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="maxPhaseCurrent" className="text-xs">Per-Phase Limit (A)</Label>
+                <Input
+                  id="maxPhaseCurrent"
+                  type="number"
+                  step="any"
+                  value={watch('maxPhaseCurrent') ?? ""}
+                  onChange={(e) => {
+                    setAutoSyncAmps(false);
+                    setValue('maxPhaseCurrent', e.target.value === "" ? null : parseFloat(e.target.value), { shouldValidate: true });
+                  }}
+                  placeholder="e.g. 72"
+                />
+                <p className="text-[10px] text-muted-foreground">L1/L2/L3 upper fuse</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="maxPhaseUnbalance" className="text-xs">Max Unbalance (A)</Label>
+                <Input
+                  id="maxPhaseUnbalance"
+                  type="number"
+                  step="any"
+                  value={watch('maxPhaseUnbalance') ?? ""}
+                  onChange={(e) => {
+                    setValue('maxPhaseUnbalance', e.target.value === "" ? null : parseFloat(e.target.value), { shouldValidate: true });
+                  }}
+                  placeholder="e.g. 16"
+                />
+                <p className="text-[10px] text-muted-foreground">Neutral safety (±16A)</p>
+              </div>
+            </div>
           </div>
 
           {(user?.role === 'admin' || user?.role === 'superadmin') && (

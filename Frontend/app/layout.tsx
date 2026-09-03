@@ -82,10 +82,19 @@ export default function RootLayout({
                     return (
                       (msg.indexOf('Cannot read properties of undefined') !== -1 && msg.indexOf('startTime') !== -1) ||
                       msg.indexOf("reading 'startTime'") !== -1 ||
+                      msg.indexOf('reportAllChanges') !== -1 ||
                       stack.indexOf('reportAllChanges') !== -1 ||
                       (source.indexOf('VM') !== -1 && (stack.indexOf('startTime') !== -1 || msg.indexOf('startTime') !== -1)) ||
                       (msg.indexOf('should be greater than 0') !== -1 && (msg.indexOf('width(') !== -1 || msg.indexOf('height(') !== -1))
                     );
+                  };
+                  window.onerror = function(msg, source, line, col, err) {
+                    var strMsg = msg ? String(msg) : '';
+                    var strStack = (err && err.stack) ? String(err.stack) : '';
+                    var strSource = source ? String(source) : '';
+                    if (isIgnored(strMsg, strStack, strSource)) {
+                      return true;
+                    }
                   };
                   window.addEventListener('error', function(e) {
                     var msg = e.message || '';
@@ -112,6 +121,16 @@ export default function RootLayout({
                       return;
                     }
                     origWarn.apply(console, arguments);
+                  };
+                  var origError = console.error;
+                  console.error = function() {
+                    var s = Array.prototype.slice.call(arguments).map(function(a) {
+                      return (a && a.stack) ? a.stack : String(a);
+                    }).join(' ');
+                    if (isIgnored(s, s, s)) {
+                      return;
+                    }
+                    origError.apply(console, arguments);
                   };
                 } catch(e) {}
               })();

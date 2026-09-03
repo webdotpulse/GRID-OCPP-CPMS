@@ -82,12 +82,27 @@ export function BrowserErrorGuard() {
       originalError.apply(console, args);
     };
 
+    const originalOnError = window.onerror;
+    window.onerror = (message, source, lineno, colno, error) => {
+      const msg = String(message || "");
+      const stack = error?.stack || "";
+      const src = String(source || "");
+      if (isIgnoredError(msg, stack, src)) {
+        return true;
+      }
+      if (originalOnError) {
+        return originalOnError(message, source, lineno, colno, error);
+      }
+      return false;
+    };
+
     window.addEventListener("error", handleGlobalError, true);
     window.addEventListener("unhandledrejection", handleUnhandledRejection, true);
 
     return () => {
       window.removeEventListener("error", handleGlobalError, true);
       window.removeEventListener("unhandledrejection", handleUnhandledRejection, true);
+      window.onerror = originalOnError;
       console.warn = originalWarn;
       console.error = originalError;
     };
