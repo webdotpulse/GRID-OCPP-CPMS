@@ -102,20 +102,11 @@ export function Sidebar({
       titleKey: 'nav.sections.fleetAndAccess',
       items: [
         { key: 'nav.rfidTags', path: '/rfid', icon: CreditCard },
-        { key: 'nav.vehicleIdentity', path: '/vehicle-identity-management', icon: Car },
+        { key: 'nav.scheduledCharging', path: '/scheduled-charging', icon: CalendarRange },
         { key: 'nav.reservations', path: '/reservations', icon: CalendarClock },
         { key: 'nav.transactions', path: '/transactions', icon: ReceiptText },
         { key: 'nav.invoices', path: '/invoices', icon: FileText },
         { key: 'nav.tariffs', path: '/tariffs', icon: WalletCards },
-        { key: 'nav.roaming', path: '/roaming', icon: Globe },
-      ],
-    },
-    {
-      title: 'Energy & Smart Grid',
-      titleKey: 'nav.sections.energyAndSmartGrid',
-      items: [
-        { key: 'nav.scheduledCharging', path: '/scheduled-charging', icon: CalendarRange },
-        { key: 'nav.v2g', path: '/v2g', icon: Radio },
       ],
     },
     {

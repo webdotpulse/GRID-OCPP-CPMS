@@ -210,7 +210,7 @@ export function createApp(): Application {
   app.use("/api/payments", paymentsRoutes); // Auth handled within router to permit public webhooks
   app.use("/api/ocpi", ocpiRoutes); // Handled within router (authenticateOcpiToken on roaming, JWT on admin endpoints)
   app.use("/api/oicp", authenticateToken, oicpRoutes);
-  app.use("/api/roaming", authenticateToken, roamingRoutes);
+  app.use("/api/roaming", roamingRoutes); // Handled within router (admin auth on margins/stats/test-suite, public mock-emsp callbacks)
   app.use("/api/config-profiles", authenticateToken, configProfilesRoutes);
   app.use("/api/quirk-profiles", authenticateToken, quirkProfilesRoutes);
   app.use("/api/mail", authenticateToken, mailRoutes);

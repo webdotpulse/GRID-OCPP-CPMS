@@ -6,7 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OcpiTab } from "@/components/roaming/OcpiTab";
 import { OicpTab } from "@/components/roaming/OicpTab";
 import { SettlementTab } from "@/components/roaming/SettlementTab";
-import { AlertCircle, Globe, Shield } from "lucide-react";
+import { TestSuiteTab } from "@/components/roaming/TestSuiteTab";
+import { AlertCircle, Globe, Shield, PlayCircle } from "lucide-react";
 
 export default function RoamingPage() {
   const { user, isLoading } = useAuth();
@@ -59,6 +60,10 @@ export default function RoamingPage() {
             <TabsTrigger value="ocpi">OCPI 2.2.1</TabsTrigger>
             <TabsTrigger value="oicp">OICP (Hubject)</TabsTrigger>
             <TabsTrigger value="settlement">Settlement Visualizer</TabsTrigger>
+            <TabsTrigger value="test-suite" className="flex items-center gap-1.5">
+              <PlayCircle className="size-3.5" />
+              Test CPO & eMSP Suite
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="ocpi">
             <OcpiTab />
@@ -68,6 +73,9 @@ export default function RoamingPage() {
           </TabsContent>
           <TabsContent value="settlement">
             <SettlementTab />
+          </TabsContent>
+          <TabsContent value="test-suite">
+            <TestSuiteTab />
           </TabsContent>
         </Tabs>
       </div>

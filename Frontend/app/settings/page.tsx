@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { Loader2, User, KeyRound, ShieldAlert, ShieldCheck, Settings, WalletCards, Mail, Globe, Activity, Tv, Sparkles, Shield, Webhook, Cpu, Package, Server } from "lucide-react";
+import { Loader2, User, KeyRound, ShieldAlert, ShieldCheck, Settings, WalletCards, Mail, Globe, Activity, Tv, Sparkles, Shield, Webhook, Cpu, Package, Server, Car, Radio, PlayCircle } from "lucide-react";
 import Image from "next/image";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -470,6 +470,108 @@ export default function SettingsPage() {
             </Card>
           </div>
 
+          {/* Fleet, Energy & Roaming Management Section */}
+          <Card className="lg:col-span-2 shadow-sandbox border-border/80">
+            <CardHeader className="border-b border-border/50 pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Car className="size-5 text-[#54a8c7]" /> Fleet, Energy & Roaming Configuration
+              </CardTitle>
+              <CardDescription>
+                Manage vehicle identities, bidirectional V2G power dispatch, and roaming interoperability protocols.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <Link href="/vehicle-identity-management" className="group block">
+                  <div className="h-full rounded-2xl border border-border/70 bg-card p-4.5 hover:border-[#54a8c7]/50 hover:shadow-md transition-all flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2.5 mb-2">
+                        <div className="size-8 rounded-xl flex items-center justify-center text-[#54a8c7] bg-[#54a8c7]/15">
+                          <Car className="size-4" />
+                        </div>
+                        <h3 className="font-bold text-sm text-foreground group-hover:text-[#54a8c7] transition-colors">
+                          Vehicle Management
+                        </h3>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        ISO 15118 Plug & Charge contract certificates, eMAID credentials, and vehicle battery energy profiles.
+                      </p>
+                    </div>
+                    <div className="mt-3 text-[11px] font-bold text-[#54a8c7] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                      Manage Vehicles →
+                    </div>
+                  </div>
+                </Link>
+
+                <Link href="/v2g" className="group block">
+                  <div className="h-full rounded-2xl border border-border/70 bg-card p-4.5 hover:border-[#3f78e0]/50 hover:shadow-md transition-all flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2.5 mb-2">
+                        <div className="size-8 rounded-xl flex items-center justify-center text-[#3f78e0] bg-[#3f78e0]/15">
+                          <Radio className="size-4" />
+                        </div>
+                        <h3 className="font-bold text-sm text-foreground group-hover:text-[#3f78e0] transition-colors">
+                          V2G Orchestration
+                        </h3>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Vehicle-to-Grid bidirectional discharge limits, minimum SoC reserve thresholds, and grid arbitrage parameters.
+                      </p>
+                    </div>
+                    <div className="mt-3 text-[11px] font-bold text-[#3f78e0] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                      Configure V2G →
+                    </div>
+                  </div>
+                </Link>
+
+                <Link href="/roaming" className="group block">
+                  <div className="h-full rounded-2xl border border-border/70 bg-card p-4.5 hover:border-[#45c4a0]/50 hover:shadow-md transition-all flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2.5 mb-2">
+                        <div className="size-8 rounded-xl flex items-center justify-center text-[#45c4a0] bg-[#45c4a0]/15">
+                          <Globe className="size-4" />
+                        </div>
+                        <h3 className="font-bold text-sm text-foreground group-hover:text-[#45c4a0] transition-colors">
+                          Roaming (OCPI & OICP)
+                        </h3>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        OCPI 2.2.1 and Hubject OICP credentials, CDR clearing, and automated settlement visualizer.
+                      </p>
+                    </div>
+                    <div className="mt-3 text-[11px] font-bold text-[#45c4a0] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                      Manage Roaming →
+                    </div>
+                  </div>
+                </Link>
+
+                <Link href="/roaming/test-suite" className="group block sm:col-span-2 lg:col-span-3">
+                  <div className="h-full rounded-2xl border border-[#54a8c7]/30 bg-gradient-to-r from-[#54a8c7]/10 via-transparent to-transparent p-4.5 hover:border-[#54a8c7]/60 hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start sm:items-center gap-3">
+                      <div className="size-10 rounded-xl flex items-center justify-center text-[#54a8c7] bg-[#54a8c7]/20 shrink-0">
+                        <PlayCircle className="size-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-sm text-foreground group-hover:text-[#54a8c7] transition-colors flex items-center gap-2">
+                          Test CPO & eMSP Roaming Suite
+                          <Badge variant="outline" className="text-[10px] bg-[#54a8c7]/15 border-[#54a8c7]/30 text-[#54a8c7]">
+                            Interactive Lab
+                          </Badge>
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Interactive protocol test suite: validate CPO & eMSP actions, handshake, token auth, remote commands, and CDR dispatch in real-time.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-xs font-bold text-[#54a8c7] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform shrink-0">
+                      Launch Test Lab →
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Admin Global Settings Tiles */}
           {(user?.role === 'admin' || user?.role === 'superadmin') && (
             <Card className="lg:col-span-2 shadow-sandbox">
@@ -484,6 +586,7 @@ export default function SettingsPage() {
               <CardContent className="pt-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {[
+                    { title: 'Test CPO & eMSP Suite', desc: 'Interactive OCPI & OICP test laboratory for CPO and eMSP interoperability validation.', link: '/roaming/test-suite', icon: PlayCircle, color: 'text-[#54a8c7] bg-[#54a8c7]/15' },
                     { title: 'Server Environment Overview', desc: 'Live CPU, memory, PostgreSQL, Redis, and OCPP WebSocket pipeline telemetry.', link: '/settings/environment', icon: Server, color: 'text-emerald-400 bg-emerald-500/15' },
                     { title: 'Roles & Custom PBAC', desc: 'Granular policy-based access control, custom roles, and site permissions.', link: '/settings/roles', icon: Shield, color: 'text-[#8b5cf6] bg-[#8b5cf6]/15' },
                     { title: 'Outbound Webhooks', desc: 'Real-time event subscriptions, HMAC signatures, and delivery traces.', link: '/settings/webhooks', icon: Webhook, color: 'text-[#54a8c7] bg-[#54a8c7]/15' },
