@@ -292,9 +292,13 @@ If you need to update firmware on physical EV charging stations connected to the
 
 ### 9.1 Using the Web Dashboard
 1. Open the Admin Dashboard and navigate to **Chargers** (`/chargers`).
-2. Select the target charger and click **Remote Actions** > **Update Firmware**.
+2. Select the target charger and click **Remote Actions** > **Update Firmware** (or configure global binaries under `/settings/firmware`).
 3. Enter the public HTTPS URL hosting the vendor firmware binary (`.bin`/`.tar.gz`) and the scheduled retrieval timestamp.
 4. Click **Dispatch Firmware Update**.
+
+| Firmware Management Modal | Charger Detail Remote Control |
+| :---: | :---: |
+| ![Firmware Binary Upload](../Screenshots/proof_modal_firmware.png) | ![Charger Overview](../Screenshots/10_Charger_Detail_Overview_Tab.png) |
 
 ### 9.2 Using the REST API
 Send an authenticated `POST` request to the backend:

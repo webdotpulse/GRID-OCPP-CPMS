@@ -266,16 +266,37 @@ const mockChargeGroups = [
   {
     id: 1,
     name: "Amsterdam Hub - High Voltage Substation Alpha",
+    description: "Multi-EVSE dynamic phase balancing with 400kW site ceiling and PV solar peak shaving.",
     maxCurrentAmps: 600,
+    maxAmperage: 600,
     maxPowerKw: 400,
+    maxPower: 400,
+    maxPhaseCurrent: 200,
+    maxPhaseUnbalance: 32,
+    phaseUnbalanceLimit: 32,
     dynamicLoadBalancing: true,
+    dynamic_balancing_enabled: true,
+    phase_balancing_enabled: true,
     peakShaving: true,
+    fail_safe_current: 16,
     activePowerKw: 198.5,
     stationId: 1,
-    station: { name: "Amsterdam Central Charging Hub" },
+    station: { name: "Amsterdam Central Charging Hub", station_name: "Amsterdam Central Charging Hub" },
+    company: { id: 1, name: "Pulse Charge Network B.V." },
+    createdAt: "2024-01-15T08:00:00.000Z",
+    updatedAt: "2026-08-20T14:30:00.000Z",
     chargers: [
-      { id: 1, name: "Alfen Eve Double Pro - Bay 1", maxPowerKw: 44 },
-      { id: 2, name: "Kempower Hypercharge - Bay 3", maxPowerKw: 150 }
+      { id: 1, charger_id: 1, name: "Alfen Eve Double Pro - Bay 1", model: "Eve Double Pro-line", manufacturer: "Alfen ICU B.V.", serial_number: "ALF-2024-99812", power_capacity: 44, maxPowerKw: 44, status: "Charging", last_heartbeat: new Date().toISOString(), chargingStation: { id: 1, station_name: "Amsterdam Central Charging Hub", city: "Amsterdam" } },
+      { id: 2, charger_id: 2, name: "Kempower Hypercharge - Bay 3", model: "C-Station 400V", manufacturer: "Kempower", serial_number: "KMP-88319-DC", power_capacity: 150, maxPowerKw: 150, status: "Charging", last_heartbeat: new Date().toISOString(), chargingStation: { id: 1, station_name: "Amsterdam Central Charging Hub", city: "Amsterdam" } }
+    ],
+    users: [
+      {
+        chargeGroupId: 1,
+        userId: 1,
+        tariffId: 1,
+        user: { id: 1, name: "Super Administrator", email: "admin@webdotpulse.eu", role: "superadmin" },
+        tariff: { tariff_id: 1, name: "Standard Public AC Fast (22kW)", energy_fee: 0.38, connection_fee: 1.50, time_fee: 0.00, idle_fee: 0.05, currency: "EUR" }
+      }
     ]
   }
 ];
@@ -588,6 +609,57 @@ const mockMailTemplates = [
   }
 ];
 
+const mockRoamingTestCatalog = [
+  { id: "test_ocpi_auth_01", protocol: "OCPI", version: "2.2.1", module: "tokens", name: "Token Authorization Real-Time Push", description: "Verifies token whitelist real-time authorization against CPO eMSP token cache", method: "POST", endpoint: "/ocpi/2.2.1/tokens/NL-CPMS-TEST-01/authorize", status: "passed", latencyMs: 42 },
+  { id: "test_ocpi_loc_02", protocol: "OCPI", version: "2.2.1", module: "locations", name: "Location & EVSE Discovery", description: "Evaluates location payload against OCPI 2.2.1 JSON schema", method: "GET", endpoint: "/ocpi/2.2.1/locations/1", status: "passed", latencyMs: 65 },
+  { id: "test_ocpi_cdr_03", protocol: "OCPI", version: "2.2.1", module: "cdrs", name: "Charge Detail Record (CDR) Push", description: "Pushes final billing CDR with signed meter values", method: "POST", endpoint: "/ocpi/2.2.1/cdrs", status: "passed", latencyMs: 89 },
+  { id: "test_oicp_auth_01", protocol: "OICP", version: "2.3", module: "eRoamingAuthorize", name: "Hubject eRoaming Authorize RFID", description: "Performs eRoamingAuthorize remote RFID tag verification", method: "POST", endpoint: "/oicp/2.3/eRoamingAuthorize", status: "passed", latencyMs: 51 }
+];
+
+const mockPlaybooks = [
+  { id: 1, name: "Connector Solenoid Lock Timeout Recovery", triggerCode: "GroundFault", targetVendor: "Schneider Electric", actionType: "SoftReset", maxAttempts: 3, coolOffMinutes: 10, isActive: true, totalExecutions: 14, successfulRecoveries: 12 },
+  { id: 2, name: "Thermal Overload Dynamic Derating", triggerCode: "HighTemperature", targetVendor: "All", actionType: "DeratePower", maxAttempts: 1, coolOffMinutes: 30, isActive: true, totalExecutions: 8, successfulRecoveries: 8 },
+  { id: 3, name: "Offline Communication Watchdog Reboot", triggerCode: "HeartbeatTimeout", targetVendor: "Alfen", actionType: "HardReset", maxAttempts: 2, coolOffMinutes: 15, isActive: true, totalExecutions: 5, successfulRecoveries: 4 }
+];
+
+const mockPlaybookStats = {
+  totalPlaybooks: 3,
+  activePlaybooks: 3,
+  totalExecutions: 27,
+  successRate: 88.9,
+  avgRecoveryTimeSeconds: 45
+};
+
+const mockPlaybookExecutions = [
+  { id: 1, playbookId: 1, playbookName: "Connector Solenoid Lock Timeout Recovery", chargerId: 1, chargerName: "Alfen Eve Double Pro - Bay 1", triggerReason: "GroundFault detected on Connector 1", actionExecuted: "SoftReset", status: "Resolved", executionTime: new Date(Date.now() - 3600000).toISOString() },
+  { id: 2, playbookId: 2, playbookName: "Thermal Overload Dynamic Derating", chargerId: 2, chargerName: "Kempower Hypercharge - Bay 3", triggerReason: "HighTemperature 58°C enclosure alert", actionExecuted: "DeratePower", status: "Active", executionTime: new Date(Date.now() - 7200000).toISOString() }
+];
+
+const mockScheduledCharging = [
+  { id: 1, name: "Fleet Overnight Off-Peak Window", chargerId: 1, charger: { name: "Alfen Eve Double Pro - Bay 1" }, rfidTag: "E200001928390012", startTime: "23:00", endTime: "06:00", maxPowerKw: 22, daysOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], status: "Active" },
+  { id: 2, name: "Solar Generation Surge Priority", chargerId: 2, charger: { name: "Kempower Hypercharge - Bay 3" }, rfidTag: "E200001928390012", startTime: "11:30", endTime: "15:00", maxPowerKw: 150, daysOfWeek: ["Saturday", "Sunday"], status: "Active" }
+];
+
+const mockSimulatorTemplates = [
+  { id: "sim-alfen-eve", name: "Alfen Eve Double Pro-line", vendor: "Alfen ICU B.V.", model: "Eve Double Pro", firmwareVersion: "5.18.2", category: "AC_DUAL", powerCapacityKw: 44, defaultProtocol: "ocpp1.6", supportedProtocols: ["ocpp1.6", "ocpp2.0.1"], description: "Standard dual-socket AC charger supporting dynamic load balancing.", features: ["Smart Charging", "RFID", "15118 PnC"], connectors: [{ id: 1, connectorName: "Bay 1 (CCS2)", type: "CCS2", format: "Cable", maxPowerW: 22000, maxCurrentAmps: 32, maxVoltageVolts: 400, currentType: "AC_3_PHASE", phaseConnection: "3P" }, { id: 2, connectorName: "Bay 2 (Type 2)", type: "Type2", format: "Socket", maxPowerW: 22000, maxCurrentAmps: 32, maxVoltageVolts: 400, currentType: "AC_3_PHASE", phaseConnection: "3P" }] },
+  { id: "sim-kempower-c", name: "Kempower C-Station DC Fast Charger", vendor: "Kempower", model: "C-Station 400V", firmwareVersion: "2.4.11", category: "DC_HPC", powerCapacityKw: 150, defaultProtocol: "ocpp2.0.1", supportedProtocols: ["ocpp1.6", "ocpp2.0.1", "ocpp2.1"], description: "Dynamic power routing DC high power charger.", features: ["ISO 15118-20", "V2G Bidirectional", "Dynamic Power Sharing"], connectors: [{ id: 1, connectorName: "DC HPC 1", type: "CCS2", format: "Cable", maxPowerW: 150000, maxCurrentAmps: 375, maxVoltageVolts: 920, currentType: "DC", phaseConnection: "DC" }] }
+];
+
+const mockRoles = {
+  roles: [
+    { role: "superadmin", name: "Super Administrator", badgeColor: "#8b5cf6", level: 100, scope: "Global Platform", description: "Full unrestricted access to all CPMS multi-tenant modules and infrastructure.", isSystem: true, userCount: 1, capabilities: ["chargers.view", "chargers.control", "invoices.view", "invoices.export", "roaming.manage"] },
+    { role: "admin", name: "CPO Network Admin", badgeColor: "#e2626b", level: 80, scope: "Company Network", description: "Manages charging stations, load groups, tariffs, and corporate fleet drivers.", isSystem: true, userCount: 3, capabilities: ["chargers.view", "chargers.control", "invoices.view"] },
+    { role: "driver", name: "EV Driver / Cardholder", badgeColor: "#38bdf8", level: 20, scope: "Self-Service", description: "Restricted to personal vehicle charging sessions, RFID tag, and billing receipts.", isSystem: true, userCount: 42, capabilities: ["transactions.view"] }
+  ],
+  capabilities: [
+    { key: "invoices.view", name: "Invoicing & Billing Engine", category: "Invoicing & Billing", description: "Generate monthly PDF invoices, calculate VAT rates, and manage payment statuses." },
+    { key: "invoices.export", name: "SEPA ISO 20022 Direct Debit XML", category: "Invoicing & Billing", description: "Generate and download banking XML batch transfer files (pain.008 / pain.001)." },
+    { key: "reimbursements.manage", name: "Home Reimbursement Split-Billing", category: "Invoicing & Billing", description: "Calculate employee home charging compensation and employer reimbursement ledgers." },
+    { key: "ocpp.raw_stream", name: "OCPP Raw Live Message Stream", category: "Operations & Logs", description: "Inspect low-level WebSocket frames (Call, CallResult, CallError) and diagnostics." },
+    { key: "chargers.auto_heal", name: "Hardware Reliability & Auto-Heal", category: "Operations & Logs", description: "Inspect hardware risk flags, fault counters, and automated reboot workflows." }
+  ]
+};
+
 const mockParkingSpots = [
   { id: 1, name: "Spot A1 (Fast CCS2)", chargerId: 1, connectorId: "1", connector: { connector_id: 1, connector_name: "CCS2 - Bay 1" }, x: 100, y: 180, width: 140, height: 90, status: "Charging", type: "spot" },
   { id: 2, name: "Spot A2 (Type 2 AC)", chargerId: 1, connectorId: "2", connector: { connector_id: 2, connector_name: "Type2 - Bay 1" }, x: 260, y: 180, width: 140, height: 90, status: "Available", type: "spot" },
@@ -709,6 +781,7 @@ async function setupApiMocks(page) {
     if (pathName.includes('/chargers')) return json(mockChargers);
 
     if (pathName.includes('/connectors')) return json(mockConnectors);
+    if (pathName.match(/\/charge-groups\/\d+/) || pathName.match(/\/chargeGroups\/\d+/)) return json(mockChargeGroups[0]);
     if (pathName.includes('/charge-groups') || pathName.includes('/chargeGroups')) return json(mockChargeGroups);
     if (pathName.includes('/vehicles')) return json(mockVehicles);
     if (pathName.includes('/reservations')) return json(mockReservations);
@@ -786,6 +859,18 @@ async function setupApiMocks(page) {
         { id: 2, name: "e-clearing.net OCPI 2.2.1", role: "CPO", status: "Connected", partnerName: "Smartlab Innovationsgesellschaft mbH", url: "https://ocpi.e-clearing.net/2.2.1", lastSync: new Date().toISOString() }
       ]
     });
+    if (pathName.includes('/roaming/test-suite/catalog')) return json(mockRoamingTestCatalog);
+    if (pathName.includes('/auto-heal-playbooks/stats')) return json(mockPlaybookStats);
+    if (pathName.includes('/auto-heal-playbooks/executions')) return json(mockPlaybookExecutions);
+    if (pathName.includes('/auto-heal-playbooks')) return json(mockPlaybooks);
+    if (pathName.includes('/scheduled-charging')) return json(mockScheduledCharging);
+    if (pathName.includes('/simulator/templates')) return json(mockSimulatorTemplates);
+    if (pathName.includes('/simulator/rfid-tags')) return json(mockRfidTags);
+    if (pathName.includes('/simulator/sessions')) return json([]);
+    if (pathName.includes('/settings/roles') || pathName.includes('/roles')) return json(mockRoles);
+    if (pathName.includes('/settings/firmware')) return json([]);
+    if (pathName.includes('/settings/webhooks')) return json([]);
+    if (pathName.includes('/settings/products')) return json([]);
 
     return json([]);
   });
@@ -819,12 +904,19 @@ async function takeShot(page, filename, options = {}) {
 async function clickTabSafe(page, selector) {
   try {
     const el = page.locator(selector).first();
-    if (await el.isVisible({ timeout: 2000 })) {
-      await el.click({ timeout: 2000 });
-      await page.waitForTimeout(500);
+    await el.waitFor({ state: 'visible', timeout: 4000 });
+    await el.click();
+    await page.waitForTimeout(800);
+    return true;
+  } catch (e) {
+    // try clicking by evaluate
+    try {
+      const el = page.locator(selector).first();
+      await el.click({ force: true, timeout: 2000 });
+      await page.waitForTimeout(800);
       return true;
-    }
-  } catch (e) {}
+    } catch (err) {}
+  }
   return false;
 }
 
@@ -1013,6 +1105,10 @@ async function run() {
   await desktopPage.goto(`${baseUrl}/charge-groups/1/edit`, { waitUntil: 'domcontentloaded' });
   await takeShot(desktopPage, '28_ChargeGroup_Edit_Form.png');
 
+  await desktopPage.goto(`${baseUrl}/charge-groups/1`, { waitUntil: 'domcontentloaded' });
+  await desktopPage.waitForTimeout(800);
+  await takeShot(desktopPage, '28b_ChargeGroup_Detail_View.png');
+
   // 7. V2G Smart Grid
   console.log('\n--- 7. V2G Smart Grid ---');
   await desktopPage.goto(`${baseUrl}/v2g`, { waitUntil: 'domcontentloaded' });
@@ -1085,8 +1181,8 @@ async function run() {
   }
 
   // Facturen - SEPA Direct Debit XML Export Dialog
-  if (await clickTabSafe(desktopPage, 'button:has-text("SEPA Direct Debit"), button:has-text("Incasso")')) {
-    await desktopPage.waitForTimeout(500);
+  if (await clickTabSafe(desktopPage, 'button:has-text("SEPA Direct Debit (pain.008)"), button:has-text("SEPA Direct Debit")')) {
+    await desktopPage.waitForTimeout(600);
     await takeShot(desktopPage, '43_Invoices_DirectDebit_Export_Dialog.png');
     await desktopPage.keyboard.press('Escape');
     await desktopPage.waitForTimeout(400);
@@ -1109,20 +1205,34 @@ async function run() {
   await takeShot(desktopPage, '47_Tariff_Edit_Form.png');
 
   await desktopPage.goto(`${baseUrl}/roaming`, { waitUntil: 'domcontentloaded' });
+  await desktopPage.waitForTimeout(1200);
   await takeShot(desktopPage, '48_Roaming_OCPI_Hubs.png');
 
-  if (await clickTabSafe(desktopPage, 'button[value="oicp"], button:has-text("OICP")')) {
+  if (await clickTabSafe(desktopPage, '[role="tab"]:has-text("OICP"), button:has-text("OICP")')) {
     await takeShot(desktopPage, '49_Roaming_OICP_Hubject_Tab.png');
   }
 
-  if (await clickTabSafe(desktopPage, 'button[value="settlement"], button:has-text("Settlement")')) {
+  if (await clickTabSafe(desktopPage, '[role="tab"]:has-text("Settlement"), button:has-text("Settlement")')) {
     await takeShot(desktopPage, '50_Roaming_Settlement_Visualizer_Tab.png');
   }
 
+  await desktopPage.goto(`${baseUrl}/roaming/test-suite`, { waitUntil: 'domcontentloaded' });
+  await desktopPage.waitForTimeout(1000);
+  await takeShot(desktopPage, '50b_Roaming_TestSuite.png');
+
   // 12. Users & Operations
-  console.log('\n--- 12. Users & Operations ---');
+  console.log('\n--- 12. Users, Corporate Clients & RBAC Hub ---');
   await desktopPage.goto(`${baseUrl}/users`, { waitUntil: 'domcontentloaded' });
+  await desktopPage.waitForTimeout(1200);
   await takeShot(desktopPage, '51_Users_Accounts_Directory.png');
+
+  if (await clickTabSafe(desktopPage, '[role="tab"]:has-text("Clients"), button:has-text("Clients")')) {
+    await takeShot(desktopPage, '51a_Corporate_Clients_Directory.png');
+  }
+
+  if (await clickTabSafe(desktopPage, '[role="tab"]:has-text("Roles"), button:has-text("Roles")')) {
+    await takeShot(desktopPage, '51b_Roles_Permissions_Matrix.png');
+  }
 
   await desktopPage.goto(`${baseUrl}/users/create`, { waitUntil: 'domcontentloaded' });
   await takeShot(desktopPage, '52_Users_Create_New.png');
@@ -1133,17 +1243,21 @@ async function run() {
   await desktopPage.goto(`${baseUrl}/hardware-at-risk`, { waitUntil: 'domcontentloaded' });
   await takeShot(desktopPage, '54_HardwareAtRisk_AutoHeal.png');
 
+  await desktopPage.goto(`${baseUrl}/auto-heal-playbooks`, { waitUntil: 'domcontentloaded' });
+  await desktopPage.waitForTimeout(800);
+  await takeShot(desktopPage, '54b_AutoHeal_Playbooks.png');
+
   await desktopPage.goto(`${baseUrl}/ocpp`, { waitUntil: 'domcontentloaded' });
   await desktopPage.waitForTimeout(800);
   await takeShot(desktopPage, '55_OCPP_PacketInspector_Console.png');
 
-  if (await clickTabSafe(desktopPage, 'button[value="schema"], button:has-text("Schema")')) {
-    await takeShot(desktopPage, '56_OCPP_PacketInspector_SchemaReport.png');
-  }
+  await desktopPage.goto(`${baseUrl}/scheduled-charging`, { waitUntil: 'domcontentloaded' });
+  await desktopPage.waitForTimeout(800);
+  await takeShot(desktopPage, '56_ScheduledCharging_Calendar.png');
 
-  if (await clickTabSafe(desktopPage, 'button[value="raw"], button:has-text("Raw JSON-RPC")')) {
-    await takeShot(desktopPage, '57_OCPP_PacketInspector_RawJsonRpc.png');
-  }
+  await desktopPage.goto(`${baseUrl}/simulator`, { waitUntil: 'domcontentloaded' });
+  await desktopPage.waitForTimeout(800);
+  await takeShot(desktopPage, '57_Charger_Simulator_Studio.png');
 
   await desktopPage.goto(`${baseUrl}/config-profiles`, { waitUntil: 'domcontentloaded' });
   await takeShot(desktopPage, '58_ConfigProfiles_Templates.png');
@@ -1186,11 +1300,46 @@ async function run() {
   await desktopPage.goto(`${baseUrl}/settings/ad-manager`, { waitUntil: 'domcontentloaded' });
   await takeShot(desktopPage, '68_Settings_Screen_AdManager.png');
 
+  await desktopPage.goto(`${baseUrl}/media-campaigns`, { waitUntil: 'domcontentloaded' });
+  await desktopPage.waitForTimeout(800);
+  await takeShot(desktopPage, '68b_MediaCampaigns_Scheduler.png');
+
   await desktopPage.goto(`${baseUrl}/settings/hardware-at-risk`, { waitUntil: 'domcontentloaded' });
   await takeShot(desktopPage, '69_Settings_HardwareAtRisk_Rules.png');
 
   await desktopPage.goto(`${baseUrl}/settings/payments`, { waitUntil: 'domcontentloaded' });
   await takeShot(desktopPage, '70_Settings_MolliePayments_Gateway.png');
+
+  // 13b. Proof Modal Dialogs
+  console.log('\n--- 13b. Capturing Operational Dialog Modals ---');
+  async function captureModal(url, buttonSelector, filename) {
+    try {
+      await desktopPage.goto(`${baseUrl}${url}`, { waitUntil: 'domcontentloaded' });
+      await desktopPage.waitForTimeout(1200);
+      const btn = desktopPage.locator(buttonSelector).first();
+      await btn.waitFor({ state: 'visible', timeout: 4000 });
+      await btn.click({ force: true });
+      await desktopPage.waitForTimeout(800);
+      await takeShot(desktopPage, filename);
+      await desktopPage.keyboard.press('Escape');
+      await desktopPage.waitForTimeout(400);
+    } catch (e) {
+      console.warn(`[WARN] Could not capture modal ${filename}:`, e.message);
+    }
+  }
+
+  await captureModal('/settings/firmware', 'button:has-text("Upload Firmware Binary")', 'proof_modal_firmware.png');
+  await captureModal('/settings/webhooks', 'button:has-text("Register Webhook")', 'proof_modal_webhooks.png');
+  await captureModal('/settings/roles', 'button:has-text("Create Custom Role")', 'proof_modal_roles.png');
+  await captureModal('/scheduled-charging', 'button:has-text("New Schedule"), button:has-text("Create Schedule")', 'proof_modal_scheduled_charging.png');
+  await captureModal('/invoices', 'button:has-text("Generate Monthly Invoices"), button:has-text("Generate Invoices")', 'proof_modal_invoices_generate.png');
+  await captureModal('/invoices', 'button:has-text("SEPA Direct Debit (pain.008)"), button:has-text("SEPA Direct Debit")', 'proof_modal_invoices_sepa.png');
+  await captureModal('/invoices', 'button:has-text("SEPA Mandates"), button:has-text("Mandaten")', 'proof_modal_invoices_mandate.png');
+  await captureModal('/settings/audit', 'button:has-text("Clear Audit Logs"), button:has-text("Clear Logs")', 'proof_modal_audit_clear.png');
+  await captureModal('/quirk-profiles', 'button:has-text("New Quirk Profile"), button:has-text("Create First Profile")', 'proof_modal_quirk_profiles.png');
+  await captureModal('/reservations', 'button:has-text("New Reservation")', 'proof_modal_reservations.png');
+  await captureModal('/settings/products', 'button:has-text("New Subscription Product"), button:has-text("New Product")', 'proof_modal_products.png');
+  await captureModal('/config-profiles', 'button:has-text("New Profile"), button:has-text("New Template")', 'proof_modal_config_profiles.png');
 
   await desktopContext.close();
 

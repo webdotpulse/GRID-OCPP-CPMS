@@ -154,6 +154,20 @@ npm run dev
 ```
 * Dashboard UI is now available at `http://localhost:3002`
 
+### Visual Verification: Initial Launch & Post-Installation Checks
+
+Once both servers are running, verify your installation through the web interface:
+
+| Initial Superadmin Login | Executive Dashboard Overview |
+| :---: | :---: |
+| ![Login Interface](../Screenshots/01_Auth_Login.png) | ![Executive Dashboard](../Screenshots/06_Dashboard_Executive_Overview.png) |
+| *Log in using the Superadmin credentials created in Step 4.2.* | *Confirm fleet KPI metrics and PostgreSQL connectivity.* |
+
+| Charger Fleet Directory | Security & System Settings |
+| :---: | :---: |
+| ![Chargers Fleet](../Screenshots/07_Chargers_Fleet_Directory.png) | ![Security Settings](../Screenshots/63_Settings_Security_Profiles_PKI.png) |
+| *Ensure the charger table renders and WebSocket endpoints are active.* | *Configure PKI certificates and TLS security profiles.* |
+
 ---
 
 ## 5. Production Server Provisioning (Ubuntu 24.04 LTS)

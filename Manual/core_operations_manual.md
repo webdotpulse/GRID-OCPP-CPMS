@@ -44,6 +44,15 @@ graph TD
 
 ![Charge Groups Dynamic Load Balancing](../Screenshots/26_ChargeGroups_DynamicLoadBalancing.png)
 
+#### Charge Group Load Allocation & Phase Detail (`/charge-groups/[id]`)
+Open any individual charge group to inspect real-time phase balance ($L1, L2, L3$), aggregated site demand, active solar contributions, and the assigned charge points:
+
+![Charge Group Detail View](../Screenshots/28b_ChargeGroup_Detail_View.png)
+
+* **Current & Power Limits:** Configure maximum site capacity (e.g. 250A / 172.5 kW).
+* **Phase Unbalance Threshold:** Enforces dynamic curtailment when the difference between any two phases exceeds the configured threshold (e.g. 32A).
+* **Fail-Safe Amperage:** The default safe current limit (e.g. 16A per socket) assigned if communication with the CPMS is interrupted.
+
 ---
 
 #### 2. Managing Charging Stations
@@ -166,3 +175,26 @@ Located at `/ocpp`, the **Live Packet Inspector** connects to the real-time WebS
 * Expandable JSON tree view for debugging raw payload properties and OCPP schema compliance.
 
 ![OCPP Packet Inspector Console](../Screenshots/55_OCPP_PacketInspector_Console.png)
+
+---
+
+## 5. Hardware Reliability, Auto-Heal & Playbooks
+
+Operating large-scale EVSE networks requires automated detection and recovery for mechanical and communication anomalies.
+
+### Automated Fault Mitigation (`/hardware-at-risk`)
+The CPMS background engine continuously inspects hardware health flags:
+* **Connector Lock Failures:** Automatically detects when an EVSE actuator fails to lock or release.
+* **Heartbeat Drift:** Identifies connection latency or silent socket drops.
+* **Emergency Stop Flags:** Flags physical button activations for rapid technician inspection.
+
+| Hardware-at-Risk Fleet Monitor | Automated Recovery Playbooks |
+| :---: | :---: |
+| ![Hardware at Risk](../Screenshots/54_HardwareAtRisk_AutoHeal.png) | ![Auto-Heal Playbooks](../Screenshots/54b_AutoHeal_Playbooks.png) |
+
+### Recovery Playbooks (`/auto-heal-playbooks`)
+Configure multi-stage autonomous recovery workflows:
+1. **Trigger Condition:** E.g., `CONNECTOR_LOCK_FAILED`.
+2. **Action 1:** Send `UnlockConnector` RPC.
+3. **Action 2:** If fault status persists after 60s, dispatch `Reset(type: "Soft")`.
+4. **Action 3:** If hardware does not reboot within 5 minutes, trigger automated SMS/email alert to on-duty technician.

@@ -87,7 +87,20 @@ The `LoadManagementService` maintains grid stability across complex multi-charge
 ### Safe Headroom Restoration
 If aggregate load across a station drops below **95%** of the physical safety threshold, active throttling profiles are automatically cleared to restore full charging speed to connected vehicles.
 
-![Charger Profiles Tab](../Screenshots/14_Charger_Detail_Profiles_Tab.png)
+| Charger Active Profiles | Charge Group Phase Allocator |
+| :---: | :---: |
+| ![Charger Profiles Tab](../Screenshots/14_Charger_Detail_Profiles_Tab.png) | ![Charge Group Detail](../Screenshots/28b_ChargeGroup_Detail_View.png) |
+
+---
+
+## 4. Scheduled Smart Charging Calendar
+
+The **Scheduled Charging Engine** (`/scheduled-charging`) allows operators and corporate fleets to schedule recurring daily and weekly power allocations:
+
+* **Time-of-Use Window Alignment:** Enforce lower charging rates during standard daytime business hours and unlock maximum 22kW/150kW throughput during overnight off-peak or high-wind intervals.
+* **Recurring Profiles:** Define Monday-Friday corporate fleet schedules and weekend visitor tariffs.
+
+![Scheduled Smart Charging Calendar](../Screenshots/56_ScheduledCharging_Calendar.png)
 
 ---
 

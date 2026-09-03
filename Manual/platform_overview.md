@@ -52,6 +52,12 @@ flowchart TD
     V2G -->|"Discharge Limits\n& Pricing"| API
 ```
 
+### Visual Platform Showcase
+
+| Executive Operations Dashboard | 2D Station Ground Plan Canvas |
+| :---: | :---: |
+| ![Executive Dashboard](../Screenshots/06_Dashboard_Executive_Overview.png) | ![Ground Plan Builder](../Screenshots/21_Station_GroundPlan_2D_Builder.png) |
+
 ---
 
 ## 2. Real-Time Telemetry & Proxy Sequence

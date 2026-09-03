@@ -1,359 +1,225 @@
-# Open-Source OCPP CMS
+<h1 align="center">⚙️ OCPP-CPMS Backend Engine</h1>
 
-A barebone OCPP 1.6 & 2.1/2.0.1 Charge Point Management System that anyone can build their business logic on top of. This is a starting point for managing electric vehicle charging stations with support for OCPP 1.6 & 2.1/2.0.1 protocol.
+<p align="center">
+  Enterprise Node.js / Express 5 & TypeScript 6+ server engine providing <strong>dual-protocol OCPP 1.6-J & 2.0.1/2.1 WebSocket handling</strong>, high-frequency telemetry ingestion, dynamic load balancing (LMS), EPEX day-ahead spot pricing, ISO 20022 SEPA Direct Debit export, and multi-tenant REST APIs.
+</p>
 
-## Features
+---
 
-- **OCPP 1.6 & 2.1/2.0.1 WebSocket Server** - Connect and communicate with OCPP-compliant chargers
-- **REST API** - Complete API for managing chargers, stations, connectors, RFID tags, and transactions
-- **Real-time Dashboard** - Monitor charging sessions and system status
-- **OCPP Remote Control** - Start/stop charging, reset chargers, unlock connectors remotely
-- **RFID Whitelist** - Manage RFID tags for authorized charging
-- **OCPP Logs Streaming** - WebSocket endpoint for real-time OCPP message logging
-- **Post-Paid Billing** - Track charging sessions and calculate amounts for post-paid users
-- **TypeScript** - Full TypeScript implementation with type safety
+## 📑 Table of Contents
 
-## Architecture
+1. [Architecture Overview](#1-architecture-overview)
+2. [Dual-Protocol OCPP Pipeline](#2-dual-protocol-ocpp-pipeline)
+3. [REST API Endpoint Catalog](#3-rest-api-endpoint-catalog)
+4. [Database Models & Prisma ORM](#4-database-models--prisma-orm)
+5. [Smart Charging & Optimization Services](#5-smart-charging--optimization-services)
+6. [Security, Authentication & Multi-Tenancy](#6-security-authentication--multi-tenancy)
+7. [Developer Setup & Commands](#7-developer-setup--commands)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     Express API Server                        │
-│                      (Port 3000)                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌─────────────────────────────────────────────────────┐     │
-│  │         REST API Endpoints                   │     │
-│  ├─────────────────────────────────────────────────────┤     │
-│  │  • /api/chargers      (CRUD + Status)          │     │
-│  │  • /api/stations      (CRUD)                    │     │
-│  │  • /api/connectors    (CRUD)                    │     │
-│  │  • /api/rfid          (CRUD + Toggle)            │     │
-│  │  • /api/transactions (List + Stats)                │     │
-│  │  • /api/ocpp         (Remote Control)            │     │
-│  │  • /api/dashboard      (Overview + Live Sessions)    │     │
-│  └─────────────────────────────────────────────────────┘     │
-│                                                               │
-├─────────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌─────────────────────────────────────────────────────┐     │
-│  │        OCPP WebSocket Server                 │     │
-│  │               (Port 9220)                        │     │
-│  ├─────────────────────────────────────────────────────┤     │
-│  │  • BootNotification  →  Authenticate chargers       │     │
-│  │  • Heartbeat        →  Track online status        │     │
-│  │  • Authorize       →  Validate RFID tags         │     │
-│  │  • StartTransaction →  Begin charging session      │     │
-│  │  • StopTransaction  →  End charging session        │     │
-│  │  • MeterValues      →  Track energy consumption    │     │
-│  │  • StatusNotification →  Update connector status    │     │
-│  └─────────────────────────────────────────────────────┘     │
-│                                                               │
-├─────────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌─────────────────────────────────────────────────────┐     │
-│  │     OCPP Logs WebSocket Server              │     │
-│  │               (Port 3001)                            │     │
-│  ├─────────────────────────────────────────────────────┤     │
-│  │  • Real-time OCPP message streaming              │     │
-│  │  • Broadcasts to all connected dashboard clients   │     │
-│  │  • Historical log replay on new connections       │     │
-│  └─────────────────────────────────────────────────────┘     │
-└─────────────────────────────────────────────────────────────────┘
+---
 
-┌─────────────────────────────────────────────────────────────────┐
-│                     PostgreSQL Database                      │
-├─────────────────────────────────────────────────────────────────┤
-│  • User              - Admin/operator accounts                 │
-│  • ChargingStation   - Site/location data                     │
-│  • Charger           - OCPP device information                │
-│  • Connector         - Charge point connectors                 │
-│  • RfidUser          - RFID whitelist for authorized users     │
-│  • RfidSession       - Post-paid charging sessions             │
-│  • Transaction       - Basic transaction tracking               │
-│  • OcppLog           - OCPP message logging for debugging      │
-│  • Tariff            - Pricing configuration                   │
-└─────────────────────────────────────────────────────────────────┘
+## 1. Architecture Overview
+
+The backend is built with modern **ECMAScript Modules (ESM)** on **Node.js 24+ LTS**, using **Express 5** for REST routing, the low-overhead **`ws`** library for the RFC 6455 OCPP WebSocket server, **Prisma ORM 7.8** for PostgreSQL interaction, and **Redis 7** for real-time pub/sub and state caching.
+
+```text
+                                  ┌──────────────────────────────┐
+                                  │   Physical EVSE Chargers     │
+                                  │  (Alfen, ABB, EVBox, Mennekes)│
+                                  └──────────────┬───────────────┘
+                                                 │
+                             ws://:9220/OCPP/[1.6|2.1]/{chargerId}
+                                                 ▼
+┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 Backend Server Process (:3000)                                 │
+├────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                │
+│   ┌────────────────────────────────┐                 ┌──────────────────────────────────────┐  │
+│   │   Unified OCPP Server (:9220)  │                 │    Express 5 REST API Router (:3000) │  │
+│   ├────────────────────────────────┤                 ├──────────────────────────────────────┤  │
+│   │  • Subprotocol Detection       │                 │  • /api/chargers & /api/connectors   │  │
+│   │  • OCPP 1.6-J JSON Handler     │                 │  • /api/stations & Ground Plan       │  │
+│   │  • OCPP 2.0.1 / 2.1 Router     │                 │  • /api/invoices & SEPA pain.008     │  │
+│   │  • Remote Control Dispatcher   │                 │  • /api/chargeGroups (LMS)           │  │
+│   │  • Live WebSocket Log Broadcaster│               │  • /api/tariffs & EPEX Spot          │  │
+│   └───────────────┬────────────────┘                 │  • /api/roaming (OCPI 2.2.1 / OICP)  │  │
+│                   │                                  │  • /api/users & Corporate Accounts   │  │
+│                   │ Internal Events                  └──────────────────┬───────────────────┘  │
+│                   ▼                                                     │                      │
+│   ┌─────────────────────────────────────────────────────────────────────▼──────────────────┐   │
+│   │                              Service Layer (Business Logic)                            │   │
+│   ├────────────────────────────────────────────────────────────────────────────────────────┤   │
+│   │  • LoadManagementService.ts     • DynamicTariffService.ts     • SepaXmlService.ts      │   │
+│   │  • V2GOrchestrationService.ts   • OcpiService.ts              • MeterValueService.ts   │   │
+│   │  • FirmwareUpdateService.ts     • StripeService.ts            • MollieService.ts       │   │
+│   └──────────────────────────────────────────┬─────────────────────────────────────────────┘   │
+│                                              │                                                 │
+└──────────────────────────────────────────────┼─────────────────────────────────────────────────┘
+                                               │
+                       ┌───────────────────────┴───────────────────────┐
+                       ▼                                               ▼
+        ┌─────────────────────────────┐                 ┌─────────────────────────────┐
+        │     PostgreSQL Database     │                 │       Redis 7 Cluster       │
+        │    (via Prisma ORM 7.8)     │                 │   (Cache, Rate Limits, Bus) │
+        └─────────────────────────────┘                 └─────────────────────────────┘
 ```
 
-## Technology Stack
+---
 
-- **Runtime:** Node.js 24+
-- **Language:** TypeScript
-- **Framework:** Express.js
-- **Database:** PostgreSQL with Prisma ORM
-- **Caching/PubSub:** Redis (ioredis)
-- **WebSocket:** Native `ws` library
-- **Logging:** Winston
-- **Authentication:** JWT (jsonWebToken)
+## 2. Dual-Protocol OCPP Pipeline
 
-## Getting Started
+### Message Routing
+The WebSocket listener binds to port `9220` (`OCPP_PORT`) and routes connections based on the handshake URL and the `Sec-WebSocket-Protocol` header:
+
+```typescript
+// Unified WebSocket route
+ws://<server-ip>:9220/OCPP/<chargerId>
+// Explicit protocol routes
+ws://<server-ip>:9220/OCPP/1.6/<chargerId>   --> Handled by Backend/src/ocpp/handlers/
+ws://<server-ip>:9220/OCPP/2.1/<chargerId>   --> Handled by Backend/src/ocpp/v201/
+```
+
+### JSON-RPC Message Types
+1. **`CALL`** (Type 2): `[2, "<uniqueId>", "<Action>", { <payload> }]`
+2. **`CALLRESULT`** (Type 3): `[3, "<uniqueId>", { <responsePayload> }]`
+3. **`CALLERROR`** (Type 4): `[4, "<uniqueId>", "<ErrorCode>", "<ErrorDescription>", { <details> }]`
+
+### Core Supported OCPP 1.6-J Handlers
+- **`BootNotification`**: Validates registration against the database. Records vendor, model, serial, and firmware version. Responds with `HeartbeatInterval`.
+- **`Heartbeat`**: Updates charger online status and timestamp in PostgreSQL and Redis.
+- **`Authorize`**: Validates RFID tags against the `RfidUser` whitelist or corporate roaming contracts.
+- **`StatusNotification`**: Ingests EVSE connector state changes (`Available`, `Preparing`, `Charging`, `SuspendedEVSE`, `SuspendedEV`, `Finishing`, `Reserved`, `Unavailable`, `Faulted`).
+- **`StartTransaction`**: Begins an active charging session, records `meterStart`, and generates a `Transaction` entity.
+- **`MeterValues`**: High-frequency telemetry ingestion recording active power (W), energy active import (Wh), voltage (V), current (A), and battery State of Charge (SoC %).
+- **`StopTransaction`**: Calculates total energy consumed, invokes `DynamicTariffService` to compute session financial cost, and updates reimbursement ledgers.
+
+---
+
+## 3. REST API Endpoint Catalog
+
+All REST endpoints are mounted under `/api/` on port `3000`.
+
+### 1. Chargers & Connectors
+- `GET /api/chargers`: List all chargers with online status, station mapping, and active power.
+- `POST /api/chargers`: Register a new charger.
+- `GET /api/chargers/:id`: Charger detail view with connectors, active transaction, and quirk overrides.
+- `PUT /api/chargers/:id`: Update hardware metadata and load limits.
+- `DELETE /api/chargers/:id`: Remove charger from network.
+- `GET /api/chargers/:id/configurations`: Query configuration key-value pairs stored on the device.
+- `POST /api/chargers/:id/remote-start`: Send `RemoteStartTransaction` RPC command.
+- `POST /api/chargers/:id/remote-stop`: Send `RemoteStopTransaction` RPC command.
+- `POST /api/chargers/:id/reset`: Trigger `Reset` (type: `Soft` or `Hard`).
+- `POST /api/chargers/:id/unlock`: Trigger `UnlockConnector`.
+
+### 2. Stations & 2D Ground Plan
+- `GET /api/stations`: List all charging stations with GPS coordinates and connector counts.
+- `POST /api/stations`: Create a new charging station.
+- `GET /api/stations/:id`: Retrieve station profile and ground plan layout settings.
+- `PUT /api/stations/:id`: Update station location, operating hours, and capacity limits.
+- `PUT /api/stations/:id/ground-plan`: Persist 2D ground plan JSON (bays, orientation, background image).
+
+### 3. Dynamic Load Management (LMS)
+- `GET /api/chargeGroups`: List all dynamic load balancing groups.
+- `POST /api/chargeGroups`: Create a new load group with max amperage, phase unbalance limit, and fail-safe current.
+- `GET /api/chargeGroups/:id`: Load group detail with assigned chargers and live phase allocation.
+- `PUT /api/chargeGroups/:id`: Modify current limits and phase balancing thresholds.
+
+### 4. Invoicing & ISO 20022 SEPA Banking
+- `GET /api/invoices`: List monthly invoice records with status (`Pending`, `Paid`, `Failed`), subtotal, and VAT.
+- `POST /api/invoices/generate`: Trigger monthly billing calculation run for all companies.
+- `GET /api/invoices/:id/pdf`: Download vector PDF invoice document.
+- `POST /api/invoices/sepa/export`: Generate ISO 20022 `pain.008.001.02` Direct Debit XML batch file.
+- `GET /api/invoices/mandates`: List customer SEPA Direct Debit mandates.
+- `POST /api/invoices/mandates`: Register a new signed SEPA mandate.
+
+### 5. Roaming (OCPI 2.2.1 & OICP 2.3)
+- `GET /api/ocpi/cpo/2.2.1/locations`: OCPI Locations endpoint for navigation eMSPs.
+- `GET /api/ocpi/cpo/2.2.1/sessions`: Active charging sessions for roaming partners.
+- `GET /api/ocpi/cpo/2.2.1/cdrs`: Charge Detail Records for clearing and settlement.
+- `POST /api/roaming/test-suite/run`: Execute automated partner endpoint conformance tests.
+
+---
+
+## 4. Database Models & Prisma ORM
+
+The PostgreSQL schema is managed via **Prisma ORM 7.8** in `Backend/prisma/schema.prisma`.
+
+### Key Relational Entities
+- **`User`**: System identity (`superadmin`, `admin`, `user`). Includes `twoFactorSecret` and `twoFactorEnabled`.
+- **`Company`**: B2B corporate billing entity. Groups chargers, corporate drivers, and invoice ledgers.
+- **`ChargingStation`**: Physical site with GPS coordinates (`latitude`, `longitude`) and ground plan canvas settings.
+- **`Charger`**: Physical OCPP charge point (unique `charger_id`). Belongs to a station and optional `ChargeGroup`.
+- **`Connector`**: Individual charging plug (EVSE id, connector id, type: `Type2`, `CCS2`, `CHAdeMO`, max power).
+- **`Transaction`**: Active or finalized charging session (`meterStart`, `meterStop`, `totalCost`, `soc`).
+- **`MeterValue`**: High-resolution time-series energy and power samples.
+- **`Tariff`**: Pricing model with fixed, time-based, idle-fee, and EPEX dynamic spot pricing formulas.
+- **`ChargeGroup`**: Dynamic cluster managing safe site current, phase balancing, and fail-safe levels.
+- **`ReimbursementContract` & `ReimbursementLedger`**: Employee home charging compensation and SEPA records.
+- **`QuirkProfile`**: Hardware manufacturer compatibility flags and timing overrides.
+
+---
+
+## 5. Smart Charging & Optimization Services
+
+### `LoadManagementService.ts`
+Evaluates aggregated site currents across phases $L1, L2, L3$ every 10 seconds. Calculates safe current limits and dispatches OCPP `SetChargingProfile` commands to throttled chargers.
+
+### `DynamicTariffService.ts`
+Integrates with ENTSO-E to retrieve hourly day-ahead wholesale electricity prices. Computes exact session cost by multiplying interval kWh consumption by the applicable spot rate plus CPO markup.
+
+### `V2GOrchestrationService.ts`
+Manages bidirectional energy transfer. When local grid tariffs spike or site demand exceeds contractual capacity, the engine commands connected ISO 15118 vehicles to discharge battery reserves down to the user-specified minimum SoC floor.
+
+### `SepaXmlService.ts`
+Generates banking-grade ISO 20022 XML files using `fast-xml-parser`:
+- Direct Debit: `pain.008.001.02` (CORE and B2B schemes)
+- Credit Transfer: `pain.001.001.03` (Reimbursements)
+
+---
+
+## 6. Security, Authentication & Multi-Tenancy
+
+1. **Strict Multi-Tenant Scoping**: Non-superadmin requests are strictly scoped by `owner_id: req.userId` or `company_id: req.user.companyId`.
+2. **JWT Authentication**: Enforced across all non-public routes with SHA-256 signature verification.
+3. **Role-Based Access Control (RBAC)**: Fine-grained capabilities matrix (`chargers.view`, `chargers.control`, `invoices.view`, `invoices.export`, `roaming.manage`).
+4. **Audit Trail**: Every administrative action (remote controls, tariff edits, role assignments) writes an immutable record to `AuditLog`.
+
+---
+
+## 7. Developer Setup & Commands
 
 ### Prerequisites
+- Node.js 24+ LTS
+- PostgreSQL 15+
+- Redis 7+
 
-- Node.js 24 or higher
-- PostgreSQL database
-
-### Installation
-
+### Commands
 ```bash
 # Install dependencies
 npm install
 
-# Generate Prisma client
-npm run prisma:generate
+# Generate Prisma Client
+npx prisma generate
 
-# Run database migration
-npm run prisma:migrate
+# Push database schema without interactive prompt
+npx prisma db push --accept-data-loss
+
+# Check TypeScript types (Must exit code 0)
+npx tsc --noEmit
+
+# Run unit and integration tests
+npm test
+
+# Run a specific service test
+npx jest src/tests/services/V2GOrchestrationService.test.ts
+
+# Create initial Superadmin account
+npm run create-superadmin -- "admin@mobilitypulse.com" "SecurePassword123!"
 
 # Start development server
 npm run dev
 ```
 
-### Environment Variables
+---
 
-Copy `.env.example` to `.env` and configure:
-
-```env
-DATABASE_URL="postgresql://user:password@localhost:5432/database"
-PORT=3000
-OCPP_PORT=9220
-OCPP_LOG_WS_PORT=3001
-JWT_SECRET="your-secret-key"
-REDIS_URL="redis://localhost:6379"
-LOG_LEVEL=info
-```
-
-## OCPP Message Flow
-
-### 1. Charger Connection
-
-```
-Charger → ws://localhost:9220/OCPP/1.6/{chargerId}
-CMS ← Verify charger exists in database
-CMS ← Send: BootNotification.conf (Accepted, interval=300)
-```
-
-### 2. Authentication
-
-```
-User → Swipe RFID card at charger
-Charger → Send: Authorize.req (idTag)
-CMS ← Lookup RFID in whitelist
-CMS → Send: Authorize.conf (idTagInfo.status = "Accepted")
-```
-
-### 3. Charging Session
-
-```
-Charger → Send: StartTransaction.req (idTag, meterStart)
-CMS ← Create Transaction/RfidSession
-CMS → Send: StartTransaction.conf (transactionId)
-Charger → Send: MeterValues.req (periodic)
-CMS ← Update energy consumption
-User → Swipe card to stop
-Charger → Send: StopTransaction.req (transactionId, meterStop)
-CMS ← Close session, calculate amount
-CMS → Send: StopTransaction.conf
-```
-
-## API Reference
-
-### Health Check
-
-```http
-GET /health
-```
-
-### Chargers
-
-```http
-GET    /api/chargers              # List all chargers
-GET    /api/chargers/:id         # Get specific charger
-GET    /api/chargers/:id/status  # Get charger status
-POST   /api/chargers             # Create charger
-PUT    /api/chargers/:id         # Update charger
-DELETE  /api/chargers/:id         # Delete charger
-POST   /api/chargers/connectors  # Bulk create connectors
-```
-
-### Stations
-
-```http
-GET    /api/stations              # List all stations
-GET    /api/stations/:id         # Get specific station
-GET    /api/stations/:id/chargers # Get station chargers
-POST   /api/stations             # Create station
-PUT    /api/stations/:id         # Update station
-DELETE  /api/stations/:id         # Delete station
-```
-
-### Connectors
-
-```http
-GET    /api/connectors    # List all connectors
-GET    /api/connectors/:id # Get specific connector
-POST   /api/connectors    # Create connector
-PUT    /api/connectors/:id # Update connector
-DELETE  /api/connectors/:id # Delete connector
-```
-
-### RFID Tags
-
-```http
-GET    /api/rfid         # List all tags
-GET    /api/rfid/:id     # Get specific tag
-POST   /api/rfid         # Create tag
-PUT    /api/rfid/:id     # Update tag
-PATCH   /api/rfid/:id/toggle # Activate/deactivate tag
-DELETE  /api/rfid/:id     # Delete tag
-```
-
-### Transactions
-
-```http
-GET    /api/transactions              # List all transactions
-GET    /api/transactions/active   # Get active sessions
-GET    /api/transactions/charger/:name # Get charger transactions
-GET    /api/transactions/stats        # Get statistics
-GET    /api/transactions/:id         # Get specific transaction
-GET    /api/transactions/rfid/:id # Get RFID session
-```
-
-### OCPP Remote Control
-
-```http
-GET    /api/ocpp/connected              # Get connected chargers
-POST   /api/ocpp/remote-start          # Start charging remotely
-POST   /api/ocpp/remote-stop           # Stop charging remotely
-POST   /api/ocpp/get-configuration     # Get charger config
-POST   /api/ocpp/set-configuration     # Set charger config
-POST   /api/ocpp/reset                 # Reset charger
-POST   /api/ocpp/unlock                 # Unlock connector
-POST   /api/ocpp/trigger-message       # Trigger status message
-```
-
-### Dashboard
-
-```http
-GET    /api/dashboard/overview        # System metrics
-GET    /api/dashboard/live-sessions    # Active charging sessions
-GET    /api/dashboard/distribution    # Connector status distribution
-GET    /api/dashboard/chargers-status # All chargers with status
-```
-
-## OCPP Logs WebSocket
-
-Connect to `ws://localhost:3001` to receive real-time OCPP message logs:
-
-```javascript
-const ws = new WebSocket('ws://localhost:3001');
-
-ws.on('message', (data) => {
-  const message = JSON.parse(data);
-
-  if (message.type === 'welcome') {
-    console.log(`Connected. Total clients: ${message.clientCount}`);
-  }
-
-  if (message.type === 'history') {
-    console.log(`Received ${message.logs.length} historical logs`);
-  }
-
-  if (message.type === 'log') {
-    console.log(`New log:`, message.log);
-  }
-});
-```
-
-## Database Schema
-
-See [prisma/schema.prisma](./prisma/schema.prisma) for complete schema definition.
-
-Key models:
-- **User** - Admin/operator accounts
-- **ChargingStation** - Physical charging locations
-- **Charger** - OCPP charging points
-- **Connector** - Individual charge connectors
-- **RfidUser** - RFID whitelist entries
-- **RfidSession** - Post-paid charging sessions
-- **Transaction** - Basic transaction tracking
-- **OcppLog** - Message logging for debugging
-
-## Development
-
-```bash
-# Run in watch mode
-npm run dev
-
-# Build for production
-npm run build
-
-# Start production server
-npm start
-
-# Open Prisma Studio
-npm run prisma:studio
-```
-
-## Testing
-
-See [TEST_CASES.md](./TEST_CASES.md) for comprehensive test cases covering all functionality.
-
-## Project Structure
-
-```
-Backend/
-├── src/
-│   ├── config/
-│   │   ├── database.ts      # Prisma client setup
-│   │   └── index.ts        # Application configuration
-│   ├── ocpp/
-│   │   ├── chargerRegistry.ts    # Connected charger management
-│   │   ├── messageHandlers.ts    # OCPP message processors
-│   │   ├── ocppServer.ts        # WebSocket server
-│   │   ├── remoteControl.ts      # OCPP remote commands
-│   │   └── logsWebSocket.ts     # Logs streaming server
-│   ├── api/
-│   │   ├── chargers/        # Chargers API routes
-│   │   ├── stations/        # Stations API routes
-│   │   ├── connectors/      # Connectors API routes
-│   │   ├── rfid/           # RFID tags API routes
-│   │   ├── transactions/    # Transactions API routes
-│   │   ├── ocpp/           # OCPP remote control API
-│   │   └── dashboard/      # Dashboard API routes
-│   ├── middleware/
-│   │   ├── auth.ts          # JWT authentication
-│   │   └── errorHandler.ts # Error handling
-│   ├── types/
-│   │   └── index.ts        # TypeScript type definitions
-│   ├── utils/
-│   │   └── logger.ts       # Winston logging
-│   ├── app.ts             # Express app setup
-│   └── server.ts          # Application entry point
-├── prisma/
-│   └── schema.prisma     # Database schema
-├── generated/
-│   └── prisma/
-│       └── client/        # Generated Prisma client
-├── logs/                 # Application logs
-├── .env                  # Environment variables
-├── package.json
-├── tsconfig.json
-├── SETUP.md
-├── TEST_CASES.md
-└── README.md
-```
-
-## License
-
-ISC
-
-## Contributing
-
-This is an open-source base CMS. Feel free to extend it with your business logic:
-- Payment gateway integration
-- User authentication UI
-- Advanced analytics
-- Mobile app APIs
-- OCPI integration
-- SMS/Email notifications
+*Authored for enterprise EV infrastructure — webdotpulse/GRID-OCPP-CPMS.*

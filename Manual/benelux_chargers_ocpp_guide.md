@@ -718,6 +718,16 @@ Authorization: Bearer <token>
 ```
 The CPMS server will sequentially dispatch `ChangeConfiguration` OCPP RPC calls, record the charger's response (`Accepted` / `RebootRequired`), and synchronize the internal `ChargerConfiguration` database table.
 
+### 4. Visual Dashboard Interface
+
+| Configuration Profiles Directory | Create Config Profile Dialog |
+| :---: | :---: |
+| ![Config Profiles Templates](../Screenshots/58_ConfigProfiles_Templates.png) | ![New Config Profile Modal](../Screenshots/proof_modal_config_profiles.png) |
+
+| Hardware Quirk Overrides | Live Charger Configuration Tab |
+| :---: | :---: |
+| ![Quirk Profiles](../Screenshots/59_QuirkProfiles_HardwareOverrides.png) | ![Charger Configuration](../Screenshots/13_Charger_Detail_Configuration_Tab.png) |
+
 ---
 
 *Authored for CPOs, Fleet Operators & AI Agents — GRID-OCPP-CPMS.*

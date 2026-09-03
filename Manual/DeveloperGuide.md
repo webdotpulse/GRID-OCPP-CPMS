@@ -214,6 +214,8 @@ ws.onmessage = (event) => {
 };
 ```
 
+![Live OCPP Packet Inspector Console](../Screenshots/55_OCPP_PacketInspector_Console.png)
+
 ---
 
 ## 4. BullMQ Asynchronous Worker Queues
@@ -226,3 +228,18 @@ The platform offloads compute-heavy tasks to BullMQ workers connected to Redis:
 | `metering-queue` | Batch processes high-frequency time-series telemetry data | Near real-time buffer flush |
 | `oicp-sync-queue` | Submits Charge Detail Records (CDRs) to Hubject OICP | On transaction stop |
 | `predictive-balancing` | Calculates 24h solar & spot price schedules | Hourly cron |
+
+---
+
+## 5. Charger Simulator Studio & Testing Digital Twins
+
+Developers can simulate complete multi-protocol charging sessions without physical hardware using the built-in **Simulator Studio** (`/simulator`):
+
+* **Digital Twin Profiles:** Instantly provision simulated Alfen Eve, ABB Terra, or Kempower units.
+* **Lifecycle Emulation:** Trigger `BootNotification`, `StatusNotification`, `Authorize`, `StartTransaction`, periodic `MeterValues`, and `StopTransaction` with configurable fault injection.
+
+![Charger Simulator Studio](../Screenshots/57_Charger_Simulator_Studio.png)
+
+---
+
+*Developer Guide maintained for GRID-OCPP-CPMS engineering teams.*

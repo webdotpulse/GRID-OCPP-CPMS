@@ -121,7 +121,11 @@ The CPMS supports full standard HTML with inline CSS. For optimal rendering acro
 5. Switch between **Source Code** (editing HTML / Text) and **Live Preview** (renders simulated variables in real time).
 6. Click **Save Template**. Changes take effect immediately without requiring a server restart.
 
-### Option B: Via the REST API
+| HTML Mail Templates Editor | SMTP Server Configuration |
+| :---: | :---: |
+| ![Mail Templates Editor](../Screenshots/66_Settings_MailTemplates_Editor.png) | ![SMTP Server Settings](../Screenshots/67_Settings_SMTP_Server.png) |
+
+---
 
 #### 1. List all templates
 ```bash

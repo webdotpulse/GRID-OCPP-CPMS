@@ -804,6 +804,26 @@ function buildUserManualHtml() {
     )}
   </div>
 
+  <div class="section-block page-break">
+    <h1 class="section-h1">13. Dynamic Load Balancing & Auto-Heal Playbooks</h1>
+    
+    <h2 class="section-h2">13.1 Dynamic Load Balancing & Phase Allocator (<code>/charge-groups</code>)</h2>
+    <p>Distribute site electrical capacity, prevent transformer overload, and maintain phase balance across active chargers.</p>
+
+    <h2 class="section-h2">13.2 Automated Recovery Playbooks (<code>/auto-heal-playbooks</code>)</h2>
+    <p>Automate multi-step remediation procedures to resolve connector lock failures, communication timeouts, and mechanical errors.</p>
+
+    ${renderGrid2(
+      { file: '28b_ChargeGroup_Detail_View.png', caption: 'Charge Group Phase Allocation Detail' },
+      { file: '54b_AutoHeal_Playbooks.png', caption: 'Automated Recovery Playbooks' }
+    )}
+
+    <h2 class="section-h2">13.3 Scheduled Smart Charging Calendar (<code>/scheduled-charging</code>)</h2>
+    <p>Align fleet charging with off-peak spot rates, solar yield windows, and scheduled departure times.</p>
+
+    ${renderFigure('56_ScheduledCharging_Calendar.png', 'Scheduled Smart Charging Calendar & Time-of-Use Matrix')}
+  </div>
+
 </body>
 </html>
   `;
@@ -1027,6 +1047,36 @@ function buildAdminManualHtml() {
     ${renderGrid2(
       { file: '55_OCPP_PacketInspector_Console.png', caption: 'Live OCPP Packet Inspector & RPC Console' },
       { file: '59_QuirkProfiles_HardwareOverrides.png', caption: 'Hardware Quirk Profiles & Overrides' }
+    )}
+  </div>
+
+  <div class="section-block page-break">
+    <h1 class="section-h1">11. Roaming Test Suite & Simulator Studio</h1>
+    
+    <h2 class="section-h2">11.1 Roaming Conformance Test Suite (<code>/roaming/test-suite</code>)</h2>
+    <p>Automate validation of eMSP and CPO partner endpoints against synthetic charging sessions and CDR schemas before production activation.</p>
+
+    <h2 class="section-h2">11.2 Digital Twin Charger Simulator Studio (<code>/simulator</code>)</h2>
+    <p>Simulate realistic multi-protocol charging station hardware, connector states, and fault scenarios directly in the browser.</p>
+
+    ${renderGrid2(
+      { file: '50b_Roaming_TestSuite.png', caption: 'Roaming Conformance Test Suite' },
+      { file: '57_Charger_Simulator_Studio.png', caption: 'Charger Simulator Studio' }
+    )}
+  </div>
+
+  <div class="section-block page-break">
+    <h1 class="section-h1">12. Media Screen Campaigns & Firmware Management</h1>
+    
+    <h2 class="section-h2">12.1 Media Campaigns Scheduler (<code>/media-campaigns</code>)</h2>
+    <p>Schedule high-definition video and promotional image campaigns onto digital display screens of modern EVSE hardware.</p>
+
+    <h2 class="section-h2">12.2 Firmware Binary Over-The-Air (OTA) Updates (<code>/settings/firmware</code>)</h2>
+    <p>Centrally upload and deploy vendor firmware binaries across the fleet via standard OCPP <code>UpdateFirmware</code> RPC commands.</p>
+
+    ${renderGrid2(
+      { file: '68b_MediaCampaigns_Scheduler.png', caption: 'Media Campaigns Scheduler' },
+      { file: 'proof_modal_firmware.png', caption: 'Firmware Binary Management & OTA Deployment' }
     )}
   </div>
 

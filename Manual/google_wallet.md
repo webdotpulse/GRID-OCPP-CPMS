@@ -159,9 +159,15 @@ The backend generates a **Generic Object Pass** conforming to Google's standard 
    - Provides a **Copy Pass URL** button to share with drivers via email or chat.
    - Includes cross-platform download for Apple Wallet (`.pkpass`).
 
+| RFID Whitelist Directory | RFID Tag Detail & Pass Generation |
+| :---: | :---: |
+| ![RFID Whitelist](../Screenshots/30_RFID_Whitelist_Directory.png) | ![RFID Tag Detail](../Screenshots/32_RFID_Tag_Detail.png) |
+
 ### 2. In Driver Mobile Companion (`/mobile/settings`)
 1. Drivers can view their assigned RFID passes under **Digital Wallet Passes**.
 2. Tapping **💳 Google Wallet** opens the pass dialog or redirects straight to Google Wallet.
+
+![Mobile Driver Settings & Wallet Pass](../Screenshots/75_Mobile_Driver_Settings.png)
 
 ### 3. Contactless Charging Station Authentication
 1. The driver taps their unlocked phone against the charger's RFID reader.

@@ -5,7 +5,7 @@ Welcome to the **OCPP-CPMS System Administration & Enterprise Management Manual*
 
 ---
 
-## Table of Contents
+## 📑 Table of Contents
 
 1. [Multi-Tenant Architecture & Corporate Hierarchy](#1-multi-tenant-architecture--corporate-hierarchy)
 2. [User Accounts, Corporate Clients & RBAC Matrix](#2-user-accounts-corporate-clients--rbac-matrix)
@@ -51,7 +51,7 @@ flowchart TD
 
 ## 2. User Accounts, Corporate Clients & RBAC Matrix
 
-### 2.1 Corporate B2B Clients Directory (`/users`)
+### 2.1 Corporate B2B Clients Directory (`/users` - Clients Tab)
 Corporate clients represent billing entities and enterprise fleet accounts. Each record stores:
 * **Company & Legal Identity:** Company Name, KvK / Chamber of Commerce number, Tax / VAT identification.
 * **Billing & Contact Information:** Invoice email, billing address, phone, and designated contact person.
@@ -60,25 +60,16 @@ Corporate clients represent billing entities and enterprise fleet accounts. Each
 
 ![Corporate Clients Directory](../Screenshots/51a_Corporate_Clients_Directory.png)
 
-### 2.2 User Accounts & Authentication Security
-User records represent individual authenticating human accounts:
-* **Authentication:** Email address, salted bcrypt password hash, and email verification status.
-* **Two-Factor Authentication (2FA TOTP):** Time-based One-Time Password support (Google Authenticator, Authy, 1Password) with 6-digit verification and backup recovery keys.
-* **Associated Data:** Link to corporate client, personal RFID cards, and vehicle battery energy profiles.
+### 2.2 Granular RBAC Matrix (`/users` - Roles Tab & `/settings/roles`)
+The platform enforces a five-tier Role-Based Access Control matrix across six distinct operational domains:
 
-![Users Directory](../Screenshots/51_Users_Accounts_Directory.png)
-
-### 2.3 5-Tier Role-Based Access Control (RBAC Matrix)
-
-| Operational Domain | Superadmin | Platform Admin | Operator / Tech | Client Admin | User / Driver |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Infrastructure & Stations** | Full CRUD | Full CRUD | View & Diagnostics | Assigned Only | Map View |
-| **Remote Controls (Reset/Unlock)** | Full Access | Full Access | Full Access | Restricted | Own Connector |
-| **Dynamic Tariffs & EPEX** | Full CRUD | Full CRUD | View Only | View Assigned | View Rates |
-| **Invoicing & SEPA Exports** | Full CRUD | Full CRUD | No Access | Own Invoices | Own Receipts |
-| **Roaming Hubs (OCPI/OICP)** | Full CRUD | Manage | View Only | No Access | No Access |
-| **PKI Security & Audit Trail** | Full CRUD | View Audit | No Access | No Access | No Access |
-| **System Settings & Mail** | Full CRUD | Company Level | No Access | No Access | No Access |
+| Role Tier | Scope | Typical Assignment | Key Capabilities |
+| :--- | :--- | :--- | :--- |
+| **`superadmin`** | Global Platform | Platform Owner / Lead Architect | Full unrestricted access to all corporate tenants, hardware configurations, and global financial ledgers. |
+| **`admin`** | CPO Network | Network Operations Director | Manage site locations, load groups, dynamic tariffs, client accounts, and billing runs. |
+| **`operator`** | Hardware & Field | Field Maintenance Technician | Monitor live telemetry, execute remote charger commands, configure hardware profiles, and view packet inspector. |
+| **`client_admin`** | Corporate Tenant | Corporate Fleet Manager | View assigned chargers, register employee drivers and RFID tags, and download monthly consolidated invoices. |
+| **`user`** | Self-Service | Individual EV Driver | View personal charging receipts, manage registered vehicle battery profiles, and access the mobile driver companion. |
 
 ![Roles & Permissions Matrix](../Screenshots/51b_Roles_Permissions_Matrix.png)
 
@@ -86,33 +77,28 @@ User records represent individual authenticating human accounts:
 
 ## 3. Security Profiles & PKI / TLS Certificates
 
-The CPMS supports full compliance with **OCPP 1.6 Security Whitepaper Edition 3** and **ISO 15118 PKI**:
+The CPMS supports the **OCPP Security Whitepaper** profiles to ensure encrypted and authenticated hardware communication:
 
-```mermaid
-flowchart LR
-    CA["🏛️ Root Certificate Authority (CA)"] --> SubCA["🏢 Sub-CA (CSMS / CPO)"]
-    SubCA --> CSMS_CERT["🔒 CSMS Server Certificate\n(WSS TLS Termination)"]
-    SubCA --> CP_CERT["⚡ Charge Point Client Certificate\n(Security Profile 3 - mTLS)"]
-    CA --> V2G_ROOT["🚗 V2G Root CA\n(ISO 15118 Plug & Charge)"]
-    V2G_ROOT --> CONTRACT["📜 Vehicle Contract Certificate (EMAID)"]
-```
+* **Security Profile 1 (Unsecured Transport):** HTTP / WS over port 9220 with HTTP Basic Authentication. Recommended only for isolated local lab networks.
+* **Security Profile 2 (TLS with Basic Authentication):** HTTPS / WSS over port 9220 with server-side TLS certificates and charger-specific Basic Auth credentials.
+* **Security Profile 3 (Mutual TLS / mTLS):** WSS with dual-ended certificate verification. Both the CPMS and the charge point validate each other's X.509 certificates.
 
-### Security Profiles Configuration (`/settings/security`)
-* **Security Profile 1 (Unsecured):** HTTP / WS transport without TLS encryption. Recommended strictly for isolated private VPNs.
-* **Security Profile 2 (TLS with Basic Auth):** WSS connection with HTTP Basic Authentication (charger identity + password).
-* **Security Profile 3 (Mutual TLS / mTLS):** WSS with bidirectional X.509 client and server certificate verification.
-* **Certificate Authority Management:** Upload Root CA certificates, intermediate CAs, and inspect certificate validity dates, SHA-256 fingerprints, and revocation lists (CRLs).
+### PKI Certificate Management (`/settings/security`)
+* **Certificate Authority (CA) Chaining:** Upload trusted root and intermediate CA certificates.
+* **Client Certificate Enrollment:** Automated generation of certificate signing requests (CSR) via OCPP `SignCertificate.req`.
+* **Certificate Revocation Lists (CRL):** Real-time validation preventing decommissioned chargers from establishing WebSocket connections.
 
-![PKI Security Profiles](../Screenshots/63_Settings_Security_Profiles_PKI.png)
+![Security Profiles & PKI Settings](../Screenshots/63_Settings_Security_Profiles_PKI.png)
 
 ---
 
 ## 4. Enterprise Audit Trail & Compliance Logging
 
-The **Enterprise Audit Trail** (`/settings/audit`) provides an immutable chronological log of administrative and operational events:
-* **Recorded Parameters:** Timestamp (UTC), User ID, User Email, Action Type (e.g. `REMOTE_RESET`, `TARIFF_UPDATE`, `SEPA_EXPORT`), Target Resource ID, Client IP Address, User-Agent, and Result (`SUCCESS` / `FAILED`).
-* **Filtering & Search:** Filter by date range, administrative actor, specific charger ID, or severity level.
-* **Export for Compliance:** Export audit logs in CSV or JSON format for SOC 2 and ISO 27001 regulatory audits.
+The **Audit Trail** (`/settings/audit`) provides an immutable chronological ledger of all platform administrative interactions:
+
+* **Logged Actions:** Remote commands (`RemoteStart`, `Reset`), configuration parameter changes, tariff modifications, user role promotions, and SEPA batch exports.
+* **Metadata Recorded:** Executing user ID, IP address, timestamp (microsecond precision), affected entity, and complete pre/post mutation JSON diffs.
+* **Tamper-Evidence:** Records are cryptographically signed and stored in an append-only table.
 
 ![Enterprise Audit Trail](../Screenshots/64_Settings_Enterprise_Audit_Trail.png)
 
@@ -120,31 +106,31 @@ The **Enterprise Audit Trail** (`/settings/audit`) provides an immutable chronol
 
 ## 5. Dynamic EPEX Spot Tariff Configuration & Feeds
 
-The **Dynamic Tariffs Engine** (`/settings/tariffs`) integrates Day-Ahead wholesale electricity market prices into consumer and corporate charging tariffs.
+The **Dynamic Tariffs Engine** (`/settings/tariffs`) configures automated wholesale spot market ingestion:
 
-### EPEX Integration Workflow
-1. **Automated Price Fetching:** A background cron job pulls Day-Ahead hourly spot market prices daily at 13:15 CET from providers like **EnergyZero**, **ENTSO-E Transparency Platform**, or **Energy-Charts API**.
-2. **Pricing Formula:**
-   $$\text{Final Tariff (€/kWh)} = (\text{Spot Price} \times \text{Multiplier}) + \text{CPO Markup} + \text{Grid Operator Fee} + \text{VAT (21\%)}$$
-3. **Transaction Slicing:** When a multi-hour charging session completes, the metering service breaks consumption into distinct hourly intervals and applies the exact corresponding spot rate.
+* **Market Feeds:** Integrates with ENTSO-E Transparency Platform and EnergyZero API for hourly Day-Ahead electricity pricing across European bidding zones (NL, BE, DE, FR, UK).
+* **CPO Pricing Formulas:** Configure custom margin formulas:
+  $$\text{Driver Rate} = (\text{Wholesale Spot Rate} \times \text{Multiplier}) + \text{CPO Margin Markup} + \text{Grid Tax}$$
+* **Negative Price Handling:** Automatically enforce minimum floor rates or pass negative pricing incentives to smart fleet drivers to absorb grid surpluses.
 
-![Dynamic EPEX Tariffs Settings](../Screenshots/65_Settings_DynamicTariffs_EPEX.png)
+![Dynamic Tariffs & EPEX Spot Settings](../Screenshots/65_Settings_DynamicTariffs_EPEX.png)
 
 ---
 
 ## 6. SMTP Server & HTML Mail Template Engine
 
-### 6.1 Outgoing Mail Configuration (`/settings/mail`)
-Configure transactional email delivery via Postmark, SendGrid, Amazon SES, or custom SMTP servers:
-* Hostname, Port (587 / 465 / 25), TLS/STARTTLS mode, SMTP User, and Password.
-* Test Email Dispatcher to verify deliverability and SPF/DKIM alignment.
+### 6.1 SMTP Configuration (`/settings/mail`)
+Connect enterprise mail transfer agents (Mailgun, SendGrid, Amazon SES, Postmark, or custom Postfix relays) with support for TLS/STARTTLS authentication.
 
 ![SMTP Server Settings](../Screenshots/67_Settings_SMTP_Server.png)
 
-### 6.2 HTML Mail Template Editor (`/settings/templates`)
-Customize responsive HTML email templates with visual previews and dynamic variables:
-* **Supported Templates:** Welcome & Account Activation, Password Reset Request, Monthly Invoice Delivery (with PDF attachment), Charging Session Receipt, and Hardware Fault Warning.
-* **Dynamic Placeholders:** `{{user_name}}`, `{{invoice_number}}`, `{{total_amount}}`, `{{kwh_delivered}}`, `{{charger_name}}`, `{{reset_link}}`.
+### 6.2 HTML Mail Templates (`/settings/templates`)
+Visual editor for customizing transactional email notifications with variable substitution (`{{driver_name}}`, `{{kwh_delivered}}`, `{{total_cost}}`, `{{station_name}}`):
+* Driver Welcome & Email Verification
+* Password Reset & 2FA Setup
+* Monthly Consolidated Invoice Notification with Attached PDF
+* Charging Session Started & Completed Receipts
+* Hardware Offline & Anomaly Alerts
 
 ![Mail Templates Editor](../Screenshots/66_Settings_MailTemplates_Editor.png)
 
@@ -152,165 +138,113 @@ Customize responsive HTML email templates with visual previews and dynamic varia
 
 ## 7. Screen Advertising Manager & Target Playlists
 
-The **Screen Ad Manager** (`/settings/ad-manager`) schedules and delivers media campaigns to EV chargers equipped with color multimedia screens:
-* **Asset Formats:** MP4 video (H.264), PNG, JPG, and HTML5 responsive widgets.
-* **Display Locations:** Idle attract screen, Active charging banner, and Post-session thank-you screen.
-* **Targeting Rules:** Filter campaigns by specific charging stations, geographic cities, or charge groups.
-* **OCPP DataTransfer Delivery:** Assets and playlists are distributed to hardware using customized `DataTransfer` vendor commands.
+The **Screen Ad Manager** (`/settings/ad-manager` & `/media-campaigns`) controls multimedia assets displayed on charger screens:
 
-![Screen Advertising Manager](../Screenshots/68_Settings_Screen_AdManager.png)
+* **Asset Management:** Upload high-resolution images (PNG, JPEG) and video files (MP4, WebM) formatted for charger aspect ratios.
+* **Targeting Rules:** Bind campaigns to specific charging stations, geographical regions, or corporate client bays.
+* **Trigger Events:** Display promotional media during specific charging lifecycle states (`Standby`, `Preparing`, `Charging`, `Thank You / Disconnect`).
+
+| Screen Advertising Settings | Media Campaigns Scheduler |
+| :---: | :---: |
+| ![Screen Ad Manager](../Screenshots/68_Settings_Screen_AdManager.png) | ![Media Campaigns Scheduler](../Screenshots/68b_MediaCampaigns_Scheduler.png) |
 
 ---
 
 ## 8. Hardware-at-Risk Engine & Auto-Heal Rules
 
-The **Hardware-at-Risk Subsystem** (`/settings/hardware-at-risk` and `/hardware-at-risk`) continuously monitors fleet telemetry to identify deteriorating or stalled hardware before drivers experience outages.
+The **Auto-Heal Engine** (`/settings/hardware-at-risk` & `/auto-heal-playbooks`) prevents charger downtime by automatically remedying common hardware faults without requiring on-site technician dispatches:
 
-```mermaid
-flowchart TD
-    CRON["⏱️ 60-Second Fleet Health Scan"] --> DETECT{"Anomaly Detected?"}
-    DETECT -- "Missed Heartbeat (>180s)" --> RISK1["Flag as 'At Risk' (Connection Stalled)"]
-    DETECT -- "Connector Faulted / Unavailable" --> RISK2["Flag as 'Connector Fault'"]
-    DETECT -- "Zero Power Draw with EV Connected (>10m)" --> RISK3["Flag as 'SuspendedEVSE Hang'"]
+* **Trigger Conditions:**
+  - `MissedHeartbeats > 3`: Charger fails to send heartbeats within expected interval.
+  - `ConnectorLockFailure`: Mechanical cable pin fails to latch or unlatch.
+  - `HighTemperatureFault`: Internal power module reports overheating.
+  - `GroundFailure`: RCD ground fault trip.
+* **Automated Remediation Workflows:**
+  1. Trigger OCPP `UnlockConnector` RPC.
+  2. If fault persists after 60 seconds, issue `Reset (Soft)`.
+  3. If charger remains unresponsive after 5 minutes, issue `Reset (Hard)` to power-cycle the controller.
+  4. Dispatch urgent SMS and email alert to the field service team.
 
-    RISK1 & RISK2 & RISK3 --> HEAL{"Auto-Heal Rule Enabled?"}
-    HEAL -- Yes --> ACT1["Trigger OCPP Remote Soft Reset"]
-    ACT1 --> WAIT["Wait 120s for Reconnect"]
-    WAIT --> RESOLVED{"Healthy Re-registration?"}
-    RESOLVED -- Yes --> PASS["Clear Risk Flag & Log Healed"]
-    RESOLVED -- No --> ESCALATE["Dispatch Incident Alert to Field Tech"]
-    HEAL -- No --> LOG["Log Risk & Alert Operator Dashboard"]
-```
-
-### Configurable Healing Rules
-1. **Heartbeat Timeout:** Maximum allowed delay before triggering an automated soft reset.
-2. **Connector Stuck Unlock:** Automatically fire `UnlockConnector` if a session terminates with connector locked for >3 minutes.
-3. **Firmware Rollback:** Fall back to stable firmware if newly deployed firmware produces error rates > 5%.
-
-| Hardware at Risk Live Status | Auto-Heal Configuration Rules |
+| Hardware-at-Risk Engine | Auto-Heal Playbooks |
 | :---: | :---: |
-| ![Hardware at Risk](../Screenshots/54_HardwareAtRisk_AutoHeal.png) | ![Hardware at Risk Rules](../Screenshots/69_Settings_HardwareAtRisk_Rules.png) |
+| ![Hardware at Risk Rules](../Screenshots/69_Settings_HardwareAtRisk_Rules.png) | ![Auto-Heal Playbooks](../Screenshots/54b_AutoHeal_Playbooks.png) |
 
 ---
 
 ## 9. Payment Gateways Configuration (Stripe & Mollie)
 
-Configure ad-hoc walk-in payment processing under `/settings/payments`:
+The **Payment Gateway Hub** (`/settings/payments`) manages credentials for ad-hoc driver checkout:
 
-### 9.1 Stripe Configuration
-* **API Keys:** Live Publishable Key, Live Secret Key, Test Publishable Key, Test Secret Key.
-* **Webhook Secret:** Signing secret (`whsec_...`) used by `/api/payments/webhook/stripe` to verify transaction events (`checkout.session.completed`, `payment_intent.succeeded`).
-* **Supported Methods:** Visa, MasterCard, American Express, Apple Pay, Google Pay.
+* **Stripe Configuration:** Enter Stripe Publishable Key, Secret Key, and Webhook Secret for credit cards, Apple Pay, and Google Pay.
+* **Mollie Configuration:** Enter Mollie Live / Test API Key for Benelux payment rails (iDEAL, Bancontact).
+* **Pre-Authorization Limits:** Configure the default card hold amount (e.g., €35.00) and automatic release window upon transaction completion.
 
-### 9.2 Mollie Configuration
-* **API Key:** `live_...` or `test_...` key.
-* **Webhook Endpoint:** `/api/payments/webhook/mollie`.
-* **European Methods:** iDEAL 2.0, Bancontact, EPS, KBC/CBC, Belfius Direct Net.
-
-![Mollie Payments Gateway Settings](../Screenshots/70_Settings_MolliePayments_Gateway.png)
+![Payment Gateways Settings](../Screenshots/70_Settings_MolliePayments_Gateway.png)
 
 ---
 
 ## 10. Roaming Hubs: OCPI 2.2.1 & Hubject OICP Credentials
 
-The CPMS operates as both a **CPO (Charge Point Operator)** and an **eMSP (e-Mobility Service Provider)** across standard roaming protocols.
+The **Roaming Settings** (`/roaming`) establish automated clearinghouse connections with external e-Mobility Service Providers:
 
-### 10.1 OCPI 2.2.1 Configuration (`/roaming`)
-* **Role Credentials:** Set your Country Code (e.g. `NL`), Party ID (e.g. `PUL`), and generate `TOKEN_A` / `TOKEN_B` / `TOKEN_C` authentication handshakes.
-* **Supported Modules:**
-  * `locations`: Synchronize charging stations, connectors, tariffs, and real-time status.
-  * `tariffs`: Export multi-currency tariff matrices.
-  * `sessions`: Stream active charging sessions to roaming partners.
-  * `cdrs`: Transmit finalized Charge Detail Records.
-  * `tokens`: Ingest and validate roaming RFID cards and tokens in real-time.
+* **OCPI 2.2.1 Configuration:**
+  - CPO Credentials URL and Token generation.
+  - Module endpoints: `locations`, `sessions`, `cdrs`, `tariffs`, `tokens`.
+* **Hubject Intercharge (OICP 2.3):**
+  - Operator ID (`NL-PUL`), Hubject Environment (`QA` / `PROD`), and Service Certificate.
+* **Automated Clearing & Settlement:** Transactions performed by roaming RFID cards are automatically bundled into Charge Detail Records (CDRs) and dispatched for inter-operator settlement.
 
-### 10.2 Hubject OICP 2.3 Integration
-* Configure Hubject Operator ID, Staging/Production endpoints, and client certificates for eRoaming Authorization, EVSE Data, and CDR Push.
-
-| OCPI Roaming Hubs | Hubject OICP Roaming | Roaming Settlement Visualizer |
-| :---: | :---: | :---: |
-| ![OCPI Roaming](../Screenshots/48_Roaming_OCPI_Hubs.png) | ![Hubject OICP](../Screenshots/49_Roaming_OICP_Hubject_Tab.png) | ![Roaming Settlements](../Screenshots/50_Roaming_Settlement_Visualizer_Tab.png) |
+| Roaming OCPI Hubs | Roaming Settlement Visualizer |
+| :---: | :---: |
+| ![Roaming OCPI Hubs](../Screenshots/48_Roaming_OCPI_Hubs.png) | ![Roaming Settlement Visualizer](../Screenshots/50_Roaming_Settlement_Visualizer_Tab.png) |
 
 ---
 
-## 11. Live OCPP Packet Inspector & WebSocket Endpoints
+## 11. Live OCPP Packet Inspector & WebSocket Triggers
 
-### 11.1 Charger WebSocket Backend URL Configuration
+The **OCPP Packet Inspector** (`/ocpp`) is an enterprise-grade protocol analyzer providing sub-second streaming visibility into low-level WebSocket traffic:
 
-When configuring physical charge points or vendor installer tools (e.g. Alfen ACE Service Installer, EVBox Connect, ABB Terra Config, Easee Installer, Smappee Dashboard):
+* **Protocol Filtering:** Filter frames by Message Type (`2: CALL`, `3: CALLRESULT`, `4: CALLERROR`), Action Name (`BootNotification`, `Authorize`, `StartTransaction`, `MeterValues`, `StopTransaction`), or specific Charger ID.
+* **Payload Deep Dive:** Expand JSON payloads to inspect exact parameter keys, timestamps, and firmware return codes.
+* **Manual Message Injection:** Formulate and transmit custom OCPP calls directly to any connected charge point to test firmware behavior.
 
-#### 1. Unified Backend URL (Recommended)
-You can point all chargers regardless of protocol version to the unified endpoint:
-* **Central System URL / Server URL:** `wss://ocpp.thechargegrid.com/OCPP/`
-* **Complete WebSocket URL:** `wss://ocpp.thechargegrid.com/OCPP/<chargerId>`
-* **Local / Development (Port 9220):** `ws://<server-ip>:9220/OCPP/<chargerId>`
-
-```mermaid
-flowchart TD
-    CP1["⚡ Charger (OCPP 1.6-J)\nSec-WebSocket-Protocol: ocpp1.6"] -->|"wss://ocpp.thechargegrid.com/OCPP/MP100220"| CPMS["🖥️ OCPP-CPMS Server"]
-    CP2["⚡ Charger (OCPP 2.0.1 / 2.1)\nSec-WebSocket-Protocol: ocpp2.0.1"] -->|"wss://ocpp.thechargegrid.com/OCPP/MP100221"| CPMS
-    CPMS -->|"Auto-negotiate ocpp1.6"| H1["OCPP 1.6 Message Pipeline"]
-    CPMS -->|"Auto-negotiate ocpp2.0.1"| H2["OCPP 2.0.1/2.1 Router"]
-```
-
-#### 2. Automatic Protocol Negotiation & Path Resolution
-* **Subprotocol Negotiation:** In compliance with OCPP 1.6-J (§4.1.1) and OCPP 2.0.1 (Part 4 §2.1), the backend automatically reads the `Sec-WebSocket-Protocol` handshake header (`ocpp1.6`, `ocpp2.0.1`, `ocpp2.1`) to negotiate the correct protocol.
-* **Smart Path Resolution:** The backend extracts the Charge Point Identity from the last path segment:
-  * `wss://ocpp.thechargegrid.com/OCPP/<chargerId>` (Unified - Recommended)
-  * `wss://ocpp.thechargegrid.com/OCPP/1.6/<chargerId>` (Backward-compatible versioned path)
-  * `wss://ocpp.thechargegrid.com/OCPP/2.1/<chargerId>` (Backward-compatible versioned path)
-  * `wss://ocpp.thechargegrid.com/<chargerId>` (Root-level path)
-
-#### 3. Charger Hardware Configuration Interface Types
-* **Separate Fields Interface (Alfen, EVBox, ABB, Easee, Smappee):**
-  * *Central System URL / Server URL:* `wss://ocpp.thechargegrid.com/OCPP/`
-  * *Charge Point Identity / Communication ID:* `MP100220`
-  * *(The charger automatically appends its ID to create `.../OCPP/MP100220`)*
-* **Single URL Field Interface (Mennekes, Wallbox, Raedian, Compleo):**
-  * *WebSocket URL:* `wss://ocpp.thechargegrid.com/OCPP/MP100220`
-
----
-
-### 11.2 Live Packet Inspector & Diagnostics Console
-
-The **Live Packet Inspector** (`/ocpp`) provides low-level diagnostics for debugging charging hardware communications:
-* **Raw JSON-RPC Stream:** Real-time stream of incoming `CALL` [2], `CALLRESULT` [3], and `CALLERROR` [4] frames.
-* **Message Parsing:** Decodes action types (`BootNotification`, `StatusNotification`, `MeterValues`, `StartTransaction`, `StopTransaction`).
-* **Manual RPC Dispatcher:** Send ad-hoc RPC commands to any connected charger (`GetConfiguration`, `ChangeConfiguration`, `TriggerMessage`, `RemoteStartTransaction`, `RemoteStopTransaction`, `UnlockConnector`, `Reset`).
-
-![Live OCPP Packet Inspector](../Screenshots/55_OCPP_PacketInspector_Console.png)
+![OCPP Packet Inspector Console](../Screenshots/55_OCPP_PacketInspector_Console.png)
 
 ---
 
 ## 12. Hardware Quirk Profiles & Config Profile Templates
 
 ### 12.1 Quirk Profiles (`/quirk-profiles`)
-Manufacturers often deviate slightly from the official OCPP specification. Quirk Profiles allow operators to normalize hardware behaviors non-intrusively:
-* **Missing Active Power:** Synthesize `Power.Active.Import` from active voltage and current telemetry if omitted by hardware.
-* **Scaling Multipliers:** Correct raw integer meter values from chargers requiring 0.1x or 10x division.
-* **Card Tag Normalization:** Strip leading zeroes or convert RFID UID endianness before database validation.
+Resolve hardware-specific firmware deviations from the OCPP standard:
+* **Alfen ICU:** Enable proprietary lock timeout mitigation and double-socket power combining.
+* **ABB E-Mobility:** Override non-standard `MeterValues` sample timestamp formats.
+* **EVBox:** Enforce custom heartbeat interval tolerances.
 
-![Quirk Profiles Overrides](../Screenshots/59_QuirkProfiles_HardwareOverrides.png)
+![Hardware Quirk Profiles](../Screenshots/59_QuirkProfiles_HardwareOverrides.png)
 
-### 12.2 Configuration Profile Templates (`/config-profiles`)
-Create standardized templates containing standard OCPP parameters (e.g. `HeartbeatInterval: 60`, `MeterValueSampleInterval: 30`, `MeterValuesSampledData: "Energy.Active.Import.Register,Power.Active.Import,SoC,Current.Import,Voltage"`) and push them in bulk to chargers across a station.
+### 12.2 Config Profile Templates (`/config-profiles`)
+Create standardized parameter sets (e.g., `Alfen Commercial Baseline`, `Fast DC 150kW Standard`) that can be applied to newly onboarded chargers in a single click:
+* `HeartbeatInterval = 60`
+* `MeterValueSampleInterval = 30`
+* `MeterValuesSampledData = Energy.Active.Import.Register,Power.Active.Import,SoC,Voltage,Current.Import`
+* `StopTransactionOnEVSideDisconnect = true`
+* `UnlockConnectorOnEVSideDisconnect = true`
 
-![Config Profiles Templates](../Screenshots/58_ConfigProfiles_Templates.png)
+![Config Profile Templates](../Screenshots/58_ConfigProfiles_Templates.png)
 
 ---
 
 ## 13. Scheduled Background Cron Jobs & Auto-Maintenance
 
-The CPMS runs several background cron jobs managed by `node-cron` and BullMQ:
+The backend runs recurring automated maintenance tasks orchestrated by `node-cron`:
 
-| Job Name | Schedule | Description |
-| :--- | :--- | :--- |
-| **`fetchEpexSpotRates`** | Daily at `13:15 CET` | Pulls Day-Ahead hourly spot rates for tomorrow's 24 hours. |
-| **`autoHealFleetScan`** | Every `60 seconds` | Scans all chargers for stalled connections, missed heartbeats, and fault states. |
-| **`predictiveLoadOptimization`**| Every `15 minutes` | Computes 24-hour solar forecast and dynamic power allocation limits. |
-| **`reimbursementLedgerMonthly`**| 1st of month at `01:00` | Aggregates employee home charging and generates SEPA Credit Transfer records. |
-| **`roamingStatusSync`** | Every `30 seconds` | Broadcasts connector status changes to active OCPI and Hubject connections. |
-| **`auditLogPurge`** | Monthly | Archives audit trail records older than the configured retention policy (e.g. 7 years). |
+| Background Task | Frequency | Implementation File | Operational Purpose |
+| :--- | :--- | :--- | :--- |
+| **Auto-Heal Evaluation** | Every 60 seconds | `Backend/src/cron/autoHealCron.ts` | Scans all chargers for missed heartbeats and initiates automated recovery playbooks. |
+| **EPEX Spot Rate Ingestion** | Daily at 13:15 CET | `Backend/src/cron/epexSpotCron.ts` | Ingests Day-Ahead wholesale electricity rates for the next 24-hour cycle. |
+| **Predictive Load Balancing** | Hourly | `Backend/src/cron/balancingCron.ts` | Computes solar absorption schedules and dispatches `SetChargingProfile` commands. |
+| **Monthly Invoicing Run** | 1st of month at 02:00 | `Backend/src/cron/reimbursementCron.ts` | Finalizes monthly corporate billing ledgers and generates SEPA `pain.008` batch XML files. |
 
 ---
-*Authored for Enterprise Platform Administrators & DevOps — webdotpulse/GRID-OCPP-CPMS.*
+
+*Authored for enterprise EV infrastructure administration — webdotpulse/GRID-OCPP-CPMS.*

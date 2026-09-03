@@ -171,3 +171,8 @@ The **Settlement Visualizer** (`/roaming`) breaks down roaming economics:
 * Export standardized clearinghouse CSV reconciliation files.
 
 ![Roaming Settlement Visualizer](../Screenshots/50_Roaming_Settlement_Visualizer_Tab.png)
+
+### 3.4 Roaming Conformance Test Suite (`/roaming/test-suite`)
+Before enabling live financial clearing with external eMSPs, use the built-in **Test CPO & eMSP Suite** to run synthetic end-to-end authorization, session lifecycle, and CDR validation tests:
+
+![Roaming Conformance Test Suite](../Screenshots/50b_Roaming_TestSuite.png)

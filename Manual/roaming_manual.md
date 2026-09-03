@@ -52,6 +52,16 @@ flowchart TD
 1. **Charge Point Operator (CPO):** You own or operate physical chargers. Foreign drivers (from other eMSPs) charge on your network. You invoice the foreign eMSP for wholesale energy.
 2. **e-Mobility Service Provider (eMSP):** You manage drivers and RFID cards. Your contracted drivers charge on external CPO networks. The external CPO invoices you wholesale.
 
+### Roaming Operations Hub Interface
+
+| OCPI 2.2.1 Hubs Configuration | Hubject OICP 2.3 Clearinghouse |
+| :---: | :---: |
+| ![OCPI 2.2.1 Hubs](../Screenshots/48_Roaming_OCPI_Hubs.png) | ![Hubject OICP 2.3](../Screenshots/49_Roaming_OICP_Hubject_Tab.png) |
+
+| Roaming Settlement Visualizer | Automated Conformance Test Suite |
+| :---: | :---: |
+| ![Settlement Visualizer](../Screenshots/50_Roaming_Settlement_Visualizer_Tab.png) | ![Roaming Test Suite](../Screenshots/50b_Roaming_TestSuite.png) |
+
 ---
 
 ## 2. Understanding Roaming Authorization Tokens
