@@ -126,7 +126,13 @@ export const createScheduledCharging = async (req: AuthRequest, res: Response) =
     });
   } catch (error: any) {
     logger.error(`Error in createScheduledCharging: ${error.message}`);
-    const statusCode = error.message?.includes("Unauthorized") ? 403 : error.message?.includes("not found") ? 404 : 400;
+    const statusCode = error.message?.includes("Unauthorized")
+      ? 403
+      : error.message?.includes("not found")
+      ? 404
+      : error.message?.includes("required") || error.message?.includes("Invalid")
+      ? 400
+      : 500;
     return res.status(statusCode).json({ success: false, error: error.message || "Failed to create scheduled charge" });
   }
 };

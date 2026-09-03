@@ -15,6 +15,9 @@ const mockPrisma: any = {
     delete: jest.fn(),
     count: jest.fn(),
   },
+  user: {
+    findUnique: jest.fn(),
+  },
   transaction: {
     findFirst: jest.fn(),
     findMany: jest.fn(),
@@ -201,7 +204,54 @@ describe("ScheduledChargingService", () => {
       );
 
       expect(res.id).toBe(10);
+      expect(mockPrisma.rfidUser.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [{ owner_id: 5 }, { holderUserId: 5 }],
+            active: true,
+          },
+        })
+      );
       expect(mockRemoteControl.setChargingProfile).toHaveBeenCalled();
+    });
+
+    it("should allow company member to create schedule for company charger", async () => {
+      const mockCharger = {
+        charger_id: 2,
+        owner_id: 99,
+        status: "online",
+        chargingStation: { companyId: 10 },
+      };
+
+      mockPrisma.charger.findUnique.mockResolvedValue(mockCharger as any);
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 5, companyId: 10, role: "user" } as any);
+      mockPrisma.rfidUser.findFirst.mockResolvedValue({ rfid_tag: "TAG_CORP" } as any);
+      mockPrisma.scheduledCharging.create.mockResolvedValue({ id: 11, chargerId: 2, name: "Corp Charge" } as any);
+      mockRemoteControl.setChargingProfile.mockResolvedValue({ status: "Accepted" } as any);
+
+      const res = await ScheduledChargingService.createSchedule(
+        { chargerId: 2, name: "Corp Charge" },
+        5,
+        "user"
+      );
+
+      expect(res.id).toBe(11);
+    });
+
+    it("should throw Unauthorized if non-admin does not own charger and lacks company access", async () => {
+      const mockCharger = {
+        charger_id: 3,
+        owner_id: 99,
+        status: "online",
+        chargingStation: { companyId: 20 },
+      };
+
+      mockPrisma.charger.findUnique.mockResolvedValue(mockCharger as any);
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 5, companyId: 10, role: "user" } as any);
+
+      await expect(
+        ScheduledChargingService.createSchedule({ chargerId: 3, name: "Blocked Charge" }, 5, "user")
+      ).rejects.toThrow("Unauthorized to schedule charging on this charger");
     });
   });
 

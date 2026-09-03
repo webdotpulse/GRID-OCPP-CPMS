@@ -71,17 +71,27 @@ export class ScheduledChargingService {
     // Verify charger exists
     const charger = await prisma.charger.findUnique({
       where: { charger_id: chargerId },
-      include: { owner: true },
+      include: { owner: true, chargingStation: true },
     });
 
     if (!charger) {
       throw new Error(`Charger ${chargerId} not found`);
     }
 
-    // Role check: non-admin can only create schedules for chargers they own
+    // Role check: non-admin can only create schedules for chargers they own or have company access to
     if (role !== "admin" && role !== "superadmin" && currentUserId) {
       if (charger.owner_id !== currentUserId) {
-        throw new Error("Unauthorized to schedule charging on this charger");
+        const currentUser = await prisma.user.findUnique({
+          where: { id: currentUserId },
+          select: { id: true, companyId: true, role: true },
+        });
+        const hasCompanyAccess = !!(currentUser?.companyId && (
+          charger.chargingStation?.companyId === currentUser.companyId ||
+          charger.ownerCompanyId === currentUser.companyId
+        ));
+        if (!hasCompanyAccess) {
+          throw new Error("Unauthorized to schedule charging on this charger");
+        }
       }
     }
 
@@ -94,7 +104,13 @@ export class ScheduledChargingService {
     let finalIdTag = idTag;
     if (!finalIdTag && finalUserId) {
       const userTag = await prisma.rfidUser.findFirst({
-        where: { owner_id: finalUserId, status: "Active" },
+        where: {
+          OR: [
+            { owner_id: finalUserId },
+            { holderUserId: finalUserId },
+          ],
+          active: true,
+        },
         orderBy: { rfid_user_id: "desc" },
       });
       if (userTag) {

@@ -80,6 +80,7 @@ export default function MobileSchedulePage() {
   const { user } = useAuth();
   const [schedules, setSchedules] = useState<ScheduledCharging[]>([]);
   const [chargers, setChargers] = useState<any[]>([]);
+  const [rfidTags, setRfidTags] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -88,9 +89,10 @@ export default function MobileSchedulePage() {
   const [formName, setFormName] = useState('🌙 Overnight Charge');
   const [formChargerId, setFormChargerId] = useState<string>('');
   const [formConnectorId, setFormConnectorId] = useState('1');
+  const [formIdTag, setFormIdTag] = useState<string>('');
   const [formScheduleType, setFormScheduleType] = useState('time_window');
   const [formRecurrence, setFormRecurrence] = useState('daily');
-  const [formDaysOfWeek, setFormDaysOfWeek] = useState<string[]>(['mon', 'tue', 'wed', 'thu', 'fri']);
+  const [formDaysOfWeek, setFormDaysOfWeek] = useState<string[]>(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
   const [formStartTime, setFormStartTime] = useState('23:00');
   const [formStopTime, setFormStopTime] = useState('07:00');
   const [formDepartureTime, setFormDepartureTime] = useState('07:30');
@@ -116,23 +118,39 @@ export default function MobileSchedulePage() {
       const list = Array.isArray(res.data) ? res.data : res.data?.chargers || res.data?.data || [];
       setChargers(list);
       if (list.length > 0 && !formChargerId) {
-        setFormChargerId(String(list[0].charger_id));
+        const firstId = list[0].charger_id ?? list[0].id;
+        if (firstId) setFormChargerId(String(firstId));
       }
     } catch (err) {
       // Ignored
     }
   }, [formChargerId]);
 
+  const fetchRfidTags = useCallback(async () => {
+    try {
+      const res = await api.get('/rfid');
+      const list = Array.isArray(res.data) ? res.data : res.data?.data || [];
+      setRfidTags(list);
+      if (list.length > 0 && !formIdTag) {
+        setFormIdTag(list[0].rfid_tag);
+      }
+    } catch {
+      // Ignored
+    }
+  }, [formIdTag]);
+
   useEffect(() => {
     fetchSchedules();
     fetchChargers();
-  }, [fetchSchedules, fetchChargers]);
+    fetchRfidTags();
+  }, [fetchSchedules, fetchChargers, fetchRfidTags]);
 
   const applyPreset = (preset: 'night' | 'solar' | 'commute') => {
     if (preset === 'night') {
       setFormName('🌙 Overnight Off-Peak');
       setFormScheduleType('time_window');
       setFormRecurrence('daily');
+      setFormDaysOfWeek(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
       setFormStartTime('23:00');
       setFormStopTime('07:00');
       setFormMaxAmps(16);
@@ -140,6 +158,7 @@ export default function MobileSchedulePage() {
       setFormName('⚡ Solar Noon Peak');
       setFormScheduleType('solar_optimal');
       setFormRecurrence('daily');
+      setFormDaysOfWeek(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
       setFormStartTime('11:30');
       setFormStopTime('15:30');
       setFormMaxAmps(32);
@@ -147,6 +166,7 @@ export default function MobileSchedulePage() {
       setFormName('🚗 Commute Ready');
       setFormScheduleType('departure_time');
       setFormRecurrence('weekdays');
+      setFormDaysOfWeek(['mon', 'tue', 'wed', 'thu', 'fri']);
       setFormDepartureTime('07:30');
       setFormTargetSoc(85);
       setFormMaxAmps(16);
@@ -154,29 +174,53 @@ export default function MobileSchedulePage() {
   };
 
   const toggleDayOfWeek = (key: string) => {
+    let next: string[];
     if (formDaysOfWeek.includes(key)) {
-      setFormDaysOfWeek(formDaysOfWeek.filter((d) => d !== key));
+      next = formDaysOfWeek.filter((d) => d !== key);
     } else {
-      setFormDaysOfWeek([...formDaysOfWeek, key]);
+      next = [...formDaysOfWeek, key];
+    }
+    setFormDaysOfWeek(next);
+    if (next.length === 7) {
+      setFormRecurrence('daily');
+    } else if (next.length === 5 && !next.includes('sat') && !next.includes('sun')) {
+      setFormRecurrence('weekdays');
+    } else if (next.length === 2 && next.includes('sat') && next.includes('sun')) {
+      setFormRecurrence('weekends');
+    } else {
+      setFormRecurrence('custom');
     }
   };
 
   const handleCreateSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formChargerId) {
-      toast.error('Please select a charger');
+    const parsedChargerId = Number(formChargerId);
+    if (!formChargerId || isNaN(parsedChargerId) || parsedChargerId <= 0) {
+      toast.error('Please select a valid charger');
       return;
     }
 
     setSubmitting(true);
     try {
+      const recurrenceType =
+        formScheduleType === 'departure_time'
+          ? formRecurrence
+          : formDaysOfWeek.length === 7
+          ? 'daily'
+          : formDaysOfWeek.length === 5 && !formDaysOfWeek.includes('sat') && !formDaysOfWeek.includes('sun')
+          ? 'weekdays'
+          : formDaysOfWeek.length === 2 && formDaysOfWeek.includes('sat') && formDaysOfWeek.includes('sun')
+          ? 'weekends'
+          : 'custom';
+
       const payload: any = {
         name: formName || 'Scheduled Charge',
-        chargerId: Number(formChargerId),
+        chargerId: parsedChargerId,
         connectorId: Number(formConnectorId || 1),
+        idTag: formIdTag || undefined,
         scheduleType: formScheduleType,
-        recurrence: formRecurrence,
-        daysOfWeek: formRecurrence === 'custom' ? formDaysOfWeek : undefined,
+        recurrence: recurrenceType,
+        daysOfWeek: recurrenceType === 'custom' || formDaysOfWeek.length < 7 ? formDaysOfWeek : undefined,
         startTime: formScheduleType === 'departure_time' ? undefined : formStartTime,
         stopTime: formScheduleType === 'departure_time' ? undefined : formStopTime,
         departureTime: formScheduleType === 'departure_time' ? formDepartureTime : undefined,
@@ -493,14 +537,36 @@ export default function MobileSchedulePage() {
                   <SelectValue placeholder="Select Charger" />
                 </SelectTrigger>
                 <SelectContent>
-                  {chargers.map((c) => (
-                    <SelectItem key={c.charger_id} value={String(c.charger_id)}>
-                      {c.name} (#{c.charger_id})
-                    </SelectItem>
-                  ))}
+                  {chargers.map((c) => {
+                    const cid = c.charger_id ?? c.id;
+                    return (
+                      <SelectItem key={cid} value={String(cid)}>
+                        {c.name} (#{cid})
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
+
+            {/* RFID Tag Authorization */}
+            {rfidTags.length > 0 && (
+              <div className="space-y-1">
+                <Label className="text-xs">RFID Key / Card</Label>
+                <Select value={formIdTag} onValueChange={setFormIdTag}>
+                  <SelectTrigger className="h-10 rounded-xl text-xs">
+                    <SelectValue placeholder="Auto-assign primary RFID tag" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rfidTags.map((tag) => (
+                      <SelectItem key={tag.rfid_tag} value={tag.rfid_tag}>
+                        {tag.name ? `${tag.name} (${tag.rfid_tag})` : tag.rfid_tag}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Time Window */}
             {formScheduleType === 'departure_time' ? (
