@@ -440,7 +440,6 @@ export class SimulatedChargerInstance {
       ? options.connectors
       : [
           { id: 1, name: "Channel 1", maxPowerW: 22000, type: "Type2", format: "SOCKET" },
-          { id: 2, name: "Channel 2", maxPowerW: 150000, type: "CCS2", format: "CABLE" },
         ];
 
     for (const c of conns) {
@@ -1575,6 +1574,30 @@ export class SimulatorServiceManager {
   }
 
   /**
+   * Ensure the "Virtual Test Lab" ChargeGroup exists in the database
+   */
+  public async ensureVirtualTestLabChargeGroup(): Promise<any> {
+    let group = await prisma.chargeGroup.findFirst({
+      where: { name: "Virtual Test Lab" },
+    });
+
+    if (!group) {
+      group = await prisma.chargeGroup.create({
+        data: {
+          name: "Virtual Test Lab",
+          description: "Automated Virtual Test Lab dynamic load balancing group",
+          maxPower: 500.0,
+          maxAmperage: 800.0,
+          maxPhaseCurrent: 80.0,
+          maxPhaseUnbalance: 16.0,
+        },
+      });
+    }
+
+    return group;
+  }
+
+  /**
    * Ensure sandbox test RFID tags exist in database
    */
   public async ensureTestRfidTags(ownerId: number = 1): Promise<void> {
@@ -1618,7 +1641,9 @@ export class SimulatorServiceManager {
     const ownerId = options.ownerId || 1;
     const protocol = options.protocol || template.defaultProtocol;
 
-    // 1. Ensure Test Station exists
+    // 1. Ensure ChargeGroup & Station exist
+    const chargeGroup = await this.ensureVirtualTestLabChargeGroup();
+
     let station = await prisma.chargingStation.findFirst({
       where: { station_name: "Virtual Test Lab Station" },
     });
@@ -1647,7 +1672,7 @@ export class SimulatorServiceManager {
     // 3. Find or Create Charger in DB
     let dbCharger = await prisma.charger.findUnique({
       where: { name: chargerName },
-      include: { evses: { include: { connectors: true } } },
+      include: { evses: { include: { connectors: true } }, chargeGroup: true },
     });
 
     if (!dbCharger) {
@@ -1661,10 +1686,11 @@ export class SimulatorServiceManager {
           firmware_version: template.firmwareVersion,
           service_contacts: "lab@grid-ocpp.internal",
           charging_station_id: station.id,
+          chargeGroupId: chargeGroup.id,
           owner_id: ownerId,
           status: "offline",
         },
-        include: { evses: { include: { connectors: true } } },
+        include: { evses: { include: { connectors: true } }, chargeGroup: true },
       });
 
       // Create EVSEs and Connectors
@@ -1690,6 +1716,12 @@ export class SimulatorServiceManager {
           },
         });
       }
+    } else if (dbCharger.chargeGroupId !== chargeGroup.id) {
+      dbCharger = await prisma.charger.update({
+        where: { charger_id: dbCharger.charger_id },
+        data: { chargeGroupId: chargeGroup.id },
+        include: { evses: { include: { connectors: true } }, chargeGroup: true },
+      });
     }
 
     // Ensure sandbox test tags exist
@@ -1756,6 +1788,13 @@ export class SimulatorServiceManager {
     vendor?: string;
     model?: string;
     firmwareVersion?: string;
+    connectors?: Array<{
+      id: number;
+      name?: string;
+      maxPowerW?: number;
+      type?: string;
+      format?: string;
+    }>;
   }): Promise<SimulatedChargerInstance> {
     // Check if an existing instance is already running for this charger
     const existing = this.getInstance(options.chargerId);
@@ -1766,7 +1805,51 @@ export class SimulatorServiceManager {
       return existing;
     }
 
-    const instance = new SimulatedChargerInstance(options);
+    // Ensure charger in DB is linked to Virtual Test Lab chargegroup
+    const chargeGroup = await this.ensureVirtualTestLabChargeGroup();
+    const dbCharger = await prisma.charger.findUnique({
+      where: { charger_id: options.chargerId },
+      include: { evses: { include: { connectors: true } } },
+    });
+
+    if (dbCharger && dbCharger.chargeGroupId !== chargeGroup.id) {
+      await prisma.charger.update({
+        where: { charger_id: dbCharger.charger_id },
+        data: { chargeGroupId: chargeGroup.id },
+      });
+    }
+
+    // If options.connectors not explicitly passed, extract from dbCharger!
+    let resolvedConnectors = options.connectors;
+    if ((!resolvedConnectors || resolvedConnectors.length === 0) && dbCharger?.evses && dbCharger.evses.length > 0) {
+      const dbConns: Array<{
+        id: number;
+        name?: string;
+        maxPowerW?: number;
+        type?: string;
+        format?: string;
+      }> = [];
+
+      for (const evse of dbCharger.evses) {
+        for (const c of evse.connectors) {
+          dbConns.push({
+            id: evse.evse_id || (dbConns.length + 1),
+            name: c.connector_name,
+            maxPowerW: c.max_power ? c.max_power * 1000 : 22000,
+            type: c.current_type === "DC" ? "CCS2" : "Type2",
+            format: c.format || "SOCKET",
+          });
+        }
+      }
+      if (dbConns.length > 0) {
+        resolvedConnectors = dbConns;
+      }
+    }
+
+    const instance = new SimulatedChargerInstance({
+      ...options,
+      connectors: resolvedConnectors,
+    });
     this.instances.set(instance.id, instance);
 
     try {
@@ -1795,8 +1878,18 @@ export class SimulatorServiceManager {
   /**
    * 1-Click Quick Provision a complete sandbox test charger in DB
    */
-  public async quickProvision(ownerId: number = 1, prefix: string = "SIM-LAB"): Promise<any> {
-    // 1. Find or create a Test Lab Charging Station
+  public async quickProvision(
+    ownerId: number = 1,
+    prefix: string = "SIM-LAB",
+    options: {
+      socketCount?: number;
+      powerCapacityKw?: number;
+      protocol?: OcppProtocol;
+    } = {}
+  ): Promise<any> {
+    // 1. Ensure ChargeGroup & Station exist
+    const chargeGroup = await this.ensureVirtualTestLabChargeGroup();
+
     let station = await prisma.chargingStation.findFirst({
       where: { station_name: "Virtual Test Lab Station" },
     });
@@ -1812,7 +1905,7 @@ export class SimulatorServiceManager {
           country: "Netherlands",
           latitude: 52.3702,
           longitude: 4.8952,
-          maxPower: 350.0,
+          maxPower: 500.0,
           owner_id: ownerId,
           isGroundPlanEnabled: true,
         },
@@ -1823,24 +1916,29 @@ export class SimulatorServiceManager {
     const timestamp = Date.now().toString().slice(-4);
     const chargerName = `${prefix}-${timestamp}`;
     const serialNumber = `SN-${chargerName}`;
+    const socketCount = options.socketCount === 2 ? 2 : 1;
+    const powerCapacity = options.powerCapacityKw || (socketCount === 2 ? 150.0 : 22.0);
 
-    // 3. Create Charger record
+    // 3. Create Charger record under Virtual Test Lab
     const charger = await prisma.charger.create({
       data: {
         name: chargerName,
-        model: "GridSim-Pro-2026",
+        model: socketCount === 2 ? "GridSim-Dual-Pro" : "GridSim-Single-Wallbox",
         manufacturer: "VirtualLab",
         serial_number: serialNumber,
-        power_capacity: 150.0,
+        power_capacity: powerCapacity,
         firmware_version: "v4.2.0-sim",
         service_contacts: "lab@grid-ocpp.internal",
         charging_station_id: station.id,
+        chargeGroupId: chargeGroup.id,
         owner_id: ownerId,
         status: "offline",
       },
     });
 
-    // 4. Create EVSEs and Connectors (2 connectors: 22kW AC Type2 + 150kW DC CCS2)
+    // 4. Create EVSEs and Connectors according to socketCount
+    const createdConnectors: Array<{ id: number; name: string; type: string }> = [];
+
     const evse1 = await prisma.evse.create({
       data: {
         charger_id: charger.charger_id,
@@ -1861,27 +1959,31 @@ export class SimulatorServiceManager {
         evse_id: evse1.id,
       },
     });
+    createdConnectors.push({ id: 1, name: "Channel 1 (22kW AC)", type: "Type2" });
 
-    const evse2 = await prisma.evse.create({
-      data: {
-        charger_id: charger.charger_id,
-        evse_id: 2,
-      },
-    });
+    if (socketCount === 2) {
+      const evse2 = await prisma.evse.create({
+        data: {
+          charger_id: charger.charger_id,
+          evse_id: 2,
+        },
+      });
 
-    await prisma.connector.create({
-      data: {
-        connector_name: "Channel 2 (150kW DC)",
-        status: "Available",
-        current_type: "DC",
-        max_power: 150.0,
-        max_current: 250.0,
-        max_voltage: 800.0,
-        phaseConnection: "DC",
-        format: "CABLE",
-        evse_id: evse2.id,
-      },
-    });
+      await prisma.connector.create({
+        data: {
+          connector_name: "Channel 2 (150kW DC)",
+          status: "Available",
+          current_type: "DC",
+          max_power: 150.0,
+          max_current: 250.0,
+          max_voltage: 800.0,
+          phaseConnection: "DC",
+          format: "CABLE",
+          evse_id: evse2.id,
+        },
+      });
+      createdConnectors.push({ id: 2, name: "Channel 2 (150kW DC)", type: "CCS2" });
+    }
 
     // 5. Ensure sandbox test RFID tags exist
     const testTags = [
@@ -1907,12 +2009,242 @@ export class SimulatorServiceManager {
     return {
       charger,
       station,
-      connectors: [
-        { id: 1, name: "Channel 1 (22kW AC)", type: "Type2" },
-        { id: 2, name: "Channel 2 (150kW DC)", type: "CCS2" },
-      ],
+      chargeGroup,
+      connectors: createdConnectors,
       testTags,
     };
+  }
+
+  /**
+   * Add a new simulated test charger to the Virtual Test Lab and boot it
+   */
+  public async createSimulatedCharger(options: {
+    name?: string;
+    templateId?: string;
+    socketCount?: number;
+    powerCapacityKw?: number;
+    protocol?: OcppProtocol;
+    connectorType?: string;
+    format?: string;
+    ownerId?: number;
+  }): Promise<{ charger: any; instance: SimulatedChargerInstance }> {
+    const ownerId = options.ownerId || 1;
+    const template = options.templateId ? this.getTemplateById(options.templateId) : undefined;
+    const protocol: OcppProtocol = options.protocol || template?.defaultProtocol || "ocpp1.6";
+
+    // 1. Ensure ChargeGroup and Station exist
+    const chargeGroup = await this.ensureVirtualTestLabChargeGroup();
+    let station = await prisma.chargingStation.findFirst({
+      where: { station_name: "Virtual Test Lab Station" },
+    });
+
+    if (!station) {
+      station = await prisma.chargingStation.create({
+        data: {
+          station_name: "Virtual Test Lab Station",
+          street_name: "Innovation Way 42",
+          city: "Amsterdam",
+          state: "Noord-Holland",
+          postal_code: "1012AB",
+          country: "Netherlands",
+          latitude: 52.3702,
+          longitude: 4.8952,
+          maxPower: 500.0,
+          owner_id: ownerId,
+          isGroundPlanEnabled: true,
+        },
+      });
+    }
+
+    // 2. Determine socketCount: if explicitly provided (1 or 2), use it. Otherwise use template's socket count or default 1.
+    const socketCount = options.socketCount === 2
+      ? 2
+      : options.socketCount === 1
+      ? 1
+      : template
+      ? template.connectors.length
+      : 1;
+
+    // 3. Charger name
+    const timestamp = Date.now().toString().slice(-4);
+    let chargerName = options.name ? options.name.trim() : "";
+    if (!chargerName) {
+      chargerName = template ? `SIM-${template.id.toUpperCase()}-${timestamp}` : `SIM-LAB-${timestamp}`;
+    }
+
+    const existingCharger = await prisma.charger.findUnique({ where: { name: chargerName } });
+    if (existingCharger) {
+      chargerName = `${chargerName}-${timestamp}`;
+    }
+
+    const powerCapacity = options.powerCapacityKw || template?.powerCapacityKw || (socketCount === 2 ? 44.0 : 22.0);
+    const model = template?.model || (socketCount === 2 ? "GridSim-Dual-Pro" : "GridSim-Single-Pro");
+    const vendor = template?.vendor || "VirtualLab";
+    const firmwareVersion = template?.firmwareVersion || "v4.2.0-sim";
+
+    // 4. Create Charger record
+    const charger = await prisma.charger.create({
+      data: {
+        name: chargerName,
+        model,
+        manufacturer: vendor,
+        serial_number: `SN-${chargerName}`,
+        power_capacity: powerCapacity,
+        firmware_version: firmwareVersion,
+        service_contacts: "lab@grid-ocpp.internal",
+        charging_station_id: station.id,
+        chargeGroupId: chargeGroup.id,
+        owner_id: ownerId,
+        status: "offline",
+      },
+      include: { evses: { include: { connectors: true } }, chargeGroup: true },
+    });
+
+    // 5. Create EVSEs and Connectors
+    const instanceConnectors: Array<{
+      id: number;
+      name: string;
+      maxPowerW: number;
+      type: string;
+      format: string;
+    }> = [];
+
+    for (let i = 1; i <= socketCount; i++) {
+      const connTpl = template?.connectors[i - 1];
+      const connectorType = i === 1
+        ? (options.connectorType || connTpl?.type || "Type2")
+        : (connTpl?.type || (powerCapacity > 22 ? "CCS2" : "Type2"));
+      const format = i === 1
+        ? (options.format || connTpl?.format || (connectorType === "CCS2" ? "CABLE" : "SOCKET"))
+        : (connTpl?.format || (connectorType === "CCS2" ? "CABLE" : "SOCKET"));
+      const maxPowerW = connTpl?.maxPowerW || (connectorType === "CCS2" ? 150000 : 22000);
+      const connName = connTpl?.connectorName || `Channel ${i} (${Math.round(maxPowerW / 1000)}kW ${connectorType})`;
+
+      const evse = await prisma.evse.create({
+        data: {
+          charger_id: charger.charger_id,
+          evse_id: i,
+        },
+      });
+
+      await prisma.connector.create({
+        data: {
+          connector_name: connName,
+          status: "Available",
+          current_type: connectorType === "CCS2" || connectorType === "CHAdeMO" ? "DC" : "AC",
+          max_power: maxPowerW / 1000,
+          max_current: connectorType === "CCS2" ? 250 : 32,
+          max_voltage: connectorType === "CCS2" ? 800 : 400,
+          phaseConnection: connectorType === "CCS2" ? "DC" : "L1-L2-L3",
+          format,
+          evse_id: evse.id,
+        },
+      });
+
+      instanceConnectors.push({
+        id: i,
+        name: connName,
+        maxPowerW,
+        type: connectorType,
+        format,
+      });
+    }
+
+    // Ensure test tags exist
+    await this.ensureTestRfidTags(ownerId);
+
+    // 6. Start instance with the exact instanceConnectors
+    const instance = await this.startInstance({
+      chargerId: charger.charger_id,
+      chargerName: charger.name,
+      protocol,
+      vendor,
+      model,
+      firmwareVersion,
+      connectors: instanceConnectors,
+    });
+
+    return { charger, instance };
+  }
+
+  /**
+   * Get all simulated chargers (from Virtual Test Lab station/chargegroup or SIM- prefix)
+   */
+  public async getSimulatedChargers(ownerId?: number): Promise<any[]> {
+    const chargeGroup = await this.ensureVirtualTestLabChargeGroup();
+    const station = await prisma.chargingStation.findFirst({
+      where: { station_name: "Virtual Test Lab Station" },
+    });
+
+    const where: any = {
+      OR: [
+        { chargeGroupId: chargeGroup.id },
+        { name: { startsWith: "SIM-" } },
+        ...(station ? [{ charging_station_id: station.id }] : []),
+      ],
+    };
+
+    const chargers = await prisma.charger.findMany({
+      where,
+      include: {
+        evses: {
+          include: {
+            connectors: true,
+          },
+        },
+        chargeGroup: true,
+        chargingStation: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return chargers.map((charger) => {
+      const liveInstance = this.getInstance(charger.charger_id) || this.getInstance(charger.name);
+      return {
+        ...charger,
+        isSimulated: true,
+        simSession: liveInstance ? liveInstance.toJSON() : null,
+        simStatus: liveInstance ? liveInstance.status : "disconnected",
+      };
+    });
+  }
+
+  /**
+   * Remove a simulated charger from memory and delete from database
+   */
+  public async deleteSimulatedCharger(idOrName: string | number): Promise<boolean> {
+    const charger = await prisma.charger.findFirst({
+      where: typeof idOrName === "number" || !isNaN(Number(idOrName))
+        ? { OR: [{ charger_id: Number(idOrName) }, { name: String(idOrName) }] }
+        : { name: String(idOrName) },
+      include: { evses: { include: { connectors: true } } },
+    });
+
+    this.stopInstance(idOrName);
+    if (charger) {
+      this.stopInstance(charger.charger_id);
+      this.stopInstance(charger.name);
+    }
+
+    if (!charger) {
+      return false;
+    }
+
+    const chargerId = charger.charger_id;
+
+    // Clean up relations
+    await prisma.ocppLog.deleteMany({ where: { chargerId } }).catch(() => {});
+    await prisma.chargerConfiguration.deleteMany({ where: { chargerId } }).catch(() => {});
+    await prisma.meterValue.deleteMany({ where: { chargerId } }).catch(() => {});
+    await prisma.transaction.deleteMany({ where: { charger_id: chargerId } }).catch(() => {});
+
+    for (const evse of charger.evses) {
+      await prisma.connector.deleteMany({ where: { evse_id: evse.id } }).catch(() => {});
+    }
+    await prisma.evse.deleteMany({ where: { charger_id: chargerId } }).catch(() => {});
+    await prisma.charger.delete({ where: { charger_id: chargerId } });
+
+    return true;
   }
 
   /**

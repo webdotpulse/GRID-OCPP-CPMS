@@ -20,6 +20,10 @@ describe("SimulatorService & SimulatedChargerInstance", () => {
         chargerName: "SIM-TEST-CP",
         protocol: "ocpp1.6",
         endpoint: "ws://localhost:9220/OCPP/1.6/SIM-TEST-CP",
+        connectors: [
+          { id: 1, name: "Channel 1", maxPowerW: 22000, type: "Type2", format: "SOCKET" },
+          { id: 2, name: "Channel 2", maxPowerW: 150000, type: "CCS2", format: "CABLE" },
+        ],
       });
     });
 
@@ -44,6 +48,20 @@ describe("SimulatorService & SimulatedChargerInstance", () => {
       expect(conn2).toBeDefined();
       expect(conn2?.type).toBe("CCS2");
       expect(conn2?.maxPowerW).toBe(150000);
+    });
+
+    it("should initialize with strictly 1 connector when 1 socket is configured", () => {
+      const singleInstance = new SimulatedChargerInstance({
+        chargerId: 102,
+        chargerName: "SIM-SINGLE-CP",
+        protocol: "ocpp1.6",
+        connectors: [
+          { id: 1, name: "Channel 1", maxPowerW: 22000, type: "Type2", format: "SOCKET" },
+        ],
+      });
+      expect(singleInstance.connectors.size).toBe(1);
+      expect(singleInstance.connectors.get(1)).toBeDefined();
+      expect(singleInstance.connectors.get(2)).toBeUndefined();
     });
 
     it("should handle physical plug in and unplug transitions", async () => {
@@ -149,33 +167,100 @@ describe("SimulatorService & SimulatedChargerInstance", () => {
   });
 
   describe("Quick Provisioning", () => {
-    it("should provision a complete test charging station, charger, EVSEs, and RFID passes", async () => {
-      jest.spyOn(prisma.chargingStation, "findFirst").mockResolvedValue(null);
+    beforeEach(() => {
+      jest.spyOn(prisma.chargeGroup, "findFirst").mockResolvedValue({
+        id: 5,
+        name: "Virtual Test Lab",
+      } as any);
+      jest.spyOn(prisma.chargingStation, "findFirst").mockResolvedValue({
+        id: 10,
+        station_name: "Virtual Test Lab Station",
+      } as any);
       jest.spyOn(prisma.chargingStation, "create").mockResolvedValue({
         id: 10,
         station_name: "Virtual Test Lab Station",
       } as any);
-
       jest.spyOn(prisma.charger, "create").mockResolvedValue({
         charger_id: 88,
         name: "SIM-LAB-TEST",
-        model: "GridSim-Pro-2026",
+        model: "GridSim-Single-Wallbox",
+        chargeGroupId: 5,
       } as any);
-
       jest.spyOn(prisma.evse, "create")
         .mockResolvedValueOnce({ id: 1, evse_id: 1, charger_id: 88 } as any)
         .mockResolvedValueOnce({ id: 2, evse_id: 2, charger_id: 88 } as any);
-
       jest.spyOn(prisma.connector, "create").mockResolvedValue({ id: 1 } as any);
-
       jest.spyOn(prisma.rfidUser, "findUnique").mockResolvedValue(null);
       jest.spyOn(prisma.rfidUser, "create").mockResolvedValue({ id: 1 } as any);
+    });
 
-      const result = await simulatorService.quickProvision(1, "TEST-UNIT");
+    it("should provision a test charger with strictly 1 socket when socketCount is 1", async () => {
+      const result = await simulatorService.quickProvision(1, "TEST-UNIT", { socketCount: 1 });
       expect(result.charger.charger_id).toBe(88);
-      expect(result.station.id).toBe(10);
+      expect(result.chargeGroup.name).toBe("Virtual Test Lab");
+      expect(result.connectors.length).toBe(1);
+      expect(result.connectors[0].name).toContain("Channel 1");
+      expect(prisma.evse.create).toHaveBeenCalledTimes(1);
+    });
+
+    it("should provision a test charger with 2 sockets when socketCount is 2", async () => {
+      const result = await simulatorService.quickProvision(1, "TEST-UNIT", { socketCount: 2 });
       expect(result.connectors.length).toBe(2);
-      expect(result.testTags.length).toBe(2);
+      expect(prisma.evse.create).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("Multi-Charger Simulator Testbed Operations", () => {
+    it("should get all simulated chargers associated with Virtual Test Lab", async () => {
+      jest.spyOn(prisma.chargeGroup, "findFirst").mockResolvedValue({
+        id: 5,
+        name: "Virtual Test Lab",
+      } as any);
+      jest.spyOn(prisma.chargingStation, "findFirst").mockResolvedValue({
+        id: 10,
+        station_name: "Virtual Test Lab Station",
+      } as any);
+      jest.spyOn(prisma.charger, "findMany").mockResolvedValue([
+        {
+          charger_id: 1,
+          name: "SIM-LAB-01",
+          chargeGroupId: 5,
+          evses: [{ id: 1, evse_id: 1, connectors: [{ connector_id: 1 }] }],
+        },
+        {
+          charger_id: 2,
+          name: "SIM-LAB-02",
+          chargeGroupId: 5,
+          evses: [
+            { id: 2, evse_id: 1, connectors: [{ connector_id: 2 }] },
+            { id: 3, evse_id: 2, connectors: [{ connector_id: 3 }] },
+          ],
+        },
+      ] as any);
+
+      const chargers = await simulatorService.getSimulatedChargers();
+      expect(chargers.length).toBe(2);
+      expect(chargers[0].isSimulated).toBe(true);
+      expect(chargers[0].evses[0].connectors.length).toBe(1);
+      expect(chargers[1].evses.length).toBe(2);
+    });
+
+    it("should delete simulated charger and stop its session", async () => {
+      jest.spyOn(prisma.charger, "findFirst").mockResolvedValue({
+        charger_id: 99,
+        name: "SIM-TO-DELETE",
+        evses: [],
+      } as any);
+      jest.spyOn(prisma.charger, "delete").mockResolvedValue({} as any);
+      jest.spyOn(prisma.ocppLog, "deleteMany").mockResolvedValue({ count: 0 } as any);
+      jest.spyOn(prisma.chargerConfiguration, "deleteMany").mockResolvedValue({ count: 0 } as any);
+      jest.spyOn(prisma.meterValue, "deleteMany").mockResolvedValue({ count: 0 } as any);
+      jest.spyOn(prisma.transaction, "deleteMany").mockResolvedValue({ count: 0 } as any);
+      jest.spyOn(prisma.evse, "deleteMany").mockResolvedValue({ count: 0 } as any);
+
+      const deleted = await simulatorService.deleteSimulatedCharger(99);
+      expect(deleted).toBe(true);
+      expect(prisma.charger.delete).toHaveBeenCalledWith({ where: { charger_id: 99 } });
     });
   });
 

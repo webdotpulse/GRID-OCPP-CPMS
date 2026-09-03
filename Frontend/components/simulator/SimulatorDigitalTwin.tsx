@@ -61,6 +61,7 @@ interface SimulatorDigitalTwinProps {
   protocol: string;
   firmwareVersion: string;
   status: string;
+  chargeGroupName?: string;
   connectors: SimulatedConnectorState[];
   selectedConnectorId: number;
   onSelectConnector: (id: number) => void;
@@ -75,6 +76,7 @@ export function SimulatorDigitalTwin({
   protocol,
   firmwareVersion,
   status,
+  chargeGroupName = "Virtual Test Lab",
   connectors,
   selectedConnectorId,
   onSelectConnector,
@@ -178,13 +180,17 @@ export function SimulatorDigitalTwin({
             />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-xl font-heading font-extrabold text-foreground tracking-tight">
                 {chargerName || "SIMULATOR-01"}
               </h2>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-mono font-semibold">
                 {protocol.toUpperCase()}
               </span>
+              <Badge variant="outline" className="bg-[#54a8c7]/10 text-[#54a8c7] border-[#54a8c7]/30 text-[10px] font-semibold flex items-center gap-1">
+                <Layers className="size-3" />
+                {chargeGroupName}
+              </Badge>
             </div>
             <p className="text-xs text-muted-foreground font-mono">
               {vendor} • {model} • {firmwareVersion}
@@ -215,7 +221,10 @@ export function SimulatorDigitalTwin({
       </div>
 
       {/* Connector Channel Selector Tabs */}
-      <div className="relative z-10 grid grid-cols-2 gap-3 my-5">
+      <div className={cn(
+        "relative z-10 gap-3 my-5 grid",
+        connectors.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"
+      )}>
         {connectors.map((c) => {
           const isSel = c.id === selectedConnectorId;
           const cCharging = c.status === "Charging";

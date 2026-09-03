@@ -226,6 +226,72 @@ describe("Simulator Controller Unit Tests (/api/simulator)", () => {
     });
   });
 
+  describe("getSimulatedChargers", () => {
+    it("should return simulated chargers from simulator service", async () => {
+      jest.spyOn(simulatorService, "getSimulatedChargers").mockResolvedValue([
+        { charger_id: 1, name: "SIM-01", isSimulated: true },
+      ] as any);
+
+      await simulatorController.getSimulatedChargers(mockReq, mockRes);
+
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: true,
+        data: [{ charger_id: 1, name: "SIM-01", isSimulated: true }],
+      });
+    });
+  });
+
+  describe("createSimulatedCharger", () => {
+    it("should create a simulated charger with 1 socket and return 201", async () => {
+      mockReq.body = { name: "SIM-CUSTOM-1", socketCount: 1 };
+      const mockInst = new SimulatedChargerInstance({
+        chargerId: 50,
+        chargerName: "SIM-CUSTOM-1",
+        connectors: [{ id: 1, name: "Channel 1" }],
+      });
+
+      jest.spyOn(simulatorService, "createSimulatedCharger").mockResolvedValue({
+        charger: { charger_id: 50, name: "SIM-CUSTOM-1" } as any,
+        instance: mockInst,
+      });
+
+      await simulatorController.createSimulatedCharger(mockReq, mockRes);
+
+      expect(mockRes.status).toHaveBeenCalledWith(201);
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({
+            charger: { charger_id: 50, name: "SIM-CUSTOM-1" },
+          }),
+        })
+      );
+    });
+  });
+
+  describe("deleteSimulatedCharger", () => {
+    it("should delete simulated charger and return success", async () => {
+      mockReq.params = { id: "50" };
+      jest.spyOn(simulatorService, "deleteSimulatedCharger").mockResolvedValue(true);
+
+      await simulatorController.deleteSimulatedCharger(mockReq, mockRes);
+
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: true,
+        message: "Simulated charger '50' removed from simulator and database",
+      });
+    });
+
+    it("should return 404 if charger to delete is not found", async () => {
+      mockReq.params = { id: "non-existent" };
+      jest.spyOn(simulatorService, "deleteSimulatedCharger").mockResolvedValue(false);
+
+      await simulatorController.deleteSimulatedCharger(mockReq, mockRes);
+
+      expect(mockRes.status).toHaveBeenCalledWith(404);
+    });
+  });
+
   describe("getRfidTags", () => {
     it("should return RFID tags list from database", async () => {
       jest.spyOn(prisma.rfidUser, "findMany").mockResolvedValue([
@@ -245,3 +311,4 @@ describe("Simulator Controller Unit Tests (/api/simulator)", () => {
     });
   });
 });
+

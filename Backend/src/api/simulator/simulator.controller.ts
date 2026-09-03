@@ -76,9 +76,17 @@ export async function getTemplates(req: Request, res: Response): Promise<void> {
 export async function quickProvision(req: Request, res: Response): Promise<void> {
   try {
     const userId = (req as any).userId || 1;
-    const { prefix } = req.body || {};
+    const { prefix, socketCount, powerCapacityKw, protocol } = req.body || {};
 
-    const provisionResult = await simulatorService.quickProvision(userId, prefix || "SIM-LAB");
+    const provisionResult = await simulatorService.quickProvision(
+      userId,
+      prefix || "SIM-LAB",
+      {
+        socketCount: socketCount ? Number(socketCount) : 1,
+        powerCapacityKw: powerCapacityKw ? Number(powerCapacityKw) : undefined,
+        protocol,
+      }
+    );
 
     res.status(201).json({
       success: true,
@@ -87,6 +95,89 @@ export async function quickProvision(req: Request, res: Response): Promise<void>
     });
   } catch (error: any) {
     logger.error(`Error quick provisioning simulator test charger: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * Get all simulated chargers (configured in DB + live running sessions)
+ */
+export async function getSimulatedChargers(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).userId || 1;
+    const chargers = await simulatorService.getSimulatedChargers(userId);
+    res.json({
+      success: true,
+      data: chargers,
+    });
+  } catch (error: any) {
+    logger.error(`Error fetching simulated chargers: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * Create and launch a new simulated test charger
+ */
+export async function createSimulatedCharger(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).userId || 1;
+    const {
+      name,
+      templateId,
+      socketCount = 1,
+      powerCapacityKw,
+      protocol = "ocpp1.6",
+      connectorType,
+      format,
+    } = req.body || {};
+
+    const parsedSockets = Number(socketCount) === 2 ? 2 : 1;
+
+    const result = await simulatorService.createSimulatedCharger({
+      name,
+      templateId,
+      socketCount: parsedSockets,
+      powerCapacityKw: powerCapacityKw ? Number(powerCapacityKw) : undefined,
+      protocol: protocol as OcppProtocol,
+      connectorType,
+      format,
+      ownerId: userId,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `Simulated charger '${result.charger.name}' created with ${parsedSockets} socket(s) under Virtual Test Lab`,
+      data: {
+        charger: result.charger,
+        session: result.instance.toJSON(),
+      },
+    });
+  } catch (error: any) {
+    logger.error(`Error creating simulated charger: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * Remove a simulated charger from memory and database
+ */
+export async function deleteSimulatedCharger(req: Request, res: Response): Promise<void> {
+  try {
+    const id = getParamId(req);
+    const deleted = await simulatorService.deleteSimulatedCharger(id);
+
+    if (!deleted) {
+      res.status(404).json({ success: false, error: `Simulated charger '${id}' not found` });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: `Simulated charger '${id}' removed from simulator and database`,
+    });
+  } catch (error: any) {
+    logger.error(`Error deleting simulated charger ${req.params.id}: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });
   }
 }
@@ -152,6 +243,16 @@ export async function startSession(req: Request, res: Response): Promise<void> {
     const resolvedChargerId = dbCharger.charger_id;
     const resolvedChargerName = dbCharger.name;
 
+    const dbConnectors = dbCharger.evses.flatMap((evse) =>
+      evse.connectors.map((c) => ({
+        id: evse.evse_id || 1,
+        name: c.connector_name,
+        maxPowerW: c.max_power ? c.max_power * 1000 : 22000,
+        type: c.current_type === "DC" ? "CCS2" : "Type2",
+        format: c.format || "SOCKET",
+      }))
+    );
+
     const instance = await simulatorService.startInstance({
       chargerId: resolvedChargerId,
       chargerName: resolvedChargerName,
@@ -160,6 +261,7 @@ export async function startSession(req: Request, res: Response): Promise<void> {
       vendor: vendor || dbCharger.manufacturer || "VirtualLab",
       model: model || dbCharger.model || "GridSim-Pro-2026",
       firmwareVersion: firmwareVersion || dbCharger.firmware_version || "v4.2.0-sim",
+      connectors: dbConnectors.length > 0 ? dbConnectors : undefined,
     });
 
     res.json({
