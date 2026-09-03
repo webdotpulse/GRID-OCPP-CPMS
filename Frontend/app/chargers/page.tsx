@@ -145,21 +145,29 @@ export default function ChargersPage() {
       }
     }
 
-    // Deduplicate channels by normalized channel name (specifically Channel X / CH X / Connector X)
-    const seenKeys = new Set<string>();
-    const channels: ChannelInfo[] = [];
+    // Deduplicate channels by normalized channel number (specifically Channel X / CH X / Connector X / EVSE X)
+    const channelMap = new Map<string, ChannelInfo>();
 
     for (const ch of rawChannels) {
-      const channelMatch = ch.name.match(/^(?:channel|ch|connector)\s*(\d+)$/i);
+      const channelMatch = ch.name.match(/^(?:channel|ch|connector|evse)\s*(\d+)/i);
       const key = channelMatch ? `channel-${channelMatch[1]}` : (ch.id ? `id-${ch.id}` : ch.name.trim().toLowerCase());
 
-      if (!seenKeys.has(key)) {
-        seenKeys.add(key);
-        channels.push(ch);
+      const existing = channelMap.get(key);
+      if (!existing) {
+        channelMap.set(key, ch);
+      } else {
+        // If a duplicate channel exists, prefer active/charging/preparing status over Available/Offline
+        const activeStatuses = ['charging', 'preparing', 'suspendedev', 'suspendedevse', 'finishing', 'reserved', 'faulted'];
+        const existingStatus = (existing.status || '').toLowerCase();
+        const currentStatus = (ch.status || '').toLowerCase();
+
+        if (activeStatuses.includes(currentStatus) && !activeStatuses.includes(existingStatus)) {
+          channelMap.set(key, ch);
+        }
       }
     }
 
-    return channels;
+    return Array.from(channelMap.values());
   };
 
   const getStatusBadge = (status: string) => {

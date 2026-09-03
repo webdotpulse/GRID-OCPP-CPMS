@@ -746,27 +746,72 @@ export class SimulatedChargerInstance {
 
       switch (action) {
         case "SetChargingProfile": {
-          const connectorId = payload.connectorId ?? 1;
-          const conn = this.connectors.get(connectorId);
-          if (conn) {
-            const csProfile = payload.csChargingProfiles || payload.chargingProfile;
-            const limit = csProfile?.chargingSchedule?.chargingSchedulePeriod?.[0]?.limit;
-            const unit = csProfile?.chargingSchedule?.chargingRateUnit || "W";
+          const rawConnectorId = payload.connectorId ?? payload.evseId;
+          const csProfile = payload.csChargingProfiles || payload.chargingProfile;
+          const limit = csProfile?.chargingSchedule?.chargingSchedulePeriod?.[0]?.limit;
+          const unit = csProfile?.chargingSchedule?.chargingRateUnit || "W";
 
-            if (limit !== undefined) {
+          if (limit !== undefined) {
+            const applyLimit = (conn: SimulatedConnector, targetLimit: number) => {
               if (unit === "A") {
-                conn.smartChargingLimitAmps = limit;
-                conn.smartChargingLimitW = limit * 230 * 3; // 3-phase estimate
+                conn.smartChargingLimitAmps = targetLimit;
+                conn.smartChargingLimitW = targetLimit * 230 * (conn.type === "Type2" ? 3 : 1);
               } else {
-                conn.smartChargingLimitW = limit;
-                conn.smartChargingLimitAmps = limit / (230 * 3);
+                conn.smartChargingLimitW = targetLimit;
+                conn.smartChargingLimitAmps = targetLimit / (230 * (conn.type === "Type2" ? 3 : 1));
               }
 
               // Adjust current power in real time if charging
               if (conn.status === "Charging") {
                 conn.currentPowerW = Math.min(conn.maxPowerW, conn.smartChargingLimitW ?? conn.maxPowerW);
                 conn.currentAmps = conn.currentPowerW / (conn.voltage * (conn.type === "Type2" ? 3 : 1));
+                // Stream updated MeterValues so CPMS receives the throttled reading
+                this.sendMeterValues(conn.id, { powerW: conn.currentPowerW }).catch((err) =>
+                  logger.debug(`MeterValue stream after SetChargingProfile notice: ${err}`)
+                );
               }
+            };
+
+            // connectorId 0 = whole Charge Point / ChargePointMaxProfile
+            if (rawConnectorId === 0 || rawConnectorId === undefined || rawConnectorId === null) {
+              const numConnectors = this.connectors.size || 1;
+              const perConnLimit = limit / numConnectors;
+              for (const conn of this.connectors.values()) {
+                applyLimit(conn, perConnLimit);
+              }
+            } else {
+              const conn = this.connectors.get(rawConnectorId);
+              if (conn) {
+                applyLimit(conn, limit);
+              }
+            }
+          }
+          responsePayload = { status: "Accepted" };
+          break;
+        }
+
+        case "ClearChargingProfile": {
+          const rawConnectorId = payload.connectorId ?? payload.evseId;
+          const clearLimit = (conn: SimulatedConnector) => {
+            conn.smartChargingLimitW = null;
+            conn.smartChargingLimitAmps = null;
+            if (conn.status === "Charging") {
+              conn.currentPowerW = conn.maxPowerW;
+              conn.currentAmps = conn.currentPowerW / (conn.voltage * (conn.type === "Type2" ? 3 : 1));
+              this.sendMeterValues(conn.id, { powerW: conn.currentPowerW }).catch((err) =>
+                logger.debug(`MeterValue stream after ClearChargingProfile notice: ${err}`)
+              );
+            }
+          };
+
+          if (rawConnectorId === 0 || rawConnectorId === undefined || rawConnectorId === null) {
+            for (const conn of this.connectors.values()) {
+              clearLimit(conn);
+            }
+          } else {
+            const conn = this.connectors.get(rawConnectorId);
+            if (conn) {
+              clearLimit(conn);
             }
           }
           responsePayload = { status: "Accepted" };
@@ -1958,7 +2003,7 @@ export class SimulatorServiceManager {
 
     await prisma.connector.create({
       data: {
-        connector_name: "Channel 1 (22kW AC)",
+        connector_name: "Channel 1",
         status: "Available",
         current_type: "AC",
         max_power: 22.0,
@@ -1969,7 +2014,7 @@ export class SimulatorServiceManager {
         evse_id: evse1.id,
       },
     });
-    createdConnectors.push({ id: 1, name: "Channel 1 (22kW AC)", type: "Type2" });
+    createdConnectors.push({ id: 1, name: "Channel 1", type: "Type2" });
 
     if (socketCount === 2) {
       const evse2 = await prisma.evse.create({
@@ -1981,7 +2026,7 @@ export class SimulatorServiceManager {
 
       await prisma.connector.create({
         data: {
-          connector_name: "Channel 2 (150kW DC)",
+          connector_name: "Channel 2",
           status: "Available",
           current_type: "DC",
           max_power: 150.0,
@@ -1992,7 +2037,7 @@ export class SimulatorServiceManager {
           evse_id: evse2.id,
         },
       });
-      createdConnectors.push({ id: 2, name: "Channel 2 (150kW DC)", type: "CCS2" });
+      createdConnectors.push({ id: 2, name: "Channel 2", type: "CCS2" });
     }
 
     // 5. Ensure sandbox test RFID tags exist
@@ -2128,7 +2173,7 @@ export class SimulatorServiceManager {
         ? (options.format || connTpl?.format || (connectorType === "CCS2" ? "CABLE" : "SOCKET"))
         : (connTpl?.format || (connectorType === "CCS2" ? "CABLE" : "SOCKET"));
       const maxPowerW = connTpl?.maxPowerW || (connectorType === "CCS2" ? 150000 : 22000);
-      const connName = connTpl?.connectorName || `Channel ${i} (${Math.round(maxPowerW / 1000)}kW ${connectorType})`;
+      const connName = `Channel ${i}`;
 
       const evse = await prisma.evse.create({
         data: {

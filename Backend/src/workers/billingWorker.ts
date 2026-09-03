@@ -57,12 +57,23 @@ export async function processBillingJob(job: Job<BillingJobData>): Promise<void>
 
       // Update Connector status to Finishing
       if (transaction.connectorName) {
-        const existingConnector = await prisma.connector.findFirst({
+        let existingConnector = await prisma.connector.findFirst({
           where: {
             evse: { charger_id: chargerId },
-            connector_name: transaction.connectorName,
+            OR: [
+              { connector_name: transaction.connectorName },
+              { connector_name: { startsWith: transaction.connectorName } },
+            ],
           },
         });
+
+        if (!existingConnector) {
+          existingConnector = await prisma.connector.findFirst({
+            where: {
+              evse: { charger_id: chargerId },
+            },
+          });
+        }
 
         if (existingConnector) {
           await prisma.connector.update({

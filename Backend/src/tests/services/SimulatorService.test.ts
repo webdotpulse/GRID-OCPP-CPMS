@@ -164,6 +164,43 @@ describe("SimulatorService & SimulatedChargerInstance", () => {
       expect(flushRes.errors).toBe(0);
       expect(instance.offlineBuffer.length).toBe(0);
     });
+
+    it("should handle SetChargingProfile with connectorId: 0 and throttle all connectors", async () => {
+      jest.spyOn(instance, "sendCall").mockResolvedValue({ status: "Accepted" });
+      const conn = instance.connectors.get(1)!;
+      conn.status = "Charging";
+      conn.currentPowerW = 22000;
+
+      // Simulate CPMS sending SetChargingProfile with connectorId: 0
+      await (instance as any).handleCentralSystemRpc("msg-101", "SetChargingProfile", {
+        connectorId: 0,
+        csChargingProfiles: {
+          chargingProfileId: 100,
+          chargingSchedule: {
+            chargingRateUnit: "W",
+            chargingSchedulePeriod: [{ startPeriod: 0, limit: 16625 }],
+          },
+        },
+      });
+
+      expect(conn.smartChargingLimitW).toBeLessThanOrEqual(16625);
+      expect(conn.currentPowerW).toBeLessThanOrEqual(16625);
+    });
+
+    it("should handle ClearChargingProfile and restore connector power", async () => {
+      jest.spyOn(instance, "sendCall").mockResolvedValue({ status: "Accepted" });
+      const conn = instance.connectors.get(1)!;
+      conn.status = "Charging";
+      conn.smartChargingLimitW = 16625;
+      conn.currentPowerW = 16625;
+
+      await (instance as any).handleCentralSystemRpc("msg-102", "ClearChargingProfile", {
+        connectorId: 0,
+      });
+
+      expect(conn.smartChargingLimitW).toBeNull();
+      expect(conn.currentPowerW).toBe(conn.maxPowerW);
+    });
   });
 
   describe("Quick Provisioning", () => {

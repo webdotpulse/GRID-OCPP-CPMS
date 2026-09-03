@@ -186,22 +186,31 @@ export async function handleStatusNotification(
       },
     });
 
-    const existingConnector = await prisma.connector.findFirst({
+    let existingConnector = await prisma.connector.findFirst({
       where: {
         evse_id: evse.id,
         OR: [
           { connector_name: connectorName },
           { connector_name: `Connector ${effectiveConnectorId}` },
+          { connector_name: { startsWith: `Channel ${effectiveConnectorId}` } },
+          { connector_name: { startsWith: `CH ${effectiveConnectorId}` } },
         ],
       },
     });
+
+    if (!existingConnector) {
+      existingConnector = await prisma.connector.findFirst({
+        where: {
+          evse_id: evse.id,
+        },
+      });
+    }
 
     if (existingConnector) {
       await prisma.connector.update({
         where: { connector_id: existingConnector.connector_id },
         data: {
           status: connectorStatus,
-          connector_name: connectorName,
           updatedAt: new Date(),
         },
       });
@@ -344,12 +353,32 @@ export async function handleTransactionEvent(
 
       await chargerRegistry.startTransaction(chargerId, transactionId, connectorName, idTag);
 
-      const existingConnector = await prisma.connector.findFirst({
+      let existingConnector = await prisma.connector.findFirst({
         where: {
-          evse: { charger_id: chargerId },
-          connector_name: connectorName
+          evse: { charger_id: chargerId, evse_id: effectiveConnectorId },
         }
       });
+
+      if (!existingConnector) {
+        existingConnector = await prisma.connector.findFirst({
+          where: {
+            evse: { charger_id: chargerId },
+            OR: [
+              { connector_name: connectorName },
+              { connector_name: { startsWith: `Channel ${effectiveConnectorId}` } },
+              { connector_name: { startsWith: `CH ${effectiveConnectorId}` } },
+            ]
+          }
+        });
+      }
+
+      if (!existingConnector) {
+        existingConnector = await prisma.connector.findFirst({
+          where: {
+            evse: { charger_id: chargerId },
+          }
+        });
+      }
 
       if (existingConnector) {
         await prisma.connector.update({

@@ -100,26 +100,52 @@ export async function processStatusEventJob(job: Job<StatusEventJobData>): Promi
         where: {
           charger_id_evse_id: {
             charger_id: chargerId,
-            evse_id: 1, // Default EVSE for single-station representation
+            evse_id: connectorId,
           },
         },
       });
+
+      // Fallback: single-EVSE chargers may map connectors to EVSE 1
+      if (!evse) {
+        evse = await prisma.evse.findUnique({
+          where: {
+            charger_id_evse_id: {
+              charger_id: chargerId,
+              evse_id: 1,
+            },
+          },
+        });
+      }
 
       if (!evse) {
         evse = await prisma.evse.create({
           data: {
             charger_id: chargerId,
-            evse_id: 1,
+            evse_id: connectorId,
           },
         });
       }
 
-      const existingConnector = await prisma.connector.findFirst({
+      let existingConnector = await prisma.connector.findFirst({
         where: {
           evse_id: evse.id,
-          connector_name: connectorName,
+          OR: [
+            { connector_name: connectorName },
+            { connector_name: { startsWith: `Channel ${connectorId}` } },
+            { connector_name: { startsWith: `CH ${connectorId}` } },
+            { connector_name: { startsWith: `Connector ${connectorId}` } },
+          ],
         },
       });
+
+      // If no name match, check if ANY connector already exists under this EVSE to avoid creating duplicate records
+      if (!existingConnector) {
+        existingConnector = await prisma.connector.findFirst({
+          where: {
+            evse_id: evse.id,
+          },
+        });
+      }
 
       if (existingConnector) {
         await prisma.connector.update({

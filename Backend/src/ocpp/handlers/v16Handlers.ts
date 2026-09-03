@@ -293,12 +293,33 @@ export async function handleStartTransaction(
     await chargerRegistry.startTransaction(chargerId, transactionId, connectorName, idTag);
 
     // Update channel status
-    const existingConnector = await prisma.connector.findFirst({
+    let existingConnector = await prisma.connector.findFirst({
+      where: {
+        evse: { charger_id: chargerId, evse_id: effectiveConnectorId },
+      },
+    });
+
+    if (!existingConnector) {
+      existingConnector = await prisma.connector.findFirst({
         where: {
           evse: { charger_id: chargerId },
-          connector_name: connectorName
-        }
+          OR: [
+            { connector_name: connectorName },
+            { connector_name: { startsWith: `Channel ${effectiveConnectorId}` } },
+            { connector_name: { startsWith: `CH ${effectiveConnectorId}` } },
+            { connector_name: { startsWith: `Connector ${effectiveConnectorId}` } },
+          ],
+        },
       });
+    }
+
+    if (!existingConnector) {
+      existingConnector = await prisma.connector.findFirst({
+        where: {
+          evse: { charger_id: chargerId },
+        },
+      });
+    }
 
     if (existingConnector) {
       await prisma.connector.update({

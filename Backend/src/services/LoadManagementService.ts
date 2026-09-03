@@ -24,17 +24,17 @@ export class LoadManagementService {
     if (!this.isEngineRunning) return;
 
     try {
-      // Pre-fetch all active transactions and group them by chargeGroupId
+      // Pre-fetch all active transactions
       const allActiveTransactions = await prisma.transaction.findMany({
         where: {
           status: { in: ["initiated", "charging"] },
-          charger: { chargeGroupId: { not: null } }
         },
         include: { charger: true }
       });
 
       const txsByGroupId = new Map<number, typeof allActiveTransactions>();
       const groupIds = new Set<number>();
+      const stationIds = new Set<number>();
 
       for (const tx of allActiveTransactions) {
         const groupId = tx.charger.chargeGroupId;
@@ -45,8 +45,12 @@ export class LoadManagementService {
           }
           txsByGroupId.get(groupId)!.push(tx);
         }
+        if (tx.charger.charging_station_id) {
+          stationIds.add(tx.charger.charging_station_id);
+        }
       }
 
+      // 1. Balance active Charge Groups
       if (groupIds.size > 0) {
         const activeGroups = await prisma.chargeGroup.findMany({
           where: { id: { in: Array.from(groupIds) } }
@@ -59,6 +63,15 @@ export class LoadManagementService {
           );
           await this.balancePhasesForGroup(group.id).catch((err: any) =>
             logger.error(`Phase balancing error for group ${group.id}: ${err}`)
+          );
+        }
+      }
+
+      // 2. Balance active Charging Stations with maxPower limits
+      if (stationIds.size > 0) {
+        for (const stationId of stationIds) {
+          await this.balanceSiteLoad(stationId).catch((err: any) =>
+            logger.error(`Smart Charging engine error for station ${stationId}: ${err}`)
           );
         }
       }
@@ -144,7 +157,7 @@ export class LoadManagementService {
       // If THEORETICAL max load is safely under limits, clear limits.
       if (theoreticalMaxLoadKw <= safeLimitKw) {
         logger.debug(`Station ${stationId} theoretical load (${theoreticalMaxLoadKw.toFixed(1)}kW) within safe limit (${safeLimitKw.toFixed(1)}kW). Clearing any existing load management profiles.`);
-        const clearPromises = activeTransactions.map(tx => this.clearLoadManagementProfile(tx.charger_id, 100));
+        const clearPromises = activeTransactions.map(tx => this.clearLoadManagementProfile(tx.charger_id, 110));
         const clearResults = await Promise.allSettled(clearPromises);
         clearResults.forEach((result, index) => {
           if (result.status === "rejected") {
@@ -164,10 +177,10 @@ export class LoadManagementService {
       const limitPerTransactionKw = Math.max(1.4, safeLimitKw / activeTransactions.length);
       const limitW = Math.floor(limitPerTransactionKw * 1000);
 
-      // Pre-fetch all relevant charging profiles in a single query
+      // Pre-fetch all relevant charging profiles in a single query (Profile 110 for Site Load Management)
       const chargerIds = activeTransactions.map(tx => tx.charger_id);
       const existingProfilesList = await prisma.chargingProfile.findMany({
-        where: { chargerId: { in: chargerIds }, chargingProfileId: 100 }
+        where: { chargerId: { in: chargerIds }, chargingProfileId: 110 }
       });
       const existingProfilesMap = new Map(existingProfilesList.map(p => [p.chargerId, p]));
 
@@ -176,21 +189,23 @@ export class LoadManagementService {
       const txsWithPromises: typeof activeTransactions = [];
 
       for (const tx of activeTransactions) {
-        // Skip dispatch if profile already exists with exact limit
+        // Skip dispatch if profile already exists with exact limit AND charger is adhering to it
         const existingProfile = existingProfilesMap.get(tx.charger_id);
 
         const existingSchedule = existingProfile?.chargingSchedule as any;
         const currentLimitW = existingSchedule?.chargingSchedulePeriod?.[0]?.limit;
 
         if (existingProfile && currentLimitW === limitW) {
-           continue; // Limit already applied correctly, skip redundant dispatch
+          if ((tx.currentPower || 0) <= limitW * 1.05) {
+            continue; // Limit already applied and adhering, skip redundant dispatch
+          }
         }
 
         const profileRequest: SetChargingProfileRequest = {
           chargerId: tx.charger_id,
           connectorId: 0, // 0 = entire Charge Point
           csChargingProfiles: {
-            chargingProfileId: 100, // Static ID representing Load Management
+            chargingProfileId: 110, // Static ID 110 representing Site Load Management
             stackLevel: 1,
             chargingProfilePurpose: "ChargePointMaxProfile",
             chargingProfileKind: "Absolute",
@@ -314,7 +329,9 @@ export class LoadManagementService {
             const currentLimitAmps = existingSchedule?.chargingSchedulePeriod?.[0]?.limit;
 
             if (existingProfile && currentLimitAmps === currentTxLimitAmps) {
-               continue; // Limit already applied correctly, skip redundant dispatch
+              if ((tx.current || 0) <= currentTxLimitAmps * 1.05) {
+                continue; // Limit already applied and adhering, skip redundant dispatch
+              }
             }
 
             const profileRequest: SetChargingProfileRequest = {
@@ -402,7 +419,9 @@ export class LoadManagementService {
         const currentLimitW = existingSchedule?.chargingSchedulePeriod?.[0]?.limit;
 
         if (existingProfile && currentLimitW === limitW) {
-           continue; // Limit already applied correctly, skip redundant dispatch
+          if ((tx.currentPower || 0) <= limitW * 1.05) {
+            continue; // Limit already applied and adhering, skip redundant dispatch
+          }
         }
 
         const profileRequest: SetChargingProfileRequest = {
