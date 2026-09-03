@@ -20,6 +20,7 @@ const router = Router();
 
 const rfidCreationLimiter = rateLimit({
   store: new RedisStore({
+    prefix: "rl:rfid:",
     // @ts-expect-error - Known typing issue with rate-limit-redis and ioredis
     sendCommand: (...args: string[]) => redisClient.call(args[0], ...args.slice(1)),
   }),

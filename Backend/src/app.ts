@@ -76,6 +76,11 @@ import "./cron/predictiveBalancingCron.js";
 export function createApp(): Application {
   const app = express();
 
+  // Trust reverse proxy (Nginx, Docker, Cloudflare, Traefik) so req.ip reflects real client IP
+  if (config.trustProxy) {
+    app.set("trust proxy", 1);
+  }
+
   // Disable identifying header
   app.disable("x-powered-by");
 
@@ -115,32 +120,43 @@ export function createApp(): Application {
     })
   );
 
-  // General Rate Limiting
+  // General Rate Limiting (isolated Redis prefix: "rl:general:")
   const limiter = rateLimit({
     store: new RedisStore({
+      prefix: "rl:general:",
       // @ts-expect-error - Known typing issue with rate-limit-redis and ioredis
       sendCommand: (...args: string[]) => redisClient.call(args[0], ...args.slice(1)),
     }),
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 1000, // Limit each IP to 1000 requests per window
-    message: { success: false, error: "Too many requests from this IP, please try again after 15 minutes" },
+    windowMs: config.generalRateLimitWindowMs,
+    max: config.generalRateLimitMax,
+    message: { success: false, error: "Too many requests from this IP, please try again later." },
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => isSuperAdminOrAdmin(req),
   });
   app.use(limiter);
 
-  // Dedicated Brute-force Auth Rate Limiter
+  // Dedicated Brute-force Auth Rate Limiter (isolated Redis prefix: "rl:auth:")
+  // Only counts failed authentication attempts so legitimate logins are never blocked
   const authLimiter = rateLimit({
     store: new RedisStore({
+      prefix: "rl:auth:",
       // @ts-expect-error - Known typing issue with rate-limit-redis and ioredis
       sendCommand: (...args: string[]) => redisClient.call(args[0], ...args.slice(1)),
     }),
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 30, // Limit each IP to 30 authentication attempts per 15 minutes
-    message: { success: false, error: "Too many login/auth attempts from this IP, please try again after 15 minutes" },
+    windowMs: config.authRateLimitWindowMs,
+    max: config.authRateLimitMax,
+    skipSuccessfulRequests: true,
     standardHeaders: true,
     legacyHeaders: false,
+    handler: (_req, res) => {
+      const retryAfter = res.getHeader("Retry-After");
+      const retryMinutes = retryAfter ? Math.ceil(Number(retryAfter) / 60) : Math.ceil(config.authRateLimitWindowMs / 60000);
+      res.status(429).json({
+        success: false,
+        error: `Too many login/auth attempts from this IP, please try again after ${retryMinutes} minute${retryMinutes > 1 ? "s" : ""}.`,
+      });
+    },
   });
 
   // Serve uploaded media files safely

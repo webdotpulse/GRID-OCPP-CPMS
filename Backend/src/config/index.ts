@@ -42,6 +42,13 @@ export const config = {
   tlsKeyPath: process.env.TLS_KEY_PATH,
   tlsCaPath: process.env.TLS_CA_PATH,
 
+  // Rate Limiting & Proxy Configuration
+  trustProxy: process.env.TRUST_PROXY ? process.env.TRUST_PROXY === "true" || process.env.TRUST_PROXY === "1" : true,
+  authRateLimitMax: parseInt(process.env.AUTH_RATE_LIMIT_MAX || (process.env.NODE_ENV === "production" ? "60" : "1000"), 10),
+  authRateLimitWindowMs: parseInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS || "900000", 10), // 15 min default
+  generalRateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || (process.env.NODE_ENV === "production" ? "1000" : "10000"), 10),
+  generalRateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000", 10), // 15 min default
+
   // Google Wallet Passes
   googleWalletIssuerId: process.env.GOOGLE_WALLET_ISSUER_ID || "3388000000022334455",
   googleWalletClientEmail: process.env.GOOGLE_WALLET_CLIENT_EMAIL || "grid-cpms@google-wallet.internal",
