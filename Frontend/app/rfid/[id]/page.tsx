@@ -9,7 +9,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Edit, CreditCard, Mail, Phone, Building, MapPin, Globe, Building2 } from "lucide-react";
+import { ChevronLeft, Edit, CreditCard, Mail, Phone, Building, MapPin, Globe, Building2, User } from "lucide-react";
 import { RfidSessionHistory } from "@/components/rfid/RfidSessionHistory";
 import { GoogleWalletModal } from "@/components/rfid/GoogleWalletModal";
 
@@ -23,7 +23,7 @@ export default function RfidDetailPage() {
     const fetchTag = async () => {
       try {
         const response = await api.get(`/rfid/${id}`);
-        setTag(response.data);
+        setTag(response.data?.data || response.data);
       } catch (error) {
         logger.error("Failed to fetch RFID details", error);
       } finally {
@@ -102,6 +102,125 @@ export default function RfidDetailPage() {
           </Link>
         </div>
       </div>
+
+      {/* Connected Entities Section */}
+      <Card className="mb-6">
+        <CardHeader className="pb-3 border-b border-border/50">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <Building2 className="size-4 text-[#54a8c7]" /> Connected Entities
+          </CardTitle>
+          <CardDescription>
+            Cardholder identity, RFID card asset ownership, and session transaction settlement payer.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* 1. The Holder */}
+            <div className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">The Holder</p>
+                {tag.holderCompany ? (
+                  <Badge variant="outline" className="bg-[#54a8c7]/15 text-[#54a8c7] border-[#54a8c7]/30 text-[10px] font-bold">
+                    <Building2 className="size-3 mr-1" /> Company
+                  </Badge>
+                ) : tag.holderUser ? (
+                  <Badge variant="outline" className="bg-[#3f78e0]/15 text-[#3f78e0] border-[#3f78e0]/30 text-[10px] font-bold">
+                    <User className="size-3 mr-1" /> User
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-muted-foreground border-border/60 text-[10px]">
+                    Cardholder
+                  </Badge>
+                )}
+              </div>
+              {tag.holderCompany ? (
+                <div>
+                  <p className="font-bold text-foreground text-sm">{tag.holderCompany.name}</p>
+                  {tag.holderCompany.clientNumber && (
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5">Account: {tag.holderCompany.clientNumber}</p>
+                  )}
+                </div>
+              ) : tag.holderUser ? (
+                <div>
+                  <p className="font-bold text-foreground text-sm">{tag.holderUser.name || tag.holderUser.email}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{tag.holderUser.email}</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="font-bold text-foreground text-sm">{tag.name || 'Unassigned'}</p>
+                  {tag.email && <p className="text-xs text-muted-foreground mt-0.5">{tag.email}</p>}
+                </div>
+              )}
+            </div>
+
+            {/* 2. The Owner */}
+            <div className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">The Owner</p>
+                {tag.ownerType === 'company' && tag.ownerCompany ? (
+                  <Badge variant="outline" className="bg-[#54a8c7]/15 text-[#54a8c7] border-[#54a8c7]/30 text-[10px] font-bold">
+                    <Building2 className="size-3 mr-1" /> Company
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="bg-[#3f78e0]/15 text-[#3f78e0] border-[#3f78e0]/30 text-[10px] font-bold">
+                    <User className="size-3 mr-1" /> User
+                  </Badge>
+                )}
+              </div>
+              {tag.ownerType === 'company' && tag.ownerCompany ? (
+                <div>
+                  <p className="font-bold text-foreground text-sm">{tag.ownerCompany.name}</p>
+                  {tag.ownerCompany.clientNumber && (
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5">Account ID: {tag.ownerCompany.clientNumber}</p>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <p className="font-bold text-foreground text-sm">{tag.owner?.name || tag.owner?.email || 'Individual Owner'}</p>
+                  {tag.owner?.email && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{tag.owner.email}</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 3. The Payer of the Transactions */}
+            <div className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">The Payer of Transactions</p>
+                {tag.transactionPayerCompany ? (
+                  <Badge variant="outline" className="bg-[#54a8c7]/15 text-[#54a8c7] border-[#54a8c7]/30 text-[10px] font-bold">
+                    <Building2 className="size-3 mr-1" /> Company
+                  </Badge>
+                ) : tag.transactionPayerUser ? (
+                  <Badge variant="outline" className="bg-[#3f78e0]/15 text-[#3f78e0] border-[#3f78e0]/30 text-[10px] font-bold">
+                    <User className="size-3 mr-1" /> User
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-muted-foreground border-border/60 text-[10px]">
+                    Inherit Owner
+                  </Badge>
+                )}
+              </div>
+              {tag.transactionPayerCompany ? (
+                <div>
+                  <p className="font-bold text-foreground text-sm">{tag.transactionPayerCompany.name}</p>
+                  {tag.transactionPayerCompany.clientNumber && (
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5">Account: {tag.transactionPayerCompany.clientNumber}</p>
+                  )}
+                </div>
+              ) : tag.transactionPayerUser ? (
+                <div>
+                  <p className="font-bold text-foreground text-sm">{tag.transactionPayerUser.name || tag.transactionPayerUser.email}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{tag.transactionPayerUser.email}</p>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">Settled by the RFID card owner by default.</p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <Card className="col-span-1">

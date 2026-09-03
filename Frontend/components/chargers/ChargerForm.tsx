@@ -10,11 +10,13 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, Globe, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { EntitySelectInput, EntityUser, EntityCompany } from "@/components/ui/EntitySelectInput";
 
 const chargerSchema = z.object({
   name: z.string().min(2, "Charger name is required"),
@@ -23,7 +25,7 @@ const chargerSchema = z.object({
   serial_number: z.string().optional(),
   power_capacity: z.number().positive(),
   firmware_version: z.string().optional(),
-  service_contacts: z.string(),
+  service_contacts: z.string().optional().or(z.literal('')),
   charging_station_id: z.number().positive("Must assign a station"),
   isPublic: z.boolean().optional(),
   thirdPartyBackendUrl: z.union([z.string().url("Must be a valid URL"), z.literal("")]).optional().nullable(),
@@ -31,6 +33,14 @@ const chargerSchema = z.object({
   tariffId: z.number().optional(),
   productId: z.number().optional().nullable(),
   owner_id: z.number().optional(),
+  ownerType: z.string().optional(),
+  ownerCompanyId: z.number().optional().nullable(),
+  subscriptionPayerType: z.string().optional().nullable(),
+  subscriptionPayerUserId: z.number().optional().nullable(),
+  subscriptionPayerCompanyId: z.number().optional().nullable(),
+  transactionReceiverType: z.string().optional().nullable(),
+  transactionReceiverUserId: z.number().optional().nullable(),
+  transactionReceiverCompanyId: z.number().optional().nullable(),
   chargeGroupId: z.number().optional().nullable(),
   quirkProfileId: z.number().optional().nullable(),
   isPredictiveBalancingEnabled: z.boolean().optional(),
@@ -46,7 +56,8 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
   const [chargeGroups, setChargeGroups] = useState<any[]>([]);
   const [quirkProfiles, setQuirkProfiles] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
-  const [usersList, setUsersList] = useState<any[]>([]);
+  const [usersList, setUsersList] = useState<EntityUser[]>([]);
+  const [companiesList, setCompaniesList] = useState<EntityCompany[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
   const searchParams = useSearchParams();
@@ -58,6 +69,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
     defaultValues: initialData ? {
       ...initialData,
       isPublic: initialData?.isPublic ?? false,
+      service_contacts: initialData?.service_contacts || '',
       thirdPartyBackendUrl: initialData?.thirdPartyBackendUrl || undefined,
       isStraightThroughProxy: initialData?.isStraightThroughProxy || false,
       tariffId: initialData?.tariffs?.[0]?.tariff_id || undefined,
@@ -66,9 +78,20 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
       quirkProfileId: initialData?.quirkProfileId || undefined,
       isPredictiveBalancingEnabled: initialData?.isPredictiveBalancingEnabled || false,
       localSolarKwp: initialData?.localSolarKwp || undefined,
+      owner_id: initialData?.owner_id,
+      ownerType: initialData?.ownerType || (initialData?.ownerCompanyId ? 'company' : 'user'),
+      ownerCompanyId: initialData?.ownerCompanyId ?? null,
+      subscriptionPayerType: initialData?.subscriptionPayerType || (initialData?.subscriptionPayerCompanyId ? 'company' : 'user'),
+      subscriptionPayerUserId: initialData?.subscriptionPayerUserId ?? null,
+      subscriptionPayerCompanyId: initialData?.subscriptionPayerCompanyId ?? null,
+      transactionReceiverType: initialData?.transactionReceiverType || (initialData?.transactionReceiverCompanyId ? 'company' : 'user'),
+      transactionReceiverUserId: initialData?.transactionReceiverUserId ?? null,
+      transactionReceiverCompanyId: initialData?.transactionReceiverCompanyId ?? null,
     } : {
       name: nameParam || '',
       charging_station_id: stationParam ? parseInt(stationParam, 10) : (undefined as any),
+      power_capacity: 22.0,
+      service_contacts: '',
       isPublic: false,
       thirdPartyBackendUrl: undefined,
       isStraightThroughProxy: false,
@@ -78,6 +101,15 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
       quirkProfileId: undefined,
       isPredictiveBalancingEnabled: false,
       localSolarKwp: undefined,
+      owner_id: user?.id,
+      ownerType: 'user',
+      ownerCompanyId: null,
+      subscriptionPayerType: 'user',
+      subscriptionPayerUserId: null,
+      subscriptionPayerCompanyId: null,
+      transactionReceiverType: 'user',
+      transactionReceiverUserId: null,
+      transactionReceiverCompanyId: null,
     },
   });
 
@@ -90,6 +122,7 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
           api.get('/charge-groups'),
           api.get('/quirk-profiles'),
           api.get('/products?isActive=true'),
+          api.get('/companies'),
         ];
 
         if (user?.role === 'admin' || user?.role === 'superadmin') {
@@ -102,9 +135,12 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
         setChargeGroups(Array.isArray(results[2].data?.data) ? results[2].data.data : (Array.isArray(results[2].data) ? results[2].data : []));
         setQuirkProfiles(Array.isArray(results[3].data?.data) ? results[3].data.data : (Array.isArray(results[3].data) ? results[3].data : []));
         setProducts(Array.isArray(results[4].data?.data) ? results[4].data.data : (Array.isArray(results[4].data) ? results[4].data : []));
+        setCompaniesList(Array.isArray(results[5].data?.data) ? results[5].data.data : (Array.isArray(results[5].data) ? results[5].data : []));
 
-        if (results[5]) {
-          setUsersList(Array.isArray(results[5].data?.data) ? results[5].data.data : (Array.isArray(results[5].data) ? results[5].data : []));
+        if (results[6]) {
+          setUsersList(Array.isArray(results[6].data?.data) ? results[6].data.data : (Array.isArray(results[6].data) ? results[6].data : []));
+        } else if (user) {
+          setUsersList([{ id: user.id, email: user.email, name: user.name || user.email, role: user.role }]);
         }
       } catch (error) {
         logger.error("Failed to fetch initial data", error);
@@ -121,6 +157,14 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
       const payload = {
         ...data,
         owner_id: data.owner_id || initialData?.owner_id || user?.id,
+        ownerType: watch("ownerType") || initialData?.ownerType || "user",
+        ownerCompanyId: watch("ownerCompanyId") ?? initialData?.ownerCompanyId ?? null,
+        subscriptionPayerType: watch("subscriptionPayerType") ?? initialData?.subscriptionPayerType ?? null,
+        subscriptionPayerUserId: watch("subscriptionPayerUserId") ?? initialData?.subscriptionPayerUserId ?? null,
+        subscriptionPayerCompanyId: watch("subscriptionPayerCompanyId") ?? initialData?.subscriptionPayerCompanyId ?? null,
+        transactionReceiverType: watch("transactionReceiverType") ?? initialData?.transactionReceiverType ?? null,
+        transactionReceiverUserId: watch("transactionReceiverUserId") ?? initialData?.transactionReceiverUserId ?? null,
+        transactionReceiverCompanyId: watch("transactionReceiverCompanyId") ?? initialData?.transactionReceiverCompanyId ?? null,
       };
 
       if (initialData) {
@@ -387,61 +431,82 @@ export function ChargerForm({ initialData }: { initialData?: any }) {
               </p>
             </div>
 
-            {(user?.role === 'admin' || user?.role === 'superadmin') && (
-              <div className="space-y-2">
-                <Label htmlFor="owner_id">Assign to Client</Label>
-                <Select
-                  value={watch('owner_id')?.toString() || initialData?.owner_id?.toString() || user.id.toString()}
-                  onValueChange={(val) => setValue('owner_id', parseInt(val))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a client user" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {usersList.map(u => (
-                      <SelectItem key={u.id} value={String(u.id)}>
-                        {u.email} ({u.role})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">Select the user who will manage this charger.</p>
-              </div>
-            )}
+          {/* Connected Entities: Owner, Subscription Payer, Transaction Receiver */}
+          <div className="space-y-4 border-t pt-4">
+            <div>
+              <h3 className="text-base font-semibold text-foreground">Connected Entities</h3>
+              <p className="text-xs text-muted-foreground">
+                Assign ownership, subscription billing, and transaction revenue receivers for this charger (individuals or companies).
+              </p>
+            </div>
 
+            <div className="space-y-3">
+              {/* 1. The Owner */}
+              <EntitySelectInput
+                id="owner_entity"
+                label="The Owner"
+                description="The legal owner and operator of this charger hardware (can also be a company)."
+                entityType={(watch("ownerType") as "user" | "company") || "user"}
+                onEntityTypeChange={(type) => {
+                  setValue("ownerType", type);
+                  if (type === "user" && !watch("owner_id")) {
+                    setValue("owner_id", user?.id);
+                  }
+                }}
+                selectedUserId={watch("owner_id") ?? initialData?.owner_id ?? user?.id}
+                onUserChange={(userId) => setValue("owner_id", userId || user?.id || 1)}
+                selectedCompanyId={watch("ownerCompanyId") ?? initialData?.ownerCompanyId}
+                onCompanyChange={(companyId) => setValue("ownerCompanyId", companyId)}
+                usersList={usersList}
+                companiesList={companiesList}
+              />
 
-          <div className="grid grid-cols-1 gap-4 border-t pt-4">
-            <h3 className="text-lg font-medium">Premium Features</h3>
+              {/* 2. The Payer of the Subscription */}
+              <EntitySelectInput
+                id="subscription_payer_entity"
+                label="The Payer of the Subscription"
+                description="The party responsible for recurring software platform and SIM/connectivity fees (can also be a company)."
+                entityType={(watch("subscriptionPayerType") as "user" | "company") || "user"}
+                onEntityTypeChange={(type) => setValue("subscriptionPayerType", type)}
+                selectedUserId={watch("subscriptionPayerUserId") ?? initialData?.subscriptionPayerUserId}
+                onUserChange={(userId) => setValue("subscriptionPayerUserId", userId)}
+                selectedCompanyId={watch("subscriptionPayerCompanyId") ?? initialData?.subscriptionPayerCompanyId}
+                onCompanyChange={(companyId) => setValue("subscriptionPayerCompanyId", companyId)}
+                usersList={usersList}
+                companiesList={companiesList}
+                allowUnassigned={true}
+                unassignedLabel="Not assigned (Inherit owner)"
+              />
 
-            <div className="flex flex-row items-center justify-between rounded-lg border p-4">
-              <div className="space-y-0.5">
-                <Label className="text-base">Predictive Load Balancing</Label>
-                <p className="text-sm text-muted-foreground">
-                  Automatically adjust charging speeds based on local solar forecasts and day-ahead EPEX prices. Requires location coordinates.
-                </p>
-              </div>
-              <Switch
-                checked={watch('isPredictiveBalancingEnabled')}
-                onCheckedChange={(checked) => setValue('isPredictiveBalancingEnabled', checked)}
+              {/* 3. The Receiver of the Transactions */}
+              <EntitySelectInput
+                id="transaction_receiver_entity"
+                label="The Receiver of the Transactions"
+                description="The party that receives charging revenue and tariff payouts for sessions at this charger (can also be a company)."
+                entityType={(watch("transactionReceiverType") as "user" | "company") || "user"}
+                onEntityTypeChange={(type) => setValue("transactionReceiverType", type)}
+                selectedUserId={watch("transactionReceiverUserId") ?? initialData?.transactionReceiverUserId}
+                onUserChange={(userId) => setValue("transactionReceiverUserId", userId)}
+                selectedCompanyId={watch("transactionReceiverCompanyId") ?? initialData?.transactionReceiverCompanyId}
+                onCompanyChange={(companyId) => setValue("transactionReceiverCompanyId", companyId)}
+                usersList={usersList}
+                companiesList={companiesList}
+                allowUnassigned={true}
+                unassignedLabel="Not assigned (Inherit owner)"
               />
             </div>
-
-            {watch('isPredictiveBalancingEnabled') && (
-              <div className="grid grid-cols-1 md:grid-cols-1 gap-4 p-4 border rounded-lg bg-muted/20">
-                <div className="space-y-2">
-                  <Label htmlFor="localSolarKwp">Local Solar Capacity (kWp)</Label>
-                  <Input id="localSolarKwp" type="number" step="any" {...register('localSolarKwp', { valueAsNumber: true })} placeholder="e.g. 10.5" />
-                  {errors.localSolarKwp && <p className="text-sm text-destructive">{errors.localSolarKwp.message}</p>}
-                </div>
-              </div>
-            )}
           </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="service_contacts">Service Contacts</Label>
-              <Input id="service_contacts" {...register('service_contacts')} />
-              {errors.service_contacts && <p className="text-sm text-destructive">{errors.service_contacts.message}</p>}
-            </div>
+          <div className="space-y-2 border-t pt-4">
+            <Label htmlFor="service_contacts">Information</Label>
+            <Textarea
+              id="service_contacts"
+              {...register('service_contacts')}
+              placeholder="Operational notes, service contacts, access instructions, technical remarks..."
+              rows={3}
+            />
+            {errors.service_contacts && <p className="text-sm text-destructive">{errors.service_contacts.message}</p>}
+          </div>
           </div>
 
           {Object.keys(errors).length > 0 && (

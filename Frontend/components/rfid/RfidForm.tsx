@@ -12,10 +12,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Globe, Building2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect } from "react";
+import { EntitySelectInput, EntityUser, EntityCompany } from "@/components/ui/EntitySelectInput";
 
 const rfidSchema = z.object({
   rfid_tag: z.string().min(4, "RFID Tag ID is required"),
@@ -29,6 +29,14 @@ const rfidSchema = z.object({
   cardScope: z.string().optional(),
   active: z.boolean(),
   owner_id: z.number().optional(),
+  ownerType: z.string().optional(),
+  ownerCompanyId: z.number().optional().nullable(),
+  holderType: z.string().optional().nullable(),
+  holderUserId: z.number().optional().nullable(),
+  holderCompanyId: z.number().optional().nullable(),
+  transactionPayerType: z.string().optional().nullable(),
+  transactionPayerUserId: z.number().optional().nullable(),
+  transactionPayerCompanyId: z.number().optional().nullable(),
 });
 
 type RfidFormValues = z.infer<typeof rfidSchema>;
@@ -36,7 +44,8 @@ type RfidFormValues = z.infer<typeof rfidSchema>;
 export function RfidForm({ initialData }: { initialData?: any }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [usersList, setUsersList] = useState<any[]>([]);
+  const [usersList, setUsersList] = useState<EntityUser[]>([]);
+  const [companiesList, setCompaniesList] = useState<EntityCompany[]>([]);
   const { user } = useAuth();
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<RfidFormValues>({
@@ -45,11 +54,30 @@ export function RfidForm({ initialData }: { initialData?: any }) {
       ...initialData,
       cardScope: initialData?.cardScope || "Roaming",
       email: initialData?.email || "",
+      owner_id: initialData?.owner_id,
+      ownerType: initialData?.ownerType || (initialData?.ownerCompanyId ? "company" : "user"),
+      ownerCompanyId: initialData?.ownerCompanyId ?? null,
+      holderType: initialData?.holderType || (initialData?.holderCompanyId ? "company" : "user"),
+      holderUserId: initialData?.holderUserId ?? null,
+      holderCompanyId: initialData?.holderCompanyId ?? null,
+      transactionPayerType: initialData?.transactionPayerType || (initialData?.transactionPayerCompanyId ? "company" : "user"),
+      transactionPayerUserId: initialData?.transactionPayerUserId ?? null,
+      transactionPayerCompanyId: initialData?.transactionPayerCompanyId ?? null,
     } : {
+      name: "",
       type: "postpaid",
       cardScope: "Roaming",
       active: true,
       email: "",
+      owner_id: user?.id,
+      ownerType: "user",
+      ownerCompanyId: null,
+      holderType: "user",
+      holderUserId: user?.id,
+      holderCompanyId: null,
+      transactionPayerType: "user",
+      transactionPayerUserId: null,
+      transactionPayerCompanyId: null,
     },
   });
 
@@ -57,11 +85,18 @@ export function RfidForm({ initialData }: { initialData?: any }) {
   const type = watch('type');
 
   useEffect(() => {
+    api.get('/companies').then(res => {
+      const list = Array.isArray(res.data?.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
+      setCompaniesList(list);
+    }).catch(err => logger.error(err));
+
     if (user?.role === 'admin' || user?.role === 'superadmin') {
       api.get('/users').then(res => {
         const list = Array.isArray(res.data?.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
         setUsersList(list);
       }).catch(err => logger.error(err));
+    } else if (user) {
+      setUsersList([{ id: user.id, email: user.email, name: user.name || user.email, role: user.role }]);
     }
   }, [user]);
 
@@ -71,6 +106,14 @@ export function RfidForm({ initialData }: { initialData?: any }) {
       const payload = {
         ...data,
         owner_id: data.owner_id || initialData?.owner_id || user?.id,
+        ownerType: watch("ownerType") || initialData?.ownerType || "user",
+        ownerCompanyId: watch("ownerCompanyId") ?? initialData?.ownerCompanyId ?? null,
+        holderType: watch("holderType") || initialData?.holderType || "user",
+        holderUserId: watch("holderUserId") ?? initialData?.holderUserId ?? null,
+        holderCompanyId: watch("holderCompanyId") ?? initialData?.holderCompanyId ?? null,
+        transactionPayerType: watch("transactionPayerType") ?? initialData?.transactionPayerType ?? null,
+        transactionPayerUserId: watch("transactionPayerUserId") ?? initialData?.transactionPayerUserId ?? null,
+        transactionPayerCompanyId: watch("transactionPayerCompanyId") ?? initialData?.transactionPayerCompanyId ?? null,
       };
       if (initialData) {
         await api.put(`/rfid/${initialData.rfid_user_id}`, payload);
@@ -221,27 +264,93 @@ export function RfidForm({ initialData }: { initialData?: any }) {
               </div>
             </div>
 
-            {(user?.role === 'admin' || user?.role === 'superadmin') && (
-              <div className="space-y-2 mt-4">
-                <Label htmlFor="owner_id">Assign to Client</Label>
-                <Select
-                  value={watch('owner_id')?.toString() || initialData?.owner_id?.toString() || user.id.toString()}
-                  onValueChange={(val) => setValue('owner_id', parseInt(val))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a client user" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {usersList.map(u => (
-                      <SelectItem key={u.id} value={u.id.toString()}>
-                        {u.email} ({u.role})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">Select the user who will manage this RFID.</p>
-              </div>
-            )}
+          {/* Connected Entities Section */}
+          <div className="space-y-4 border-t pt-4">
+            <div>
+              <h3 className="text-base font-semibold text-foreground">Connected Entities</h3>
+              <p className="text-xs text-muted-foreground">
+                Designate the cardholder, asset owner, and charging transaction settlement payer (individuals or companies).
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {/* 1. The Holder */}
+              <EntitySelectInput
+                id="rfid_holder_entity"
+                label="The Holder"
+                description="The individual driver or company authorized to use this RFID credential."
+                entityType={(watch("holderType") as "user" | "company") || "user"}
+                onEntityTypeChange={(type) => setValue("holderType", type)}
+                selectedUserId={watch("holderUserId") ?? initialData?.holderUserId}
+                onUserChange={(userId) => {
+                  setValue("holderUserId", userId);
+                  if (userId) {
+                    const u = usersList.find(x => x.id === userId);
+                    if (u && (!watch('name') || watch('name').trim() === '')) {
+                      setValue('name', u.name || u.email);
+                    }
+                    if (u && (!watch('email') || watch('email')?.trim() === '')) {
+                      setValue('email', u.email);
+                    }
+                  }
+                }}
+                selectedCompanyId={watch("holderCompanyId") ?? initialData?.holderCompanyId}
+                onCompanyChange={(companyId) => {
+                  setValue("holderCompanyId", companyId);
+                  if (companyId) {
+                    const c = companiesList.find(x => x.id === companyId);
+                    if (c && (!watch('name') || watch('name').trim() === '')) {
+                      setValue('name', c.name);
+                    }
+                    if (c && (!watch('company_name') || watch('company_name')?.trim() === '')) {
+                      setValue('company_name', c.name);
+                    }
+                  }
+                }}
+                usersList={usersList}
+                companiesList={companiesList}
+                allowUnassigned={true}
+                unassignedLabel="Custom/External Driver (Enter details above)"
+              />
+
+              {/* 2. The Owner */}
+              <EntitySelectInput
+                id="rfid_owner_entity"
+                label="The Owner"
+                description="The legal owner and manager of this RFID card asset (can also be a company)."
+                entityType={(watch("ownerType") as "user" | "company") || "user"}
+                onEntityTypeChange={(type) => {
+                  setValue("ownerType", type);
+                  if (type === "user" && !watch("owner_id")) {
+                    setValue("owner_id", user?.id);
+                  }
+                }}
+                selectedUserId={watch("owner_id") ?? initialData?.owner_id ?? user?.id}
+                onUserChange={(userId) => setValue("owner_id", userId || user?.id || 1)}
+                selectedCompanyId={watch("ownerCompanyId") ?? initialData?.ownerCompanyId}
+                onCompanyChange={(companyId) => setValue("ownerCompanyId", companyId)}
+                usersList={usersList}
+                companiesList={companiesList}
+              />
+
+              {/* 3. The Payer of the Transactions */}
+              <EntitySelectInput
+                id="rfid_transaction_payer_entity"
+                label="The Payer of the Transactions"
+                description="The party invoiced for charging sessions started with this card (can also be a company)."
+                entityType={(watch("transactionPayerType") as "user" | "company") || "user"}
+                onEntityTypeChange={(type) => setValue("transactionPayerType", type)}
+                selectedUserId={watch("transactionPayerUserId") ?? initialData?.transactionPayerUserId}
+                onUserChange={(userId) => setValue("transactionPayerUserId", userId)}
+                selectedCompanyId={watch("transactionPayerCompanyId") ?? initialData?.transactionPayerCompanyId}
+                onCompanyChange={(companyId) => setValue("transactionPayerCompanyId", companyId)}
+                usersList={usersList}
+                companiesList={companiesList}
+                allowUnassigned={true}
+                unassignedLabel="Not assigned (Inherit owner)"
+              />
+            </div>
+          </div>
           </div>
 
         </CardContent>

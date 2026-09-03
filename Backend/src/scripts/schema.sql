@@ -96,6 +96,14 @@ CREATE TABLE "Charger" (
     "isPredictiveBalancingEnabled" BOOLEAN NOT NULL DEFAULT false,
     "localSolarKwp" DOUBLE PRECISION,
     "owner_id" INTEGER NOT NULL,
+    "ownerType" TEXT NOT NULL DEFAULT 'user',
+    "ownerCompanyId" INTEGER,
+    "subscriptionPayerType" TEXT,
+    "subscriptionPayerUserId" INTEGER,
+    "subscriptionPayerCompanyId" INTEGER,
+    "transactionReceiverType" TEXT,
+    "transactionReceiverUserId" INTEGER,
+    "transactionReceiverCompanyId" INTEGER,
     "charging_station_id" INTEGER NOT NULL,
     "requireAuth" BOOLEAN NOT NULL DEFAULT false,
     "authPassword" TEXT,
@@ -167,6 +175,14 @@ CREATE TABLE "RfidUser" (
     "type" TEXT NOT NULL DEFAULT 'postpaid',
     "active" BOOLEAN NOT NULL DEFAULT true,
     "owner_id" INTEGER NOT NULL,
+    "ownerType" TEXT NOT NULL DEFAULT 'user',
+    "ownerCompanyId" INTEGER,
+    "holderType" TEXT DEFAULT 'user',
+    "holderUserId" INTEGER,
+    "holderCompanyId" INTEGER,
+    "transactionPayerType" TEXT,
+    "transactionPayerUserId" INTEGER,
+    "transactionPayerCompanyId" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -1132,6 +1148,21 @@ ALTER TABLE "ChargingStation" ADD CONSTRAINT "ChargingStation_owner_id_fkey" FOR
 ALTER TABLE "Charger" ADD CONSTRAINT "Charger_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Charger" ADD CONSTRAINT "Charger_ownerCompanyId_fkey" FOREIGN KEY ("ownerCompanyId") REFERENCES "Company"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Charger" ADD CONSTRAINT "Charger_subscriptionPayerUserId_fkey" FOREIGN KEY ("subscriptionPayerUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Charger" ADD CONSTRAINT "Charger_subscriptionPayerCompanyId_fkey" FOREIGN KEY ("subscriptionPayerCompanyId") REFERENCES "Company"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Charger" ADD CONSTRAINT "Charger_transactionReceiverUserId_fkey" FOREIGN KEY ("transactionReceiverUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Charger" ADD CONSTRAINT "Charger_transactionReceiverCompanyId_fkey" FOREIGN KEY ("transactionReceiverCompanyId") REFERENCES "Company"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Charger" ADD CONSTRAINT "Charger_charging_station_id_fkey" FOREIGN KEY ("charging_station_id") REFERENCES "ChargingStation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -1151,6 +1182,21 @@ ALTER TABLE "Connector" ADD CONSTRAINT "Connector_parkingSpotId_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "RfidUser" ADD CONSTRAINT "RfidUser_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RfidUser" ADD CONSTRAINT "RfidUser_ownerCompanyId_fkey" FOREIGN KEY ("ownerCompanyId") REFERENCES "Company"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RfidUser" ADD CONSTRAINT "RfidUser_holderUserId_fkey" FOREIGN KEY ("holderUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RfidUser" ADD CONSTRAINT "RfidUser_holderCompanyId_fkey" FOREIGN KEY ("holderCompanyId") REFERENCES "Company"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RfidUser" ADD CONSTRAINT "RfidUser_transactionPayerUserId_fkey" FOREIGN KEY ("transactionPayerUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RfidUser" ADD CONSTRAINT "RfidUser_transactionPayerCompanyId_fkey" FOREIGN KEY ("transactionPayerCompanyId") REFERENCES "Company"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "RfidSession" ADD CONSTRAINT "RfidSession_charger_id_fkey" FOREIGN KEY ("charger_id") REFERENCES "Charger"("charger_id") ON DELETE CASCADE ON UPDATE CASCADE;

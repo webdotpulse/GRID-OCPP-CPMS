@@ -41,7 +41,14 @@ export const getAllRfidUsers = async (req: Request, res: Response) => {
         skip,
         take,
         where,
-        include: { owner: { select: { id: true, email: true } } },
+        include: {
+          owner: { select: { id: true, email: true, name: true } },
+          ownerCompany: true,
+          holderUser: { select: { id: true, email: true, name: true } },
+          holderCompany: true,
+          transactionPayerUser: { select: { id: true, email: true, name: true } },
+          transactionPayerCompany: true,
+        },
         orderBy: { createdAt: "desc" },
       }),
       prisma.rfidUser.count({ where }),
@@ -93,7 +100,12 @@ export const getRfidUserById = async (req: Request, res: Response) => {
     const rfidUser = await prisma.rfidUser.findFirst({
       where,
       include: {
-        owner: { select: { id: true, email: true } },
+        owner: { select: { id: true, email: true, name: true } },
+        ownerCompany: true,
+        holderUser: { select: { id: true, email: true, name: true } },
+        holderCompany: true,
+        transactionPayerUser: { select: { id: true, email: true, name: true } },
+        transactionPayerCompany: true,
         rfidSessions: { take: 10, orderBy: { createdAt: "desc" } },
       },
     });
@@ -169,8 +181,25 @@ export const createRfidUser = async (req: Request, res: Response) => {
     }
 
     const rfidUser = await prisma.rfidUser.create({
-      data,
-      include: { owner: true },
+      data: {
+        ...data,
+        ownerType: data.ownerType || "user",
+        ownerCompanyId: data.ownerCompanyId ? Number(data.ownerCompanyId) : null,
+        holderType: data.holderType || "user",
+        holderUserId: data.holderUserId ? Number(data.holderUserId) : null,
+        holderCompanyId: data.holderCompanyId ? Number(data.holderCompanyId) : null,
+        transactionPayerType: data.transactionPayerType || null,
+        transactionPayerUserId: data.transactionPayerUserId ? Number(data.transactionPayerUserId) : null,
+        transactionPayerCompanyId: data.transactionPayerCompanyId ? Number(data.transactionPayerCompanyId) : null,
+      },
+      include: {
+        owner: true,
+        ownerCompany: true,
+        holderUser: true,
+        holderCompany: true,
+        transactionPayerUser: true,
+        transactionPayerCompany: true,
+      },
     });
 
 
@@ -235,8 +264,22 @@ export const updateRfidUser = async (req: Request, res: Response) => {
 
     const rfidUser = await prisma.rfidUser.update({
       where: { rfid_user_id: rfidUserId },
-      data,
-      include: { owner: true },
+      data: {
+        ...data,
+        ownerCompanyId: data.ownerCompanyId !== undefined ? (data.ownerCompanyId ? Number(data.ownerCompanyId) : null) : undefined,
+        holderUserId: data.holderUserId !== undefined ? (data.holderUserId ? Number(data.holderUserId) : null) : undefined,
+        holderCompanyId: data.holderCompanyId !== undefined ? (data.holderCompanyId ? Number(data.holderCompanyId) : null) : undefined,
+        transactionPayerUserId: data.transactionPayerUserId !== undefined ? (data.transactionPayerUserId ? Number(data.transactionPayerUserId) : null) : undefined,
+        transactionPayerCompanyId: data.transactionPayerCompanyId !== undefined ? (data.transactionPayerCompanyId ? Number(data.transactionPayerCompanyId) : null) : undefined,
+      },
+      include: {
+        owner: true,
+        ownerCompany: true,
+        holderUser: true,
+        holderCompany: true,
+        transactionPayerUser: true,
+        transactionPayerCompany: true,
+      },
     });
 
     logger.info(`RFID user updated: ${rfidUser.name}`);

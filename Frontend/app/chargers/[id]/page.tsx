@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { ChevronLeft, Edit, Zap, Info, Clock, CheckCircle, Layers, Link2, Unlink, Share2, AlertCircle, Globe, Lock } from "lucide-react";
+import { ChevronLeft, Edit, Zap, Info, Clock, CheckCircle, Layers, Link2, Unlink, Share2, AlertCircle, Globe, Lock, User, Building2 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { RemoteControlPanel } from "@/components/chargers/RemoteControlPanel";
 import { ConnectorList } from "@/components/chargers/ConnectorList";
@@ -38,6 +38,18 @@ interface ChargerDetail {
   isPublic?: boolean;
   firmware_version: string;
   power_capacity: number;
+  service_contacts?: string;
+  owner_id?: number;
+  ownerType?: string;
+  ownerCompanyId?: number | null;
+  owner?: { id: number; email: string; name?: string | null };
+  ownerCompany?: { id: number; name: string; clientNumber?: string | null; city?: string | null } | null;
+  subscriptionPayerType?: string | null;
+  subscriptionPayerUser?: { id: number; email: string; name?: string | null } | null;
+  subscriptionPayerCompany?: { id: number; name: string; clientNumber?: string | null } | null;
+  transactionReceiverType?: string | null;
+  transactionReceiverUser?: { id: number; email: string; name?: string | null } | null;
+  transactionReceiverCompany?: { id: number; name: string; clientNumber?: string | null } | null;
   last_heartbeat: string;
   charging_station_id?: number;
   chargeGroupId?: number;
@@ -513,6 +525,15 @@ export default function ChargerDetailPage() {
                       </div>
                     )}
                   </div>
+
+                  {charger.service_contacts && (
+                    <div className="space-y-1.5 col-span-2 border-t border-border/50 pt-3">
+                      <p className="text-sm text-muted-foreground font-medium">Information</p>
+                      <div className="p-3 rounded-lg border border-border/50 bg-muted/20 text-xs font-sans text-foreground/90 whitespace-pre-wrap leading-relaxed">
+                        {charger.service_contacts}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -554,6 +575,125 @@ export default function ChargerDetailPage() {
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Connected Entities Card */}
+            <Card className="col-span-1 md:col-span-3">
+              <CardHeader className="pb-3 border-b border-border/50">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Building2 className="size-4 text-[#54a8c7]" /> Connected Entities
+                </CardTitle>
+                <CardDescription>
+                  Ownership, subscription billing, and transaction revenue receivers connected to this charger.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* 1. The Owner */}
+                  <div className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">The Owner</p>
+                      {charger.ownerType === 'company' && charger.ownerCompany ? (
+                        <Badge variant="outline" className="bg-[#54a8c7]/15 text-[#54a8c7] border-[#54a8c7]/30 text-[10px] font-bold">
+                          <Building2 className="size-3 mr-1" /> Company
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-[#3f78e0]/15 text-[#3f78e0] border-[#3f78e0]/30 text-[10px] font-bold">
+                          <User className="size-3 mr-1" /> User
+                        </Badge>
+                      )}
+                    </div>
+                    {charger.ownerType === 'company' && charger.ownerCompany ? (
+                      <div>
+                        <p className="font-bold text-foreground text-sm">{charger.ownerCompany.name}</p>
+                        {charger.ownerCompany.clientNumber && (
+                          <p className="text-xs text-muted-foreground font-mono mt-0.5">Account ID: {charger.ownerCompany.clientNumber}</p>
+                        )}
+                        {charger.ownerCompany.city && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{charger.ownerCompany.city}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="font-bold text-foreground text-sm">{charger.owner?.name || charger.owner?.email || 'Individual Owner'}</p>
+                        {charger.owner?.email && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{charger.owner.email}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. The Payer of the Subscription */}
+                  <div className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">The Payer of Subscription</p>
+                      {charger.subscriptionPayerCompany ? (
+                        <Badge variant="outline" className="bg-[#54a8c7]/15 text-[#54a8c7] border-[#54a8c7]/30 text-[10px] font-bold">
+                          <Building2 className="size-3 mr-1" /> Company
+                        </Badge>
+                      ) : charger.subscriptionPayerUser ? (
+                        <Badge variant="outline" className="bg-[#3f78e0]/15 text-[#3f78e0] border-[#3f78e0]/30 text-[10px] font-bold">
+                          <User className="size-3 mr-1" /> User
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground border-border/60 text-[10px]">
+                          Inherit Owner
+                        </Badge>
+                      )}
+                    </div>
+                    {charger.subscriptionPayerCompany ? (
+                      <div>
+                        <p className="font-bold text-foreground text-sm">{charger.subscriptionPayerCompany.name}</p>
+                        {charger.subscriptionPayerCompany.clientNumber && (
+                          <p className="text-xs text-muted-foreground font-mono mt-0.5">Account: {charger.subscriptionPayerCompany.clientNumber}</p>
+                        )}
+                      </div>
+                    ) : charger.subscriptionPayerUser ? (
+                      <div>
+                        <p className="font-bold text-foreground text-sm">{charger.subscriptionPayerUser.name || charger.subscriptionPayerUser.email}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{charger.subscriptionPayerUser.email}</p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">Billed to the charger owner by default.</p>
+                    )}
+                  </div>
+
+                  {/* 3. The Receiver of the Transactions */}
+                  <div className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">The Receiver of Transactions</p>
+                      {charger.transactionReceiverCompany ? (
+                        <Badge variant="outline" className="bg-[#54a8c7]/15 text-[#54a8c7] border-[#54a8c7]/30 text-[10px] font-bold">
+                          <Building2 className="size-3 mr-1" /> Company
+                        </Badge>
+                      ) : charger.transactionReceiverUser ? (
+                        <Badge variant="outline" className="bg-[#3f78e0]/15 text-[#3f78e0] border-[#3f78e0]/30 text-[10px] font-bold">
+                          <User className="size-3 mr-1" /> User
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground border-border/60 text-[10px]">
+                          Inherit Owner
+                        </Badge>
+                      )}
+                    </div>
+                    {charger.transactionReceiverCompany ? (
+                      <div>
+                        <p className="font-bold text-foreground text-sm">{charger.transactionReceiverCompany.name}</p>
+                        {charger.transactionReceiverCompany.clientNumber && (
+                          <p className="text-xs text-muted-foreground font-mono mt-0.5">Account: {charger.transactionReceiverCompany.clientNumber}</p>
+                        )}
+                      </div>
+                    ) : charger.transactionReceiverUser ? (
+                      <div>
+                        <p className="font-bold text-foreground text-sm">{charger.transactionReceiverUser.name || charger.transactionReceiverUser.email}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{charger.transactionReceiverUser.email}</p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">Revenue distributed to charger owner by default.</p>
+                    )}
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>

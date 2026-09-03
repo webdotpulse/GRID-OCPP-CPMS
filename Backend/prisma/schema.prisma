@@ -52,6 +52,10 @@ model User {
   webhookSubscriptions        WebhookSubscription[]
   scheduledChargings          ScheduledCharging[]
   pushSubscriptions           PushSubscription[]
+  chargerSubscriptionPayments Charger[]               @relation("ChargerSubscriptionPayerUser")
+  chargerTransactionReceivers Charger[]               @relation("ChargerTransactionReceiverUser")
+  rfidHolders                 RfidUser[]              @relation("RfidHolderUser")
+  rfidTransactionPayers       RfidUser[]              @relation("RfidTransactionPayerUser")
 }
 
 model Company {
@@ -80,6 +84,12 @@ model Company {
   chargingStations ChargingStation[]
   customRoles      CustomRole[]
   webhookSubscriptions WebhookSubscription[]
+  ownedChargers               Charger[]  @relation("ChargerOwnerCompany")
+  subscriptionPayerChargers   Charger[]  @relation("ChargerSubscriptionPayerCompany")
+  transactionReceiverChargers Charger[]  @relation("ChargerTransactionReceiverCompany")
+  rfidHolders                 RfidUser[] @relation("RfidHolderCompany")
+  ownedRfidCards              RfidUser[] @relation("RfidOwnerCompany")
+  rfidTransactionPayers       RfidUser[] @relation("RfidTransactionPayerCompany")
 }
 
 model MollieConfig {
@@ -156,6 +166,14 @@ model Charger {
   isPredictiveBalancingEnabled Boolean           @default(false)
   localSolarKwp                Float?
   owner_id                     Int
+  ownerType                    String            @default("user") // "user" | "company"
+  ownerCompanyId               Int?
+  subscriptionPayerType        String?           // "user" | "company"
+  subscriptionPayerUserId      Int?
+  subscriptionPayerCompanyId   Int?
+  transactionReceiverType      String?           // "user" | "company"
+  transactionReceiverUserId    Int?
+  transactionReceiverCompanyId Int?
   charging_station_id          Int
   requireAuth                  Boolean           @default(false)
   diagnostics                  DiagnosticEvent[]
@@ -163,8 +181,13 @@ model Charger {
   createdAt                    DateTime          @default(now())
   updatedAt                    DateTime          @updatedAt
 
-  owner           User            @relation(fields: [owner_id], references: [id])
-  chargingStation ChargingStation @relation(fields: [charging_station_id], references: [id], onDelete: Cascade)
+  owner                      User              @relation(fields: [owner_id], references: [id])
+  ownerCompany               Company?          @relation("ChargerOwnerCompany", fields: [ownerCompanyId], references: [id], onDelete: SetNull)
+  subscriptionPayerUser      User?             @relation("ChargerSubscriptionPayerUser", fields: [subscriptionPayerUserId], references: [id], onDelete: SetNull)
+  subscriptionPayerCompany   Company?          @relation("ChargerSubscriptionPayerCompany", fields: [subscriptionPayerCompanyId], references: [id], onDelete: SetNull)
+  transactionReceiverUser    User?             @relation("ChargerTransactionReceiverUser", fields: [transactionReceiverUserId], references: [id], onDelete: SetNull)
+  transactionReceiverCompany Company?          @relation("ChargerTransactionReceiverCompany", fields: [transactionReceiverCompanyId], references: [id], onDelete: SetNull)
+  chargingStation            ChargingStation   @relation(fields: [charging_station_id], references: [id], onDelete: Cascade)
 
   chargerAlerts ChargerAlert[]
   evses         Evse[]
@@ -275,12 +298,25 @@ model RfidUser {
   type         String   @default("postpaid")
   cardScope    String   @default("Roaming") // "Roaming" | "Local"
   active       Boolean  @default(true)
-  owner_id     Int
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  owner_id                   Int
+  ownerType                  String                       @default("user") // "user" | "company"
+  ownerCompanyId             Int?
+  holderType                 String?                      @default("user") // "user" | "company"
+  holderUserId               Int?
+  holderCompanyId            Int?
+  transactionPayerType       String?                      // "user" | "company"
+  transactionPayerUserId     Int?
+  transactionPayerCompanyId  Int?
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime                     @updatedAt
 
-  owner                  User                         @relation(fields: [owner_id], references: [id])
-  rfidSessions           RfidSession[]
+  owner                   User                         @relation(fields: [owner_id], references: [id])
+  ownerCompany            Company?                     @relation("RfidOwnerCompany", fields: [ownerCompanyId], references: [id], onDelete: SetNull)
+  holderUser              User?                        @relation("RfidHolderUser", fields: [holderUserId], references: [id], onDelete: SetNull)
+  holderCompany           Company?                     @relation("RfidHolderCompany", fields: [holderCompanyId], references: [id], onDelete: SetNull)
+  transactionPayerUser    User?                        @relation("RfidTransactionPayerUser", fields: [transactionPayerUserId], references: [id], onDelete: SetNull)
+  transactionPayerCompany Company?                     @relation("RfidTransactionPayerCompany", fields: [transactionPayerCompanyId], references: [id], onDelete: SetNull)
+  rfidSessions            RfidSession[]
   transactions           Transaction[]
   vehicleEnergyProfile   VehicleEnergyProfile?
   vehicleCertificates    VehicleContractCertificate[]

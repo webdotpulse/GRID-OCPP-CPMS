@@ -70,6 +70,14 @@ export interface CreateChargerDto {
   service_contacts: string;
   charging_station_id: number;
   owner_id: number;
+  ownerType?: string;
+  ownerCompanyId?: number | null;
+  subscriptionPayerType?: string | null;
+  subscriptionPayerUserId?: number | null;
+  subscriptionPayerCompanyId?: number | null;
+  transactionReceiverType?: string | null;
+  transactionReceiverUserId?: number | null;
+  transactionReceiverCompanyId?: number | null;
   isPublic?: boolean;
   isCombined?: boolean;
   pairedChargerId?: number | null;
@@ -92,6 +100,15 @@ export interface UpdateChargerDto {
   status?: ChargerStatus;
   firmware_version?: string;
   service_contacts?: string;
+  owner_id?: number;
+  ownerType?: string;
+  ownerCompanyId?: number | null;
+  subscriptionPayerType?: string | null;
+  subscriptionPayerUserId?: number | null;
+  subscriptionPayerCompanyId?: number | null;
+  transactionReceiverType?: string | null;
+  transactionReceiverUserId?: number | null;
+  transactionReceiverCompanyId?: number | null;
   tariffId?: number;
   requireAuth?: boolean;
   isPublic?: boolean;
@@ -153,6 +170,14 @@ export interface CreateRfidUserDto {
   cardScope?: string;
   active?: boolean;
   owner_id: number;
+  ownerType?: string;
+  ownerCompanyId?: number | null;
+  holderType?: string | null;
+  holderUserId?: number | null;
+  holderCompanyId?: number | null;
+  transactionPayerType?: string | null;
+  transactionPayerUserId?: number | null;
+  transactionPayerCompanyId?: number | null;
 }
 
 export interface UpdateRfidUserDto {
@@ -167,6 +192,14 @@ export interface UpdateRfidUserDto {
   cardScope?: string;
   active?: boolean;
   owner_id?: number;
+  ownerType?: string;
+  ownerCompanyId?: number | null;
+  holderType?: string | null;
+  holderUserId?: number | null;
+  holderCompanyId?: number | null;
+  transactionPayerType?: string | null;
+  transactionPayerUserId?: number | null;
+  transactionPayerCompanyId?: number | null;
 }
 
 export interface RemoteStartRequest {
