@@ -31,3 +31,20 @@ Frontend/build/
 *.swp
 *~
 
+# Uploads
+uploads/
+Backend/uploads/
+
+# Ephemeral runtime database dirs
+Backend/data/postgres/pg_commit_ts/
+Backend/data/postgres/pg_logical/mappings/
+Backend/data/postgres/pg_logical/snapshots/
+Backend/data/postgres/pg_notify/
+Backend/data/postgres/pg_replslot/
+Backend/data/postgres/pg_snapshots/
+Backend/data/postgres/pg_stat/
+Backend/data/postgres/pg_stat_tmp/
+Backend/data/postgres/pg_tblspc/
+Backend/data/postgres/pg_twophase/
+Backend/data/postgres/pg_wal/archive_status/
+Backend/data/postgres/pg_wal/summaries/
