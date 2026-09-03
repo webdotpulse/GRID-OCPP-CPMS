@@ -161,7 +161,7 @@ export default function HardwareAtRiskPage() {
   if (loading) {
     return (
       <AppShell>
-        <div className="space-y-6 max-w-7xl mx-auto">
+        <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
           <Skeleton className="h-10 w-1/4 rounded-xl" />
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Skeleton className="h-32 w-full rounded-2xl" />
@@ -215,7 +215,7 @@ export default function HardwareAtRiskPage() {
 
   return (
     <AppShell>
-      <div className="space-y-6 max-w-7xl mx-auto pb-12">
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">

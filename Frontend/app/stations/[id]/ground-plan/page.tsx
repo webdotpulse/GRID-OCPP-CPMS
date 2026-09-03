@@ -50,7 +50,7 @@ export default function GroundPlanPage() {
 
   return (
     <AppShell>
-      <div className="flex flex-col space-y-6 max-w-6xl mx-auto py-6">
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
         <div className="flex items-center space-x-4">
           <Button variant="ghost" size="sm" onClick={() => router.back()}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back

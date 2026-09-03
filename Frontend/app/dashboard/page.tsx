@@ -47,7 +47,7 @@ export default function DashboardPage() {
 
   return (
     <AppShell>
-      <div className="space-y-7 max-w-7xl mx-auto">
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
         {/* SandBox Hero Header */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#1e2228] via-[#262b32] to-[#1e2228] text-white p-6 sm:p-8 shadow-xl border border-white/10">
           <div className="absolute right-0 top-0 -mt-10 -mr-10 size-64 rounded-full bg-[#54a8c7]/10 blur-3xl pointer-events-none" />

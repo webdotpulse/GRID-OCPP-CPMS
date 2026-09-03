@@ -33,12 +33,13 @@ export default function RfidDetailPage() {
     if (id) fetchTag();
   }, [id]);
 
-  if (isLoading) return <AppShell><div className="p-8">Loading tag details...</div></AppShell>;
-  if (!tag) return <AppShell><div className="p-8 text-red-500">Tag not found</div></AppShell>;
+  if (isLoading) return <AppShell><div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300"><div className="p-8">Loading tag details...</div></div></AppShell>;
+  if (!tag) return <AppShell><div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300"><div className="p-8 text-red-500">Tag not found</div></div></AppShell>;
 
   return (
     <AppShell>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
+        <div className="mb-6 flex items-center justify-between">
         <div className="space-y-4">
           <Link href="/rfid">
             <Button variant="ghost" size="sm" className="-ml-4 text-muted-foreground">
@@ -277,6 +278,7 @@ export default function RfidDetailPage() {
         rfidTag={tag?.rfid_tag}
         cardholderName={tag.holderCompany?.name || tag.holderUser?.name || tag.holderUser?.email || (tag.name && tag.name !== 'Unassigned' ? tag.name : undefined)}
       />
+      </div>
     </AppShell>
   );
 }

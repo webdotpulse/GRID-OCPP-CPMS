@@ -3,6 +3,7 @@ import { getBullMqRedisConnection, StatusEventJobData } from "../queues/queueMan
 import { prisma } from "../config/database.js";
 import { logger } from "../utils/logger.js";
 import { redisPublisher } from "../config/redis.js";
+import { getUnifiedVendorErrorInfo, formatUnifiedVendorDiagnostic } from "../utils/vendorErrorCodes/index.js";
 
 export const STATUS_EVENTS_QUEUE_NAME = "status-events-queue";
 
@@ -17,12 +18,17 @@ export async function processStatusEventJob(job: Job<StatusEventJobData>): Promi
     // 1. Handle Fault Diagnostics & Consecutive Errors
     if (status === "Faulted" || status === "SuspendedEVSE") {
       try {
+        const unifiedDiag = formatUnifiedVendorDiagnostic(job.data.vendorId, job.data.vendorErrorCode || errorCode, info);
+        const description = unifiedDiag
+          ? `Charger reported status: ${status} | ${unifiedDiag}`
+          : `Charger reported status: ${status} (ErrorCode: ${errorCode || "Unknown"}, Info: ${info || "None"}${job.data.vendorErrorCode ? `, VendorCode: ${job.data.vendorErrorCode}` : ""})`;
+
         await prisma.diagnosticEvent.create({
           data: {
             chargerId,
             connectorId,
             type: "FaultedState",
-            description: `Charger reported status: ${status} (ErrorCode: ${errorCode || "Unknown"}, Info: ${info || "None"})`,
+            description,
           },
         });
 
@@ -42,7 +48,8 @@ export async function processStatusEventJob(job: Job<StatusEventJobData>): Promi
               status,
               errorCode,
               job.data.vendorErrorCode,
-              info
+              info,
+              job.data.vendorId
             ).catch((err) => logger.error(`[eventWorker] AutoHeal playbook trigger failed: ${err}`));
           })
           .catch(() => {});
@@ -57,6 +64,32 @@ export async function processStatusEventJob(job: Job<StatusEventJobData>): Promi
         });
       } catch (e) {
         logger.error(`Error resetting consecutive errors in statusWorker: ${e}`);
+      }
+    }
+
+    // Auto-detect and populate manufacturer if vendorId indicates supported brands
+    const vIdUpper = job.data.vendorId?.toUpperCase();
+    let detectedMfr: string | null = null;
+    if (vIdUpper === "RAEDIAN" || vIdUpper?.includes("RAEDIAN")) detectedMfr = "Raedian";
+    else if (vIdUpper?.includes("ALFEN")) detectedMfr = "Alfen";
+    else if (vIdUpper?.includes("EASEE")) detectedMfr = "Easee";
+    else if (vIdUpper?.includes("ZAPTEC")) detectedMfr = "Zaptec";
+    else if (vIdUpper?.includes("PEBLAR")) detectedMfr = "Peblar";
+
+    if (detectedMfr) {
+      try {
+        const ch = await prisma.charger.findUnique({
+          where: { charger_id: chargerId },
+          select: { manufacturer: true },
+        });
+        if (ch && (!ch.manufacturer || ch.manufacturer === "Generic" || ch.manufacturer === "Unknown")) {
+          await prisma.charger.update({
+            where: { charger_id: chargerId },
+            data: { manufacturer: detectedMfr },
+          });
+        }
+      } catch {
+        // ignore
       }
     }
 

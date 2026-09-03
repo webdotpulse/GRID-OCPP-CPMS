@@ -152,7 +152,7 @@ export default function AdManagerPage() {
 
   return (
     <AppShell>
-      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
         <div className="flex items-center justify-between space-y-2">
           <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
             <Tv className="h-8 w-8" /> Ad Manager

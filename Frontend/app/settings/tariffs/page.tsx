@@ -64,7 +64,8 @@ export default function TariffsSettingsPage() {
 
   return (
     <AppShell>
-      <div className="mb-6 space-y-1">
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
+        <div className="mb-6 space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">Tariffs Configuration</h1>
         <p className="text-muted-foreground">
           Configure API keys and settings for dynamic tariffs (e.g. EPEX Spot, ENTSO-E).
@@ -127,6 +128,7 @@ export default function TariffsSettingsPage() {
             </Button>
           </CardFooter>
         </Card>
+      </div>
       </div>
     </AppShell>
   );

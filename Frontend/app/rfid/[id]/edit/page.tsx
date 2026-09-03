@@ -32,25 +32,27 @@ export default function EditRfidPage() {
 
   return (
     <AppShell>
-      <div className="mb-6 space-y-4">
-        <Link href={`/rfid/${id}`}>
-          <Button variant="ghost" size="sm" className="-ml-4 text-muted-foreground">
-            <ChevronLeft className="mr-2 h-4 w-4" /> Back to Tag Details
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Edit RFID Tag</h1>
-          <p className="text-muted-foreground">Update holder information or authorization level.</p>
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
+        <div className="mb-6 space-y-4">
+          <Link href={`/rfid/${id}`}>
+            <Button variant="ghost" size="sm" className="-ml-4 text-muted-foreground">
+              <ChevronLeft className="mr-2 h-4 w-4" /> Back to Tag Details
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Edit RFID Tag</h1>
+            <p className="text-muted-foreground">Update holder information or authorization level.</p>
+          </div>
         </div>
+        
+        {isLoading ? (
+          <div className="flex items-center justify-center p-8">Loading...</div>
+        ) : initialData ? (
+          <RfidForm initialData={initialData} />
+        ) : (
+          <div className="text-red-500">Failed to load tag data.</div>
+        )}
       </div>
-      
-      {isLoading ? (
-        <div className="flex items-center justify-center p-8">Loading...</div>
-      ) : initialData ? (
-        <RfidForm initialData={initialData} />
-      ) : (
-        <div className="text-red-500">Failed to load tag data.</div>
-      )}
     </AppShell>
   );
 }

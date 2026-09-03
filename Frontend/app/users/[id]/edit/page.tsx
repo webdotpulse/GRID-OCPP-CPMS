@@ -121,7 +121,7 @@ export default function EditUserPage() {
 
   return (
     <AppShell>
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
         <div className="flex items-center gap-3">
           <Link href="/users">
             <Button variant="ghost" size="icon-sm" className="rounded-xl">

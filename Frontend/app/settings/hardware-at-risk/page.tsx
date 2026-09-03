@@ -84,7 +84,7 @@ export default function HardwareAtRiskPage() {
 
   return (
     <AppShell>
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-2">Hardware at Risk</h1>
           <p className="text-muted-foreground">

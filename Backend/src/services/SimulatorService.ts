@@ -1405,6 +1405,16 @@ export class SimulatedChargerInstance {
   }
 
   /**
+   * Anomaly: Inject Raedian Vendor Fault
+   */
+  public async injectRaedianFault(connectorId: number, raedianCode: string): Promise<void> {
+    const { getRaedianErrorInfo } = await import("../utils/raedianErrorCodes.js");
+    const info = getRaedianErrorInfo(raedianCode);
+    const ocppCode = info?.ocppErrorCodeMapped || "OtherError";
+    await this.injectFault(connectorId, ocppCode, info?.code || raedianCode);
+  }
+
+  /**
    * Anomaly: Power Drop / Dynamic Grid Curtailment
    */
   public async powerDrop(connectorId: number, targetPowerKw: number): Promise<void> {

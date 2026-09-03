@@ -221,8 +221,8 @@ export default function ChargerDetailPage() {
     }
   };
 
-  if (isLoading) return <AppShell><div className="p-8">Loading charger details...</div></AppShell>;
-  if (!charger) return <AppShell><div className="p-8 text-red-500">Charger not found</div></AppShell>;
+  if (isLoading) return <AppShell><div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300"><div className="p-8">Loading charger details...</div></div></AppShell>;
+  if (!charger) return <AppShell><div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300"><div className="p-8 text-red-500">Charger not found</div></div></AppShell>;
 
   const getStatusBadge = (status: string) => {
     const s = status?.toLowerCase() || '';
@@ -260,7 +260,8 @@ export default function ChargerDetailPage() {
 
   return (
     <AppShell>
-      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="space-y-4">
           <Link href="/chargers">
             <Button variant="ghost" size="sm" className="-ml-4 text-muted-foreground">
@@ -889,6 +890,7 @@ export default function ChargerDetailPage() {
           </div>
         </TabsContent>
       </Tabs>
+      </div>
     </AppShell>
   );
 }

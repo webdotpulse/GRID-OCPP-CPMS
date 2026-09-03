@@ -148,7 +148,7 @@ export default function PaymentsSettingsPage() {
 
   return (
     <AppShell>
-      <div className="space-y-6 max-w-6xl pb-12">
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
         {/* Page Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">

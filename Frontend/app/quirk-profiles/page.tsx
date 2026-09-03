@@ -371,7 +371,7 @@ export default function QuirkProfilesPage() {
 
   return (
     <AppShell>
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-2xl font-bold tracking-tight">Hardware Quirk Profiles</h2>

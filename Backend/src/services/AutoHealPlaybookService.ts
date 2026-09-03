@@ -12,6 +12,15 @@ import {
 } from "../ocpp/remoteControl.js";
 import { redisPublisher } from "../config/redis.js";
 import { WebhookService } from "./WebhookService.js";
+import {
+  getRaedianErrorInfo,
+  isRaedianErrorCode,
+  formatRaedianDiagnostic,
+} from "../utils/raedianErrorCodes.js";
+import {
+  getUnifiedVendorErrorInfo,
+  formatUnifiedVendorDiagnostic,
+} from "../utils/vendorErrorCodes/index.js";
 
 export interface PlaybookStep {
   stepNumber: number;
@@ -80,7 +89,7 @@ export const DEFAULT_VENDOR_PLAYBOOKS: Array<{
     name: "Alfen Socket Lock Retract Recovery",
     vendor: "Alfen",
     modelPattern: "Eve Single*|Eve Double*|Twin*",
-    errorCodePattern: "Err_023|LockActuatorTimeout|SocketLockFault|ConnectorLockFailure|Err_024",
+    errorCodePattern: "\\b211\\b|\\b402\\b|Err_023|LockActuatorTimeout|SocketLockFault|ConnectorLockFailure|Err_024|Actuator",
     severity: "HIGH",
     category: "ConnectorLock",
     description: "Recovers stuck solenoid lock on Alfen Eve Single/Double sockets through pulse unlocking, connector state cycle, and status refresh.",
@@ -122,7 +131,7 @@ export const DEFAULT_VENDOR_PLAYBOOKS: Array<{
     name: "Alfen Earth Leakage / MID Meter Recovery",
     vendor: "Alfen",
     modelPattern: null,
-    errorCodePattern: "Err_045|MidMeterCommTimeout|GroundFailure|EarthLeakage|Err_046",
+    errorCodePattern: "\\b101\\b|\\b105\\b|\\b106\\b|Err_045|MidMeterCommTimeout|GroundFailure|EarthLeakage|Err_046",
     severity: "CRITICAL",
     category: "PowerElectronics",
     description: "Clears residual charging profiles, resets internal MID meter Modbus comms, and performs soft reboot.",
@@ -161,11 +170,39 @@ export const DEFAULT_VENDOR_PLAYBOOKS: Array<{
     ],
   },
   {
+    name: "Alfen Power Switch & Contactor Recovery",
+    vendor: "Alfen",
+    modelPattern: "Eve Single*|Eve Double*|Twin*",
+    errorCodePattern: "\\b102\\b|PowerSwitchFailure|ContactorWelded",
+    severity: "CRITICAL",
+    category: "PowerElectronics",
+    description: "Reboots Alfen mainboard to release contactor coil drive and verify output voltage isolation.",
+    priority: 145,
+    cooldownMinutes: 20,
+    maxRetries: 2,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "SoftReset",
+        params: { type: "Soft" },
+        delayMs: 8000,
+        description: "Soft reboot Alfen controller to clear stuck contactor relay drive",
+      },
+      {
+        stepNumber: 2,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 2000,
+        description: "Verify operative status after contactor self-test",
+      },
+    ],
+  },
+  {
     name: "Alfen Thermal Throttle & Cool-Down",
     vendor: "Alfen",
     modelPattern: null,
-    errorCodePattern: "Err_088|HighTemperature|OverHeat|ThermalWarning|TempSensorAlarm",
-    severity: "MEDIUM",
+    errorCodePattern: "\\b401\\b|Err_088|HighTemperature|OverHeat|ThermalWarning|TempSensorAlarm",
+    severity: "HIGH",
     category: "Thermal",
     description: "Safely derates current limit to 6A to allow passive heat dissipation before re-evaluating temperature sensors.",
     priority: 130,
@@ -196,6 +233,83 @@ export const DEFAULT_VENDOR_PLAYBOOKS: Array<{
         params: { requestedMessage: "MeterValues" },
         delayMs: 5000,
         description: "Request updated temperature and current telemetry",
+      },
+    ],
+  },
+  {
+    name: "Alfen Phase Wiring & Supply Loss Recovery",
+    vendor: "Alfen",
+    modelPattern: "Eve Single*|Eve Double*|Twin*",
+    errorCodePattern: "\\b201\\b|\\b202\\b|\\b212\\b|MissingPhase|UnderVoltage|PhaseWiring",
+    severity: "HIGH",
+    category: "GridFault",
+    description: "Performs soft reboot to re-calibrate phase synchronization and requests voltage meter values.",
+    priority: 140,
+    cooldownMinutes: 20,
+    maxRetries: 2,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "SoftReset",
+        params: { type: "Soft" },
+        delayMs: 8000,
+        description: "Reboot charger CPU to re-initialize grid phase sensing",
+      },
+      {
+        stepNumber: 2,
+        action: "TriggerMessage",
+        params: { requestedMessage: "MeterValues" },
+        delayMs: 3000,
+        description: "Query grid voltage across all phases",
+      },
+      {
+        stepNumber: 3,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 2000,
+        description: "Confirm connector status",
+      },
+    ],
+  },
+  {
+    name: "Alfen Vehicle Diode & Handshake Recovery",
+    vendor: "Alfen",
+    modelPattern: "Eve Single*|Eve Double*|Twin*",
+    errorCodePattern: "\\b301\\b|\\b302\\b|\\b405\\b|DiodeFault|VehicleCommunicationFault|CableResistorFault",
+    severity: "HIGH",
+    category: "PowerElectronics",
+    description: "Cycles connector lock and toggles availability to reset Control Pilot communication state machine.",
+    priority: 135,
+    cooldownMinutes: 15,
+    maxRetries: 2,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "UnlockConnector",
+        params: {},
+        delayMs: 1500,
+        description: "Unlock connector to permit cable reseating",
+      },
+      {
+        stepNumber: 2,
+        action: "ChangeAvailability",
+        params: { type: "Inoperative" },
+        delayMs: 2000,
+        description: "De-energize pilot circuit",
+      },
+      {
+        stepNumber: 3,
+        action: "ChangeAvailability",
+        params: { type: "Operative" },
+        delayMs: 2000,
+        description: "Re-enable pilot circuit",
+      },
+      {
+        stepNumber: 4,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 1500,
+        description: "Verify handshake status",
       },
     ],
   },
@@ -562,6 +676,783 @@ export const DEFAULT_VENDOR_PLAYBOOKS: Array<{
     ],
   },
 
+  // --- RAEDIAN PLAYBOOKS (NEX & GEMINI) ---
+  {
+    name: "Raedian Residual Current & Vehicle Leakage Clearance",
+    vendor: "Raedian",
+    modelPattern: "NEX*|Gemini*",
+    errorCodePattern: "E00002|0x0002|Residual current detected|Vehicle electrical leakage",
+    severity: "CRITICAL",
+    category: "PowerElectronics",
+    description: "Safely unlocks connector for cable re-seating and cycles availability to clear residual electrical leakage state.",
+    priority: 145,
+    cooldownMinutes: 15,
+    maxRetries: 2,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "UnlockConnector",
+        params: {},
+        delayMs: 1500,
+        description: "Release connector lock to allow driver to reinsert charging cable",
+      },
+      {
+        stepNumber: 2,
+        action: "ChangeAvailability",
+        params: { type: "Inoperative" },
+        delayMs: 2000,
+        description: "Set Inoperative to reset internal residual current sensor trip",
+      },
+      {
+        stepNumber: 3,
+        action: "ChangeAvailability",
+        params: { type: "Operative" },
+        delayMs: 1500,
+        description: "Restore operative availability once leakage clears",
+      },
+      {
+        stepNumber: 4,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 1000,
+        description: "Confirm operative status",
+      },
+    ],
+  },
+  {
+    name: "Raedian Grid Voltage Anomaly Protection",
+    vendor: "Raedian",
+    modelPattern: "NEX*|Gemini*",
+    errorCodePattern: "E00008|0x0008|E00010|0x0010|Overvoltage|Undervoltage",
+    severity: "HIGH",
+    category: "GridFault",
+    description: "Derates charging rate to 6A and pauses current draw while grid voltage stabilizes between nominal 184V and 276V thresholds.",
+    priority: 140,
+    cooldownMinutes: 20,
+    maxRetries: 3,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "SetChargingProfile",
+        params: {
+          csChargingProfiles: {
+            chargingProfileId: 995,
+            stackLevel: 9,
+            chargingProfilePurpose: "TxDefaultProfile",
+            chargingProfileKind: "Relative",
+            chargingSchedule: {
+              chargingRateUnit: "A",
+              chargingSchedulePeriod: [{ startPeriod: 0, limit: 6.0, numberPhases: 3 }],
+            },
+          },
+        },
+        delayMs: 4000,
+        description: "Derate EVSE max current to 6A to prevent voltage sag/spike",
+      },
+      {
+        stepNumber: 2,
+        action: "TriggerMessage",
+        params: { requestedMessage: "MeterValues" },
+        delayMs: 3000,
+        description: "Request updated voltage telemetry to verify voltage window",
+      },
+      {
+        stepNumber: 3,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 1500,
+        description: "Check status notification after voltage stabilization",
+      },
+    ],
+  },
+  {
+    name: "Raedian Overcurrent & Vehicle Load Derating",
+    vendor: "Raedian",
+    modelPattern: "NEX*|Gemini*",
+    errorCodePattern: "E00020|0x0020|E00040|0x0040|Overcurrent|Severe overcurrent",
+    severity: "CRITICAL",
+    category: "PowerElectronics",
+    description: "Derates charging current limit to 10A to prevent vehicle over-extraction and protection circuit tripping.",
+    priority: 145,
+    cooldownMinutes: 15,
+    maxRetries: 3,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "SetChargingProfile",
+        params: {
+          csChargingProfiles: {
+            chargingProfileId: 996,
+            stackLevel: 9,
+            chargingProfilePurpose: "TxDefaultProfile",
+            chargingProfileKind: "Relative",
+            chargingSchedule: {
+              chargingRateUnit: "A",
+              chargingSchedulePeriod: [{ startPeriod: 0, limit: 10.0, numberPhases: 3 }],
+            },
+          },
+        },
+        delayMs: 3000,
+        description: "Apply temporary 10A current limit to suppress excessive vehicle draw",
+      },
+      {
+        stepNumber: 2,
+        action: "TriggerMessage",
+        params: { requestedMessage: "MeterValues" },
+        delayMs: 3000,
+        description: "Verify actual drawn current is stabilized within rating",
+      },
+    ],
+  },
+  {
+    name: "Raedian Internal Overheat Thermal Cool-Down",
+    vendor: "Raedian",
+    modelPattern: "NEX*|Gemini*",
+    errorCodePattern: "E00080|0x0080|Overheat warning|Elevated internal temperature",
+    severity: "MEDIUM",
+    category: "Thermal",
+    description: "Throttles charging current to 6A to dissipate internal heat and protect electronic components from thermal wear.",
+    priority: 135,
+    cooldownMinutes: 25,
+    maxRetries: 3,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "SetChargingProfile",
+        params: {
+          csChargingProfiles: {
+            chargingProfileId: 997,
+            stackLevel: 9,
+            chargingProfilePurpose: "TxDefaultProfile",
+            chargingProfileKind: "Relative",
+            chargingSchedule: {
+              chargingRateUnit: "A",
+              chargingSchedulePeriod: [{ startPeriod: 0, limit: 6.0, numberPhases: 3 }],
+            },
+          },
+        },
+        delayMs: 3000,
+        description: "Derate to 6A cool-down rate to mitigate elevated internal temperature",
+      },
+      {
+        stepNumber: 2,
+        action: "TriggerMessage",
+        params: { requestedMessage: "MeterValues" },
+        delayMs: 5000,
+        description: "Monitor internal temperature sensor drop",
+      },
+    ],
+  },
+  {
+    name: "Raedian Vehicle Diode Circuit Reset",
+    vendor: "Raedian",
+    modelPattern: "NEX*|Gemini*",
+    errorCodePattern: "E00100|0x0100|Vehicle-side diode short circuit|Diode Missing",
+    severity: "HIGH",
+    category: "PowerElectronics",
+    description: "Recovers from EV vehicle-side diode short or missing diode by unlocking connector, pausing EVSE pilot, and resetting pilot circuit.",
+    priority: 130,
+    cooldownMinutes: 15,
+    maxRetries: 2,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "UnlockConnector",
+        params: {},
+        delayMs: 1500,
+        description: "Unlock connector to allow driver to re-seat cable",
+      },
+      {
+        stepNumber: 2,
+        action: "ChangeAvailability",
+        params: { type: "Inoperative" },
+        delayMs: 2000,
+        description: "Isolate EVSE pilot line",
+      },
+      {
+        stepNumber: 3,
+        action: "ChangeAvailability",
+        params: { type: "Operative" },
+        delayMs: 2000,
+        description: "Re-enable EVSE pilot circuit",
+      },
+      {
+        stepNumber: 4,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 1500,
+        description: "Verify state change",
+      },
+    ],
+  },
+  {
+    name: "Raedian Contactor & Relay Coil Power Cycle",
+    vendor: "Raedian",
+    modelPattern: "NEX*|Gemini*",
+    errorCodePattern: "E00400|0x0400|Relay error|Relay cannot close|closed relay cannot open",
+    severity: "CRITICAL",
+    category: "PowerElectronics",
+    description: "Performs controlled soft reboot to clear stuck contactor relay state and re-initialize switching driver.",
+    priority: 150,
+    cooldownMinutes: 20,
+    maxRetries: 2,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "SoftReset",
+        params: { type: "Soft" },
+        delayMs: 8000,
+        description: "Soft reset Raedian wallbox controller to unstick relay coil driver",
+      },
+      {
+        stepNumber: 2,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 2000,
+        description: "Confirm contactor state operative",
+      },
+    ],
+  },
+  {
+    name: "Raedian Motorized Lock Latch Pulse",
+    vendor: "Raedian",
+    modelPattern: "NEX*|Gemini*",
+    errorCodePattern: "E01000|0x1000|Electronic lock error|cable is not fully inserted",
+    severity: "HIGH",
+    category: "ConnectorLock",
+    description: "Sends dual motorized lock pulse to relieve latch tension and allow complete plug seating in Raedian socket.",
+    priority: 150,
+    cooldownMinutes: 10,
+    maxRetries: 3,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "UnlockConnector",
+        params: {},
+        delayMs: 1500,
+        description: "Primary unlock pulse to relieve lock pin mechanical tension",
+      },
+      {
+        stepNumber: 2,
+        action: "UnlockConnector",
+        params: {},
+        delayMs: 2000,
+        description: "Secondary verification pulse to ensure latch retracted fully",
+      },
+      {
+        stepNumber: 3,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 1000,
+        description: "Verify latch position state",
+      },
+    ],
+  },
+  {
+    name: "Raedian Phase Loss & Network Inspection",
+    vendor: "Raedian",
+    modelPattern: "NEX*|Gemini*",
+    errorCodePattern: "E02010|0x2010|E02000|0x2000|Phase loss error|Phase loss and undervoltage",
+    severity: "HIGH",
+    category: "GridFault",
+    description: "Soft resets wallbox and verifies phase synchronization for three-phase or IT grid networks.",
+    priority: 148,
+    cooldownMinutes: 20,
+    maxRetries: 2,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "SoftReset",
+        params: { type: "Soft" },
+        delayMs: 8000,
+        description: "Soft reset Raedian wallbox to re-calibrate phase angle and line detection",
+      },
+      {
+        stepNumber: 2,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 2000,
+        description: "Verify operative status after phase re-sensing",
+      },
+    ],
+  },
+  {
+    name: "Raedian Control Cable (CC) Signal Recovery",
+    vendor: "Raedian",
+    modelPattern: "NEX*|Gemini*",
+    errorCodePattern: "E04000|0x4000|CC detection error|CC signal",
+    severity: "MEDIUM",
+    category: "Communications",
+    description: "Unlocks socket latch to allow complete insertion and clears cable proximity resistance error.",
+    priority: 135,
+    cooldownMinutes: 10,
+    maxRetries: 3,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "UnlockConnector",
+        params: {},
+        delayMs: 1500,
+        description: "Unlock connector so driver can re-insert cable",
+      },
+      {
+        stepNumber: 2,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 1500,
+        description: "Check if Control / Proximity Contact (CC) is detected",
+      },
+    ],
+  },
+
+  // --- EASEE PLAYBOOKS (HOME, CHARGE, CHARGE LITE, CHARGE MAX) ---
+  {
+    name: "Easee Grid & Phase Configuration Recovery",
+    vendor: "Easee",
+    modelPattern: "Easee Home*|Easee Charge*|Charge Lite*|Charge Max*",
+    errorCodePattern: "\\b7\\b|\\b11\\b|IllegalGridType|PhaseNotConnected",
+    severity: "HIGH",
+    category: "GridFault",
+    description: "Re-evaluates incoming phase voltage and automatic IT/TN grid earthing detection.",
+    priority: 145,
+    cooldownMinutes: 20,
+    maxRetries: 2,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "SoftReset",
+        params: { type: "Soft" },
+        delayMs: 8000,
+        description: "Soft reset Easee charger to trigger grid type re-sensing",
+      },
+      {
+        stepNumber: 2,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 2000,
+        description: "Verify status after grid check",
+      },
+    ],
+  },
+  {
+    name: "Easee Hardware Safety Trip & Master Comms Reset",
+    vendor: "Easee",
+    modelPattern: "Easee Home*|Easee Charge*|Charge Lite*|Charge Max*",
+    errorCodePattern: "\\b9\\b|\\b56\\b|\\b100\\b|MasterCommsLost|ChargerInError|UndefinedError",
+    severity: "CRITICAL",
+    category: "PowerElectronics",
+    description: "Performs soft reboot to clear internal safety latch or re-establish radio mesh link to master charger.",
+    priority: 150,
+    cooldownMinutes: 20,
+    maxRetries: 2,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "SoftReset",
+        params: { type: "Soft" },
+        delayMs: 8000,
+        description: "Soft reboot Easee charger to clear contactor latch or rebind mesh",
+      },
+      {
+        stepNumber: 2,
+        action: "TriggerMessage",
+        params: { requestedMessage: "Heartbeat" },
+        delayMs: 3000,
+        description: "Verify link with central system",
+      },
+      {
+        stepNumber: 3,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 2000,
+        description: "Verify operational status",
+      },
+    ],
+  },
+  {
+    name: "Easee Equalizer & Circuit Load Balancing Recovery",
+    vendor: "Easee",
+    modelPattern: "Easee Home*|Easee Charge*|Charge Lite*|Charge Max*",
+    errorCodePattern: "EqualizerCurrentTooLow|CircuitCurrentLimits|LoadBalancing|\\b10\\b|\\b25\\b",
+    severity: "MEDIUM",
+    category: "General",
+    description: "Monitors dynamic Equalizer limit and requests telemetry to resume session once site capacity permits.",
+    priority: 130,
+    cooldownMinutes: 15,
+    maxRetries: 3,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "TriggerMessage",
+        params: { requestedMessage: "MeterValues" },
+        delayMs: 3000,
+        description: "Query current telemetry",
+      },
+      {
+        stepNumber: 2,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 2000,
+        description: "Verify if load balancing throttling has released",
+      },
+    ],
+  },
+
+  // --- ZAPTEC PLAYBOOKS (GO, PRO) ---
+  {
+    name: "Zaptec Contactor Weld & Power Switch Recovery",
+    vendor: "Zaptec",
+    modelPattern: "Zaptec Go*|Zaptec Pro*",
+    errorCodePattern: "CONTACTOR_WELDED|\\b1\\b",
+    severity: "CRITICAL",
+    category: "PowerElectronics",
+    description: "Soft reboots Zaptec controller to release coil drive and clear contactor welded bit (Bit 0).",
+    priority: 155,
+    cooldownMinutes: 20,
+    maxRetries: 2,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "SoftReset",
+        params: { type: "Soft" },
+        delayMs: 8000,
+        description: "Soft reset Zaptec controller to cycle relay drive coil",
+      },
+      {
+        stepNumber: 2,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 2000,
+        description: "Verify hardware bitmask status",
+      },
+    ],
+  },
+  {
+    name: "Zaptec DC RCD Earth Leakage Clearance",
+    vendor: "Zaptec",
+    modelPattern: "Zaptec Go*|Zaptec Pro*",
+    errorCodePattern: "DC_RCD_FAULT|\\b2\\b",
+    severity: "CRITICAL",
+    category: "PowerElectronics",
+    description: "Unlocks connector and cycles availability to re-zero Zaptec internal DC leakage sensor (Bit 1).",
+    priority: 150,
+    cooldownMinutes: 15,
+    maxRetries: 2,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "UnlockConnector",
+        params: {},
+        delayMs: 1500,
+        description: "Unlock connector to permit cable reseating",
+      },
+      {
+        stepNumber: 2,
+        action: "ChangeAvailability",
+        params: { type: "Inoperative" },
+        delayMs: 2000,
+        description: "Isolate power path to re-zero DC RCD transducer",
+      },
+      {
+        stepNumber: 3,
+        action: "ChangeAvailability",
+        params: { type: "Operative" },
+        delayMs: 2000,
+        description: "Restore availability",
+      },
+      {
+        stepNumber: 4,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 1500,
+        description: "Confirm Bit 1 cleared",
+      },
+    ],
+  },
+  {
+    name: "Zaptec Multi-Phase Grid Anomaly & Floating Neutral Recovery",
+    vendor: "Zaptec",
+    modelPattern: "Zaptec Go*|Zaptec Pro*",
+    errorCodePattern: "GRID_ANOMALY_NO_VOLTAGE|PHASE_MISSING|\\b8\\b|\\b134217728\\b",
+    severity: "HIGH",
+    category: "GridFault",
+    description: "Soft resets wallbox and verifies 3-phase grid supply voltages (Bit 3 / Bit 27).",
+    priority: 145,
+    cooldownMinutes: 20,
+    maxRetries: 2,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "SoftReset",
+        params: { type: "Soft" },
+        delayMs: 8000,
+        description: "Soft reset Zaptec charger to re-sense phase voltage",
+      },
+      {
+        stepNumber: 2,
+        action: "TriggerMessage",
+        params: { requestedMessage: "MeterValues" },
+        delayMs: 3000,
+        description: "Request phase voltage meter values",
+      },
+      {
+        stepNumber: 3,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 2000,
+        description: "Confirm grid error cleared",
+      },
+    ],
+  },
+  {
+    name: "Zaptec Motorized Pin Lock Retract",
+    vendor: "Zaptec",
+    modelPattern: "Zaptec Go*|Zaptec Pro*",
+    errorCodePattern: "LOCK_ACTUATOR_FAULT|\\b256\\b",
+    severity: "HIGH",
+    category: "ConnectorLock",
+    description: "Sends dual motorized lock pulse to relieve mechanical pin tension on Zaptec socket (Bit 8).",
+    priority: 150,
+    cooldownMinutes: 10,
+    maxRetries: 3,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "UnlockConnector",
+        params: {},
+        delayMs: 1500,
+        description: "Primary unlock pulse to relieve lock pin mechanical tension",
+      },
+      {
+        stepNumber: 2,
+        action: "UnlockConnector",
+        params: {},
+        delayMs: 2000,
+        description: "Secondary verification pulse to ensure pin retracted",
+      },
+      {
+        stepNumber: 3,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 1000,
+        description: "Verify latch position",
+      },
+    ],
+  },
+  {
+    name: "Zaptec Thermal Over-Temperature Derating",
+    vendor: "Zaptec",
+    modelPattern: "Zaptec Go*|Zaptec Pro*",
+    errorCodePattern: "TEMPERATURE_DERATE_SHUTDOWN|\\b65536\\b",
+    severity: "HIGH",
+    category: "Thermal",
+    description: "Derates charging current limit to 6A to allow passive heat dissipation (Bit 16).",
+    priority: 140,
+    cooldownMinutes: 25,
+    maxRetries: 3,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "SetChargingProfile",
+        params: {
+          csChargingProfiles: {
+            chargingProfileId: 994,
+            stackLevel: 9,
+            chargingProfilePurpose: "TxDefaultProfile",
+            chargingProfileKind: "Relative",
+            chargingSchedule: {
+              chargingRateUnit: "A",
+              chargingSchedulePeriod: [{ startPeriod: 0, limit: 6.0, numberPhases: 3 }],
+            },
+          },
+        },
+        delayMs: 3000,
+        description: "Derate to 6A cool-down rate",
+      },
+      {
+        stepNumber: 2,
+        action: "TriggerMessage",
+        params: { requestedMessage: "MeterValues" },
+        delayMs: 5000,
+        description: "Monitor internal temperature drop",
+      },
+    ],
+  },
+
+  // --- PEBLAR PLAYBOOKS (HOME, BUSINESS, PRO) ---
+  {
+    name: "Peblar Socket Lock Obstruction Release",
+    vendor: "Peblar",
+    modelPattern: "Peblar Home*|Peblar Business*|Peblar Pro*",
+    errorCodePattern: "\\b1000\\b|Lock Motor Failure",
+    severity: "HIGH",
+    category: "ConnectorLock",
+    description: "Sends dual unlock pulse to clear mechanical obstruction in Peblar socket lock motor.",
+    priority: 150,
+    cooldownMinutes: 10,
+    maxRetries: 3,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "UnlockConnector",
+        params: {},
+        delayMs: 1500,
+        description: "Primary unlock pulse to disengage lock motor",
+      },
+      {
+        stepNumber: 2,
+        action: "UnlockConnector",
+        params: {},
+        delayMs: 2000,
+        description: "Secondary verification pulse",
+      },
+      {
+        stepNumber: 3,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 1000,
+        description: "Verify lock state",
+      },
+    ],
+  },
+  {
+    name: "Peblar Contactor Relay Stuck Recovery",
+    vendor: "Peblar",
+    modelPattern: "Peblar Home*|Peblar Business*|Peblar Pro*",
+    errorCodePattern: "\\b1001\\b|\\b1058\\b|Relay Contactor Failure|Internal Relay Error",
+    severity: "CRITICAL",
+    category: "PowerElectronics",
+    description: "Performs soft reboot to clear stuck contactor relay state and re-initialize Peblar switching stage.",
+    priority: 155,
+    cooldownMinutes: 20,
+    maxRetries: 2,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "SoftReset",
+        params: { type: "Soft" },
+        delayMs: 8000,
+        description: "Soft reset Peblar controller to unstick relay coil",
+      },
+      {
+        stepNumber: 2,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 2000,
+        description: "Confirm contactor state operative",
+      },
+    ],
+  },
+  {
+    name: "Peblar Earth Leakage & Open PEN Recovery",
+    vendor: "Peblar",
+    modelPattern: "Peblar Home*|Peblar Business*|Peblar Pro*",
+    errorCodePattern: "\\b1057\\b|\\b1061\\b|\\b1065\\b|Earth Leakage|Ground Monitoring|Open PEN",
+    severity: "CRITICAL",
+    category: "PowerElectronics",
+    description: "Safely unlocks connector, isolates pilot circuit, and re-initializes Peblar ground fault monitoring.",
+    priority: 150,
+    cooldownMinutes: 15,
+    maxRetries: 2,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "UnlockConnector",
+        params: {},
+        delayMs: 1500,
+        description: "Unlock connector to allow cable inspection",
+      },
+      {
+        stepNumber: 2,
+        action: "ChangeAvailability",
+        params: { type: "Inoperative" },
+        delayMs: 2000,
+        description: "Isolate power module to clear residual trip",
+      },
+      {
+        stepNumber: 3,
+        action: "ChangeAvailability",
+        params: { type: "Operative" },
+        delayMs: 2000,
+        description: "Restore availability",
+      },
+      {
+        stepNumber: 4,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 1500,
+        description: "Confirm operative status",
+      },
+    ],
+  },
+  {
+    name: "Peblar Thermal Dissipation Cool-Down",
+    vendor: "Peblar",
+    modelPattern: "Peblar Home*|Peblar Business*|Peblar Pro*",
+    errorCodePattern: "\\b1059\\b|Over-Temperature Condition",
+    severity: "HIGH",
+    category: "Thermal",
+    description: "Throttles charging current to 6A to allow passive cooling on Peblar wallbox.",
+    priority: 140,
+    cooldownMinutes: 25,
+    maxRetries: 3,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "SetChargingProfile",
+        params: {
+          csChargingProfiles: {
+            chargingProfileId: 993,
+            stackLevel: 9,
+            chargingProfilePurpose: "TxDefaultProfile",
+            chargingProfileKind: "Relative",
+            chargingSchedule: {
+              chargingRateUnit: "A",
+              chargingSchedulePeriod: [{ startPeriod: 0, limit: 6.0, numberPhases: 3 }],
+            },
+          },
+        },
+        delayMs: 3000,
+        description: "Derate to 6A cool-down rate",
+      },
+      {
+        stepNumber: 2,
+        action: "TriggerMessage",
+        params: { requestedMessage: "MeterValues" },
+        delayMs: 5000,
+        description: "Monitor internal temperature sensor drop",
+      },
+    ],
+  },
+  {
+    name: "Peblar External Meter & Group Balancing Recovery",
+    vendor: "Peblar",
+    modelPattern: "Peblar Home*|Peblar Business*|Peblar Pro*",
+    errorCodePattern: "\\b10200\\b|\\b10250\\b|\\b10260\\b|\\b10270\\b|Group Load Balancing|CT Coil|P1 Smart Meter|Modbus Meter",
+    severity: "MEDIUM",
+    category: "Communications",
+    description: "Sends diagnostic query and refreshes meter connection state for external Modbus / P1 / CT meter drops.",
+    priority: 130,
+    cooldownMinutes: 15,
+    maxRetries: 3,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "TriggerMessage",
+        params: { requestedMessage: "Heartbeat" },
+        delayMs: 3000,
+        description: "Verify charger controller response",
+      },
+      {
+        stepNumber: 2,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 2000,
+        description: "Verify meter communication status",
+      },
+    ],
+  },
+
   // --- GENERIC / UNIVERSAL PLAYBOOKS ---
   {
     name: "Universal Heartbeat & Connection Watchdog",
@@ -640,6 +1531,51 @@ export const DEFAULT_VENDOR_PLAYBOOKS: Array<{
       },
     ],
   },
+  {
+    name: "MeterValues Telemetry & Interval Configuration Recovery",
+    vendor: "Generic",
+    modelPattern: null,
+    errorCodePattern: "Missing MeterValueSampleInterval|Missing MeterValuesSampledData|Missing Power in MeterValues|Missing Energy in MeterValues|MeterValueSampleInterval|MeterValuesSampledData|MissingMeasurands|NoMeterValues",
+    severity: "HIGH",
+    category: "Telemetry",
+    description: "Configures MeterValueSampleInterval to 60s, restores required Power.Active.Import and Energy.Active.Import.Register sampled data keys, and requests immediate telemetry and status notifications.",
+    priority: 135,
+    cooldownMinutes: 15,
+    maxRetries: 3,
+    steps: [
+      {
+        stepNumber: 1,
+        action: "ChangeConfiguration",
+        params: { key: "MeterValueSampleInterval", value: "60" },
+        delayMs: 1500,
+        description: "Set MeterValueSampleInterval to 60 seconds to enable periodic telemetry",
+      },
+      {
+        stepNumber: 2,
+        action: "ChangeConfiguration",
+        params: {
+          key: "MeterValuesSampledData",
+          value: "Energy.Active.Import.Register,Power.Active.Import,Current.Import,Voltage,SoC",
+        },
+        delayMs: 1500,
+        description: "Set MeterValuesSampledData to include Power.Active.Import and Energy.Active.Import.Register",
+      },
+      {
+        stepNumber: 3,
+        action: "TriggerMessage",
+        params: { requestedMessage: "MeterValues" },
+        delayMs: 2000,
+        description: "Trigger immediate MeterValues telemetry verification",
+      },
+      {
+        stepNumber: 4,
+        action: "TriggerMessage",
+        params: { requestedMessage: "StatusNotification" },
+        delayMs: 1000,
+        description: "Trigger StatusNotification verification",
+      },
+    ],
+  },
 ];
 
 export class AutoHealPlaybookService {
@@ -691,18 +1627,19 @@ export class AutoHealPlaybookService {
    */
   static async parseErrorAndRecommendPlaybook(input: {
     vendor?: string;
+    vendorId?: string;
     chargerId?: number;
     errorCode?: string;
     vendorErrorCode?: string;
     info?: string;
     rawLog?: string;
   }): Promise<PlaybookAnalysisResult> {
-    const rawText = [input.rawLog, input.vendorErrorCode, input.errorCode, input.info]
+    const rawText = [input.rawLog, input.vendorErrorCode, input.errorCode, input.info, input.vendorId]
       .filter(Boolean)
       .join(" ");
 
-    // 1. Detect Vendor from explicit parameter, charger DB lookup, or text signatures
-    let detectedVendor = input.vendor || "Generic";
+    // 1. Detect Vendor from explicit parameter, vendorId (e.g. "RAEDIAN"), charger DB lookup, or text signatures
+    let detectedVendor = input.vendor || (input.vendorId?.toUpperCase() === "RAEDIAN" ? "Raedian" : "Generic");
 
     if ((!input.vendor || input.vendor === "Generic") && input.chargerId) {
       try {
@@ -730,6 +1667,79 @@ export class AutoHealPlaybookService {
       detectedVendor = "Schneider";
     } else if (lowerText.includes("kempower") || lowerText.includes("c-station") || lowerText.includes("s-series") || lowerText.includes("kp_")) {
       detectedVendor = "Kempower";
+    } else if (
+      lowerText.includes("raedian") ||
+      lowerText.includes("nex") ||
+      lowerText.includes("gemini") ||
+      input.vendorId?.toUpperCase() === "RAEDIAN" ||
+      /\be0(0002|0008|0010|0020|0040|0080|0100|0400|1000|2000|2010|4000)\b/i.test(lowerText) ||
+      /\b0x(0002|0008|0010|0020|0040|0080|0100|0400|1000|2000|2010|4000)\b/i.test(lowerText)
+    ) {
+      detectedVendor = "Raedian";
+    } else if (
+      lowerText.includes("easee") ||
+      input.vendorId?.toLowerCase().includes("easee") ||
+      lowerText.includes("reasonfornocurrent") ||
+      lowerText.includes("chargerfine") ||
+      lowerText.includes("illegalgridtype") ||
+      lowerText.includes("equalizercurrenttoolow")
+    ) {
+      detectedVendor = "Easee";
+    } else if (
+      lowerText.includes("zaptec") ||
+      input.vendorId?.toLowerCase().includes("zaptec") ||
+      lowerText.includes("contactor_welded") ||
+      lowerText.includes("dc_rcd_fault") ||
+      lowerText.includes("lock_actuator_fault")
+    ) {
+      detectedVendor = "Zaptec";
+    } else if (
+      lowerText.includes("peblar") ||
+      input.vendorId?.toLowerCase().includes("peblar") ||
+      /\b(1000|1001|1002|1003|1004|1005|1050|1057|1058|1059|1061|1065|1252|10000|10200|10250|10260|10270|10300)\b/.test(lowerText)
+    ) {
+      detectedVendor = "Peblar";
+    }
+
+    // Special check for healthy states (e.g. Raedian 0x0000 or Easee 0 ChargerFine)
+    const initialUnified = getUnifiedVendorErrorInfo(detectedVendor, input.vendorErrorCode, rawText);
+    if (initialUnified && initialUnified.isHealthy) {
+      return {
+        matchedPlaybook: null,
+        vendor: detectedVendor,
+        confidence: 1.0,
+        category: "General",
+        severity: "LOW",
+        rootCause: `Charger reported operational healthy state (${initialUnified.name}: ${initialUnified.description}).`,
+        recommendedSteps: ["No auto-healing action required. Charger is operating normally."],
+        isAiParsed: true,
+        rawDetails: {
+          matchedErrorCode: String(input.vendorErrorCode || initialUnified.code),
+          detectedVendor,
+          extractedTokens: [initialUnified.name, "Healthy"],
+          suggestedAction: "None",
+        },
+      };
+    }
+
+    const upperVendorCode = input.vendorErrorCode?.trim().toUpperCase();
+    if (upperVendorCode === "0X0000" || upperVendorCode === "0X0" || upperVendorCode === "0") {
+      return {
+        matchedPlaybook: null,
+        vendor: detectedVendor,
+        confidence: 1.0,
+        category: "General",
+        severity: "LOW",
+        rootCause: `Charger reported operational state with no active vendor errors (vendorErrorCode: ${input.vendorErrorCode} NoError).`,
+        recommendedSteps: ["No auto-healing action required. Charger is operating normally."],
+        isAiParsed: true,
+        rawDetails: {
+          matchedErrorCode: "0x0000",
+          detectedVendor,
+          extractedTokens: ["0x0000", "NoError"],
+          suggestedAction: "None",
+        },
+      };
     }
 
     // 2. Fetch candidate playbooks (active ones)
@@ -805,6 +1815,29 @@ export class AutoHealPlaybookService {
         category = "Communications";
         rootCause = `Peripheral communication fault or Control Pilot PWM voltage drift.`;
         severity = "HIGH";
+      } else if (
+        /\b(metervalue|sampleinterval|metervaluessampleddata|power\.active\.import|energy\.active\.import|measurand)\b/i.test(lowerText) ||
+        lowerText.includes("missing metervaluesampleinterval") ||
+        lowerText.includes("missing metervaluessampleddata")
+      ) {
+        category = "Telemetry";
+        rootCause = `Missing or misconfigured MeterValueSampleInterval or MeterValuesSampledData keys preventing power/energy telemetry on ${detectedVendor} charger.`;
+        severity = "HIGH";
+      }
+
+      // Check multi-vendor specific error code details (Alfen, Easee, Zaptec, Peblar, Raedian)
+      const unifiedDiag = getUnifiedVendorErrorInfo(detectedVendor, input.vendorErrorCode, rawText);
+      if (unifiedDiag) {
+        category = unifiedDiag.category;
+        rootCause = `[${unifiedDiag.vendor} ${unifiedDiag.code}] ${unifiedDiag.name}: ${unifiedDiag.description} | Action: ${unifiedDiag.action}`;
+        severity = unifiedDiag.severity;
+      }
+    } else {
+      // If a playbook matched, enrich with official manufacturer resolution
+      const unifiedDiag = getUnifiedVendorErrorInfo(detectedVendor, input.vendorErrorCode, rawText);
+      if (unifiedDiag) {
+        category = unifiedDiag.category;
+        rootCause = `[${unifiedDiag.vendor} ${unifiedDiag.code}] ${unifiedDiag.name}: ${unifiedDiag.description} | Official Action: ${unifiedDiag.action}`;
       }
     }
 
@@ -986,6 +2019,26 @@ export class AutoHealPlaybookService {
                   ]);
                   stepSuccess = stepResponse?.status === "Accepted";
                   stepDetails = `ChangeConfiguration (${step.params.key}) result: ${stepResponse?.status || "OK"}`;
+                  if (stepSuccess) {
+                    await prisma.chargerConfiguration.upsert({
+                      where: { chargerId_key: { chargerId, key: step.params.key } },
+                      update: { value: String(step.params.value) },
+                      create: { chargerId, key: step.params.key, value: String(step.params.value), readonly: false },
+                    }).catch(() => {});
+                  }
+                } else if (step.params?.configurationKey && Array.isArray(step.params.configurationKey)) {
+                  stepResponse = await changeConfiguration(chargerId, step.params.configurationKey);
+                  stepSuccess = stepResponse?.status === "Accepted";
+                  stepDetails = `ChangeConfiguration (${step.params.configurationKey.map((k: any) => k.key).join(", ")}) result: ${stepResponse?.status || "OK"}`;
+                  if (stepSuccess) {
+                    for (const item of step.params.configurationKey) {
+                      await prisma.chargerConfiguration.upsert({
+                        where: { chargerId_key: { chargerId, key: item.key } },
+                        update: { value: String(item.value) },
+                        create: { chargerId, key: item.key, value: String(item.value), readonly: false },
+                      }).catch(() => {});
+                    }
+                  }
                 }
                 break;
 
@@ -1144,19 +2197,32 @@ export class AutoHealPlaybookService {
     status: string,
     errorCode?: string,
     vendorErrorCode?: string,
-    info?: string
+    info?: string,
+    vendorId?: string
   ): Promise<void> {
+    // Healthy vendor states (e.g. 0x0000 in Raedian, 0 in Easee)
+    const unifiedCheck = getUnifiedVendorErrorInfo(vendorId, vendorErrorCode, info);
+    if (unifiedCheck?.isHealthy) {
+      return;
+    }
+
+    const cleanVendorCode = vendorErrorCode?.trim().toUpperCase();
+    if (cleanVendorCode === "0X0000" || cleanVendorCode === "0X0" || cleanVendorCode === "0") {
+      return;
+    }
+
     if (status !== "Faulted" && status !== "SuspendedEVSE" && !vendorErrorCode) {
       return;
     }
 
     try {
       logger.info(
-        `[AutoHealPlaybookService] Evaluating fault trigger for charger ${chargerId}, connector ${connectorId} (Status: ${status}, ErrorCode: ${errorCode}, VendorCode: ${vendorErrorCode})`
+        `[AutoHealPlaybookService] Evaluating fault trigger for charger ${chargerId}, connector ${connectorId} (Status: ${status}, ErrorCode: ${errorCode}, VendorCode: ${vendorErrorCode}, VendorId: ${vendorId})`
       );
 
       const analysis = await this.parseErrorAndRecommendPlaybook({
         chargerId,
+        vendorId,
         errorCode,
         vendorErrorCode,
         info,
@@ -1167,11 +2233,16 @@ export class AutoHealPlaybookService {
           `[AutoHealPlaybookService] Auto-matched playbook '${analysis.matchedPlaybook.name}' (Confidence: ${(analysis.confidence * 100).toFixed(0)}%). Executing recovery...`
         );
 
+        const unifiedInfo = getUnifiedVendorErrorInfo(vendorId, vendorErrorCode || errorCode, info);
+        const triggerDesc = unifiedInfo
+          ? `Auto-triggered on ${status}: [${unifiedInfo.vendor} ${unifiedInfo.code}] ${unifiedInfo.name} (${unifiedInfo.description})`
+          : `Auto-triggered on ${status}: ${vendorErrorCode || errorCode || info || "Fault"}`;
+
         await this.executePlaybook(
           analysis.matchedPlaybook.id,
           chargerId,
           connectorId,
-          `Auto-triggered on ${status}: ${vendorErrorCode || errorCode || info || "Fault"}`,
+          triggerDesc,
           vendorErrorCode || errorCode
         );
       } else {

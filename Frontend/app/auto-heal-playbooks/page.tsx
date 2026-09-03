@@ -144,13 +144,14 @@ interface AiAnalysisResult {
   };
 }
 
-const VENDOR_LIST = ["All", "Alfen", "EVBox", "ABB", "Schneider", "Kempower", "Generic"];
+const VENDOR_LIST = ["All", "Alfen", "EVBox", "ABB", "Schneider", "Kempower", "Raedian", "Easee", "Zaptec", "Peblar", "Generic"];
 const CATEGORY_LIST = [
   "All",
   "ConnectorLock",
   "PowerElectronics",
   "Communications",
   "Thermal",
+  "Telemetry",
   "GridFault",
   "General",
 ];
@@ -171,9 +172,89 @@ const STEP_ACTIONS = [
 
 const SAMPLE_LOGS = [
   {
-    title: "Alfen Socket Lock Error (Err_023)",
+    title: "Missing MeterValues & Sampled Data Keys",
+    vendor: "Generic",
+    text: "Missing MeterValueSampleInterval: The charger configuration 'MeterValueSampleInterval' is missing or set to 0. Missing MeterValuesSampledData Keys: 'Power.Active.Import' and 'Energy.Active.Import.Register' are missing from measurands.",
+  },
+  {
+    title: "Alfen DC RCD Residual Leakage (101)",
     vendor: "Alfen",
-    text: "Alfen Eve Single Pro: Connector 1 reported LockActuatorTimeout: Err_023 (Socket lock actuator timeout while attempting to release plug)",
+    text: "Alfen Eve Single Pro: StatusNotification Faulted (errorCode: GroundFailure, vendorErrorCode: 101, info: '6mA DC RCD Fault: DC residual current leakage detected; check car or power board').",
+  },
+  {
+    title: "Alfen Missing Supply Phase (212)",
+    vendor: "Alfen",
+    text: "Alfen Eve Double: StatusNotification Faulted (errorCode: PowerMeterFailure, vendorErrorCode: 212, info: 'Missing Phase: Supply missing phase L2 or L3').",
+  },
+  {
+    title: "Alfen Vehicle Diode Test Failure (302)",
+    vendor: "Alfen",
+    text: "Alfen Eve Pro: StatusNotification Faulted (errorCode: OtherError, vendorErrorCode: 302, info: 'Diode Fault: Car diode test failed shorted CP diode').",
+  },
+  {
+    title: "Easee Automatic Grid Type Failure (7)",
+    vendor: "Easee",
+    text: "Easee Charge: StatusNotification Faulted (errorCode: GroundFailure, vendorErrorCode: 7, info: 'ReasonForNoCurrent: IllegalGridType - Automatic grid type detection failure IT vs TN mismatch').",
+  },
+  {
+    title: "Easee Hardware Safety Trip (56)",
+    vendor: "Easee",
+    text: "Easee Home: StatusNotification Faulted (errorCode: PowerSwitchFailure, vendorErrorCode: 56, info: 'ReasonForNoCurrent: ChargerInError - General hardware or relay safety trip').",
+  },
+  {
+    title: "Easee Equalizer Throttled Current (10)",
+    vendor: "Easee",
+    text: "Easee Charge Max: StatusNotification SuspendedEVSE (errorCode: NoError, vendorErrorCode: 10, info: 'ReasonForNoCurrent: EqualizerCurrentTooLow - Equalizer EMS limit throttled charger to 0A').",
+  },
+  {
+    title: "Zaptec Contactor Welded Switch (Bit 0 / Value 1)",
+    vendor: "Zaptec",
+    text: "Zaptec Pro: StatusNotification Faulted (errorCode: PowerSwitchFailure, vendorErrorCode: 1, info: 'CONTACTOR_WELDED: Contactor / relay welded or output switch stuck open').",
+  },
+  {
+    title: "Zaptec DC RCD Leakage Trip (Bit 1 / Value 2)",
+    vendor: "Zaptec",
+    text: "Zaptec Go: StatusNotification Faulted (errorCode: GroundFailure, vendorErrorCode: 2, info: 'DC_RCD_FAULT: DC RCD leakage fault detected >=6mA DC').",
+  },
+  {
+    title: "Zaptec Lock Actuator Failure (Bit 8 / Value 256)",
+    vendor: "Zaptec",
+    text: "Zaptec Pro: StatusNotification Faulted (errorCode: ConnectorLockFailure, vendorErrorCode: 256, info: 'LOCK_ACTUATOR_FAULT: Lock actuator failed to secure cable lock pin').",
+  },
+  {
+    title: "Peblar Lock Motor Failure (1000)",
+    vendor: "Peblar",
+    text: "Peblar Business: StatusNotification Faulted (errorCode: ConnectorLockFailure, vendorErrorCode: 1000, info: 'Lock motor failed to lock/unlock socket. Check socket for obstructions.').",
+  },
+  {
+    title: "Peblar Open PEN Ground Monitoring Fault (1065)",
+    vendor: "Peblar",
+    text: "Peblar Home: StatusNotification Faulted (errorCode: OtherError, vendorErrorCode: 1065, info: 'PEN fault detected: Open PEN disconnection Neutral/Earth potential difference fault').",
+  },
+  {
+    title: "Peblar P1 Smart Meter Interface Drop (10260)",
+    vendor: "Peblar",
+    text: "Peblar Pro: StatusNotification Available (errorCode: NoError, vendorErrorCode: 10260, info: 'Warning 10260: P1 smart meter / DSMR interface communication fault loose RJ12 cable').",
+  },
+  {
+    title: "Raedian Overvoltage Trip (E00008 / 0x0008)",
+    vendor: "Raedian",
+    text: "Raedian NEX: Overvoltage 0x0008: The voltage input is greater than or equal to 120% of the nominal voltage (276V). SuspendedEVSE.",
+  },
+  {
+    title: "Raedian Electronic Lock Latch Timeout (E01000 / 0x1000)",
+    vendor: "Raedian",
+    text: "Raedian Gemini: Electronic lock error 0x1000: The charging cable is not fully inserted into the wallbox socket.",
+  },
+  {
+    title: "Raedian Switching Relay Error (E00400 / 0x0400)",
+    vendor: "Raedian",
+    text: "Raedian NEX: Relay error 0x0400: The relay cannot close, or the closed relay cannot open caused by abnormal electrical condition or improper operation.",
+  },
+  {
+    title: "Raedian IT Network Phase Loss & Undervoltage (E02010 / 0x2010)",
+    vendor: "Raedian",
+    text: "Raedian Gemini: Phase loss and undervoltage 0x2010: Phase loss for three-phase network and voltage input is lower than or equal to 80% of nominal voltage (184V) on IT network.",
   },
   {
     title: "ABB Control Pilot Voltage Drift (F_012)",
@@ -588,7 +669,7 @@ export default function AutoHealPlaybooksPage() {
 
   return (
     <AppShell>
-      <div className="space-y-6 max-w-7xl mx-auto pb-12">
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>

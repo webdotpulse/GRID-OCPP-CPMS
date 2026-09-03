@@ -115,7 +115,7 @@ export default function ReimbursementsPage() {
 
   return (
     <AppShell>
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">{t('reimbursements.title')}</h2>
         </div>

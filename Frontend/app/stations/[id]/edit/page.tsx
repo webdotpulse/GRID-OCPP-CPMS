@@ -39,25 +39,27 @@ export default function EditStationPage() {
 
   return (
     <AppShell>
-      <div className="mb-6 space-y-4">
-        <Link href={`/stations/${id}`}>
-          <Button variant="ghost" size="sm" className="-ml-4 text-muted-foreground">
-            <ChevronLeft className="mr-2 h-4 w-4" /> Back to Station
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Edit Charging Station</h1>
-          <p className="text-muted-foreground">Update details for this location.</p>
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
+        <div className="mb-6 space-y-4">
+          <Link href={`/stations/${id}`}>
+            <Button variant="ghost" size="sm" className="-ml-4 text-muted-foreground">
+              <ChevronLeft className="mr-2 h-4 w-4" /> Back to Station
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Edit Charging Station</h1>
+            <p className="text-muted-foreground">Update details for this location.</p>
+          </div>
         </div>
+        
+        {isLoading ? (
+          <div className="flex items-center justify-center p-8">Loading...</div>
+        ) : initialData ? (
+          <StationForm initialData={initialData} />
+        ) : (
+          <div className="text-red-500">Failed to load station data.</div>
+        )}
       </div>
-      
-      {isLoading ? (
-        <div className="flex items-center justify-center p-8">Loading...</div>
-      ) : initialData ? (
-        <StationForm initialData={initialData} />
-      ) : (
-        <div className="text-red-500">Failed to load station data.</div>
-      )}
     </AppShell>
   );
 }

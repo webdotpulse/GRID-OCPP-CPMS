@@ -41,7 +41,8 @@ export default function UnrecognizedChargersPage() {
 
   return (
     <AppShell>
-      <div className="flex justify-between items-center mb-6">
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
+        <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Unrecognized Connections</h1>
           <p className="text-muted-foreground">View and register unknown or rejected OCPP connections.</p>
@@ -102,6 +103,7 @@ export default function UnrecognizedChargersPage() {
             )}
           </TableBody>
         </Table>
+      </div>
       </div>
     </AppShell>
   );

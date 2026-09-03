@@ -1044,7 +1044,7 @@ pg_dump -U postgres -h localhost -d ocpp_cpms -F c -b -v -f /var/backups/ocpp_ma
 
   return (
     <AppShell>
-      <div className="space-y-6 max-w-7xl mx-auto w-full pb-12">
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
         {/* Top Banner Card */}
         <div className="bg-card border border-border/80 rounded-2xl p-5 md:p-6 shadow-sm space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

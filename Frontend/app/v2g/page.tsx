@@ -11,7 +11,7 @@ export default function V2GPage() {
 
   return (
     <AppShell>
-      <div className="space-y-6 max-w-7xl mx-auto">
+      <div className="space-y-6 max-w-[1600px] mx-auto p-6 animate-in fade-in duration-300">
         {/* Header */}
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">

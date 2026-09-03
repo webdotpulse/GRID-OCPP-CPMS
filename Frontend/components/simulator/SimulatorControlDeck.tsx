@@ -23,7 +23,13 @@ import {
   PlayCircle,
   Activity,
   Layers,
+  ShieldAlert,
 } from "lucide-react";
+import { RAEDIAN_ERROR_CODES } from "@/lib/raedianErrorCodes";
+import { ALFEN_ERROR_CODES } from "@/lib/vendorErrorCodes/alfenErrorCodes";
+import { EASEE_REASONS } from "@/lib/vendorErrorCodes/easeeErrorCodes";
+import { ZAPTEC_FLAGS } from "@/lib/vendorErrorCodes/zaptecErrorCodes";
+import { PEBLAR_CODES } from "@/lib/vendorErrorCodes/peblarErrorCodes";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,6 +79,8 @@ export function SimulatorControlDeck({
   const [selectedStatus, setSelectedStatus] = useState("Available");
   const [stopReason, setStopReason] = useState("Local");
   const [faultErrorCode, setFaultErrorCode] = useState("GroundFailure");
+  const [selectedVendorBrand, setSelectedVendorBrand] = useState<"Raedian" | "Alfen" | "Easee" | "Zaptec" | "Peblar">("Raedian");
+  const [selectedVendorCode, setSelectedVendorCode] = useState("E00008");
   const [powerDropKw, setPowerDropKw] = useState("3.7");
   const [driftWh, setDriftWh] = useState("2500");
   const [isBufferingOffline, setIsBufferingOffline] = useState(false);
@@ -561,6 +569,118 @@ export function SimulatorControlDeck({
                 >
                   Inject
                 </Button>
+              </div>
+            </div>
+
+            {/* Anomaly 4b: Multi-Vendor Hardware Error Presets */}
+            <div className="p-4 rounded-xl bg-orange-500/5 border border-orange-500/20 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5 font-heading">
+                  <ShieldAlert className="size-4 text-orange-500" />
+                  Vendor Hardware Faults
+                </h3>
+                <Badge className="bg-orange-500/20 text-orange-600 dark:text-orange-300 text-[10px]">
+                  {selectedVendorBrand}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Inject manufacturer vendor error code to test auto-healing playbooks.
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <Select
+                  value={selectedVendorBrand}
+                  onValueChange={(brand: "Raedian" | "Alfen" | "Easee" | "Zaptec" | "Peblar") => {
+                    setSelectedVendorBrand(brand);
+                    if (brand === "Raedian") setSelectedVendorCode("E00008");
+                    else if (brand === "Alfen") setSelectedVendorCode("101");
+                    else if (brand === "Easee") setSelectedVendorCode("7");
+                    else if (brand === "Zaptec") setSelectedVendorCode("1");
+                    else if (brand === "Peblar") setSelectedVendorCode("1000");
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs bg-background border-border text-foreground rounded-lg">
+                    <SelectValue placeholder="Brand" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Raedian">Raedian</SelectItem>
+                    <SelectItem value="Alfen">Alfen</SelectItem>
+                    <SelectItem value="Easee">Easee</SelectItem>
+                    <SelectItem value="Zaptec">Zaptec</SelectItem>
+                    <SelectItem value="Peblar">Peblar</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <div className="col-span-2 flex gap-2">
+                  <Select
+                    value={selectedVendorCode}
+                    onValueChange={setSelectedVendorCode}
+                  >
+                    <SelectTrigger className="h-8 text-xs bg-background border-border text-foreground rounded-lg flex-1">
+                      <SelectValue placeholder="Code" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedVendorBrand === "Raedian" &&
+                        Object.values(RAEDIAN_ERROR_CODES).map((item) => (
+                          <SelectItem key={item.code} value={item.code}>
+                            {item.code} - {item.errorType}
+                          </SelectItem>
+                        ))}
+                      {selectedVendorBrand === "Alfen" &&
+                        Object.values(ALFEN_ERROR_CODES).map((item) => (
+                          <SelectItem key={item.code} value={item.code}>
+                            {item.code} - {item.name}
+                          </SelectItem>
+                        ))}
+                      {selectedVendorBrand === "Easee" &&
+                        Object.values(EASEE_REASONS).map((item) => (
+                          <SelectItem key={String(item.code)} value={String(item.code)}>
+                            {item.code} - {item.enumName}
+                          </SelectItem>
+                        ))}
+                      {selectedVendorBrand === "Zaptec" &&
+                        Object.values(ZAPTEC_FLAGS).map((item) => (
+                          <SelectItem key={String(item.value)} value={String(item.value)}>
+                            {item.value} - {item.name}
+                          </SelectItem>
+                        ))}
+                      {selectedVendorBrand === "Peblar" &&
+                        Object.values(PEBLAR_CODES).map((item) => (
+                          <SelectItem key={item.code} value={item.code}>
+                            {item.code} - {item.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    size="sm"
+                    className="h-8 rounded-lg text-xs font-bold bg-orange-600 hover:bg-orange-700 text-white shrink-0"
+                    onClick={() => {
+                      let mappedOcpp = "OtherError";
+                      if (selectedVendorBrand === "Raedian") {
+                        mappedOcpp = RAEDIAN_ERROR_CODES[selectedVendorCode]?.ocppErrorCodeMapped || "OtherError";
+                      } else if (selectedVendorBrand === "Alfen") {
+                        mappedOcpp = ALFEN_ERROR_CODES[selectedVendorCode]?.ocppErrorCodeMapped || "OtherError";
+                      } else if (selectedVendorBrand === "Easee") {
+                        mappedOcpp = EASEE_REASONS[selectedVendorCode]?.ocppErrorCodeMapped || "OtherError";
+                      } else if (selectedVendorBrand === "Zaptec") {
+                        mappedOcpp = ZAPTEC_FLAGS[parseInt(selectedVendorCode, 10)]?.ocppErrorCodeMapped || "OtherError";
+                      } else if (selectedVendorBrand === "Peblar") {
+                        mappedOcpp = PEBLAR_CODES[selectedVendorCode]?.ocppErrorCodeMapped || "OtherError";
+                      }
+
+                      onTriggerScenario("fault-inject", {
+                        connectorId: selectedConnectorId,
+                        errorCode: mappedOcpp,
+                        vendorErrorCode: selectedVendorCode,
+                        vendorId: selectedVendorBrand.toUpperCase(),
+                      });
+                    }}
+                    disabled={loading}
+                  >
+                    Inject
+                  </Button>
+                </div>
               </div>
             </div>
 

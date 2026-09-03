@@ -95,6 +95,7 @@ describe("AutoHealPlaybookService (Vendor-Specific Auto-Healing & AI Log Parser)
       expect(vendors).toContain("ABB");
       expect(vendors).toContain("Schneider");
       expect(vendors).toContain("Kempower");
+      expect(vendors).toContain("Raedian");
       expect(vendors).toContain("Generic");
     });
 
@@ -172,6 +173,333 @@ describe("AutoHealPlaybookService (Vendor-Specific Auto-Healing & AI Log Parser)
 
       expect(result.category).toBe("General");
       expect(result.matchedPlaybook?.name).toContain("Universal");
+    });
+
+    it("should accurately identify and recommend MeterValues Telemetry recovery for missing SampleInterval or SampledData keys", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        info: "Missing MeterValueSampleInterval: The charger configuration 'MeterValueSampleInterval' is missing or set to 0. Missing MeterValuesSampledData Keys: 'Power.Active.Import' or 'Energy.Active.Import.Register' are missing.",
+      });
+
+      expect(result.category).toBe("Telemetry");
+      expect(result.severity).toBe("HIGH");
+      expect(result.matchedPlaybook?.name).toContain("MeterValues Telemetry & Interval Configuration Recovery");
+    });
+
+    it("should accurately identify Raedian vendor and overvoltage fault (E00008)", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendorErrorCode: "E00008",
+        info: "Overvoltage: The voltage input is greater than or equal to 120% of the nominal voltage (276V)",
+      });
+
+      expect(result.vendor).toBe("Raedian");
+      expect(result.category).toBe("GridFault");
+      expect(result.severity).toBe("HIGH");
+      expect(result.matchedPlaybook?.name).toContain("Raedian Grid Voltage Anomaly Protection");
+      expect(result.rootCause).toContain("276V");
+      expect(result.rootCause).toContain("contact local utility company");
+    });
+
+    it("should accurately identify Raedian electronic lock error (E01000)", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        rawLog: "Raedian NEX reported Electronic lock error: E01000",
+      });
+
+      expect(result.vendor).toBe("Raedian");
+      expect(result.category).toBe("ConnectorLock");
+      expect(result.matchedPlaybook?.name).toContain("Raedian Motorized Lock Latch Pulse");
+      expect(result.rootCause).toContain("charging cable is not fully inserted");
+    });
+
+    it("should accurately identify Raedian relay error (E00400)", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendorErrorCode: "E00400",
+      });
+
+      expect(result.vendor).toBe("Raedian");
+      expect(result.category).toBe("PowerElectronics");
+      expect(result.severity).toBe("CRITICAL");
+      expect(result.matchedPlaybook?.name).toContain("Raedian Contactor & Relay Coil Power Cycle");
+    });
+
+    it("should accurately identify Raedian IT network phase loss & undervoltage (E02010)", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendorErrorCode: "E02010",
+      });
+
+      expect(result.vendor).toBe("Raedian");
+      expect(result.category).toBe("GridFault");
+      expect(result.matchedPlaybook?.name).toContain("Raedian Phase Loss & Network Inspection");
+      expect(result.rootCause).toContain("IT network");
+    });
+
+    it("should accurately identify Raedian charger via vendorId 'RAEDIAN' and 16-bit hex code '0x0008'", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendorId: "RAEDIAN",
+        vendorErrorCode: "0x0008",
+        info: "{\"channel\": 16, \"current\": 10}",
+      });
+
+      expect(result.vendor).toBe("Raedian");
+      expect(result.category).toBe("GridFault");
+      expect(result.severity).toBe("HIGH");
+      expect(result.matchedPlaybook?.name).toContain("Raedian Grid Voltage Anomaly Protection");
+      expect(result.rootCause).toContain("276V");
+    });
+
+    it("should handle regular Raedian message with '0x0000' as healthy NoError state", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendorId: "RAEDIAN",
+        vendorErrorCode: "0x0000",
+        errorCode: "NoError",
+        info: "{\"channel\": 16, \"current\": 10}",
+      });
+
+      expect(result.vendor).toBe("Raedian");
+      expect(result.matchedPlaybook).toBeNull();
+      expect(result.severity).toBe("LOW");
+      expect(result.rootCause).toContain("NoError");
+    });
+
+    it("should accurately resolve compound hex code '0x2010' to Raedian Phase Loss & Undervoltage", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendorId: "RAEDIAN",
+        vendorErrorCode: "0x2010",
+      });
+
+      expect(result.vendor).toBe("Raedian");
+      expect(result.category).toBe("GridFault");
+      expect(result.matchedPlaybook?.name).toContain("Raedian Phase Loss & Network Inspection");
+      expect(result.rootCause).toContain("IT network");
+    });
+
+    // --- ALFEN TESTS ---
+    it("should accurately resolve Alfen 6mA DC RCD Fault (101)", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendor: "Alfen",
+        vendorErrorCode: "101",
+      });
+
+      expect(result.vendor).toBe("Alfen");
+      expect(result.category).toBe("PowerElectronics");
+      expect(result.severity).toBe("CRITICAL");
+      expect(result.matchedPlaybook?.name).toContain("Alfen Earth Leakage / MID Meter Recovery");
+      expect(result.rootCause).toContain("6mA DC RCD Fault");
+    });
+
+    it("should accurately resolve Alfen Missing Phase (212)", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendor: "Alfen",
+        vendorErrorCode: "212",
+      });
+
+      expect(result.vendor).toBe("Alfen");
+      expect(result.category).toBe("GridFault");
+      expect(result.matchedPlaybook?.name).toContain("Alfen Phase Wiring & Supply Loss Recovery");
+      expect(result.rootCause).toContain("Missing Phase");
+    });
+
+    it("should accurately resolve Alfen Vehicle Diode Fault (302)", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendor: "Alfen",
+        vendorErrorCode: "302",
+      });
+
+      expect(result.vendor).toBe("Alfen");
+      expect(result.category).toBe("PowerElectronics");
+      expect(result.matchedPlaybook?.name).toContain("Alfen Vehicle Diode & Handshake Recovery");
+      expect(result.rootCause).toContain("Diode Fault");
+    });
+
+    // --- EASEE TESTS ---
+    it("should handle Easee ReasonForNoCurrent 0 (ChargerFine) as healthy state", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendor: "Easee",
+        vendorErrorCode: "0",
+      });
+
+      expect(result.vendor).toBe("Easee");
+      expect(result.matchedPlaybook).toBeNull();
+      expect(result.severity).toBe("LOW");
+      expect(result.rootCause).toContain("healthy state");
+    });
+
+    it("should accurately resolve Easee IllegalGridType (7)", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendor: "Easee",
+        vendorErrorCode: "7",
+      });
+
+      expect(result.vendor).toBe("Easee");
+      expect(result.category).toBe("GridFault");
+      expect(result.matchedPlaybook?.name).toContain("Easee Grid & Phase Configuration Recovery");
+      expect(result.rootCause).toContain("IllegalGridType");
+    });
+
+    it("should accurately resolve Easee ChargerInError (56)", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendor: "Easee",
+        vendorErrorCode: "56",
+      });
+
+      expect(result.vendor).toBe("Easee");
+      expect(result.category).toBe("PowerElectronics");
+      expect(result.matchedPlaybook?.name).toContain("Easee Hardware Safety Trip & Master Comms Reset");
+      expect(result.rootCause).toContain("ChargerInError");
+    });
+
+    // --- ZAPTEC TESTS ---
+    it("should accurately resolve Zaptec Contactor Welded bitmask (Bit 0 / Value 1)", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendor: "Zaptec",
+        vendorErrorCode: "1",
+      });
+
+      expect(result.vendor).toBe("Zaptec");
+      expect(result.category).toBe("PowerElectronics");
+      expect(result.severity).toBe("CRITICAL");
+      expect(result.matchedPlaybook?.name).toContain("Zaptec Contactor Weld & Power Switch Recovery");
+      expect(result.rootCause).toContain("CONTACTOR_WELDED");
+    });
+
+    it("should accurately resolve Zaptec Lock Actuator Fault bitmask (Bit 8 / Value 256)", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendor: "Zaptec",
+        vendorErrorCode: "256",
+      });
+
+      expect(result.vendor).toBe("Zaptec");
+      expect(result.category).toBe("ConnectorLock");
+      expect(result.matchedPlaybook?.name).toContain("Zaptec Motorized Pin Lock Retract");
+      expect(result.rootCause).toContain("LOCK_ACTUATOR_FAULT");
+    });
+
+    it("should accurately resolve composite Zaptec status bitmask (257 = 1 | 256)", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendor: "Zaptec",
+        vendorErrorCode: "257",
+      });
+
+      expect(result.vendor).toBe("Zaptec");
+      expect(result.category).toBe("PowerElectronics");
+      expect(result.rootCause).toContain("CONTACTOR_WELDED");
+      expect(result.rootCause).toContain("LOCK_ACTUATOR_FAULT");
+    });
+
+    // --- PEBLAR TESTS ---
+    it("should accurately resolve Peblar Lock Motor Failure (1000)", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendor: "Peblar",
+        vendorErrorCode: "1000",
+      });
+
+      expect(result.vendor).toBe("Peblar");
+      expect(result.category).toBe("ConnectorLock");
+      expect(result.matchedPlaybook?.name).toContain("Peblar Socket Lock Obstruction Release");
+      expect(result.rootCause).toContain("Lock Motor Failure");
+    });
+
+    it("should accurately resolve Peblar Open PEN fault (1065)", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendor: "Peblar",
+        vendorErrorCode: "1065",
+      });
+
+      expect(result.vendor).toBe("Peblar");
+      expect(result.category).toBe("GridFault");
+      expect(result.matchedPlaybook?.name).toContain("Peblar Earth Leakage & Open PEN Recovery");
+      expect(result.rootCause).toContain("Open PEN Disconnection");
+    });
+
+    it("should accurately resolve Peblar P1 Smart Meter interface warning (10260)", async () => {
+      mockPrisma.autoHealPlaybook.findMany.mockResolvedValue(
+        DEFAULT_VENDOR_PLAYBOOKS.map((p, idx) => ({ id: idx + 1, ...p, isActive: true }))
+      );
+
+      const result = await AutoHealPlaybookService.parseErrorAndRecommendPlaybook({
+        vendor: "Peblar",
+        vendorErrorCode: "10260",
+      });
+
+      expect(result.vendor).toBe("Peblar");
+      expect(result.category).toBe("Communications");
+      expect(result.matchedPlaybook?.name).toContain("Peblar External Meter & Group Balancing Recovery");
+      expect(result.rootCause).toContain("P1 Smart Meter Interface Fault");
     });
   });
 

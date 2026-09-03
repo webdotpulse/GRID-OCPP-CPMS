@@ -1,8 +1,18 @@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertCircle, Info, CheckCircle2 } from "lucide-react";
+import { Loader2, AlertCircle, Info, CheckCircle2, Sparkles, ShieldAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { toast } from "sonner";
+import { getUnifiedVendorErrorInfo, UnifiedVendorErrorInfo } from "@/lib/vendorErrorCodes";
+
+interface InvestigateIssue {
+  title: string;
+  desc: string;
+  type: 'error' | 'warning' | 'success';
+  vendorInfo?: UnifiedVendorErrorInfo;
+  raedianInfo?: any;
+}
 
 interface InvestigateDialogProps {
   open: boolean;
@@ -13,7 +23,8 @@ interface InvestigateDialogProps {
 
 export function InvestigateDialog({ open, onOpenChange, chargerId, connectorId }: InvestigateDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [analysis, setAnalysis] = useState<{ title: string; desc: string; type: 'error' | 'warning' | 'success' }[]>([]);
+  const [healing, setHealing] = useState(false);
+  const [analysis, setAnalysis] = useState<InvestigateIssue[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -21,6 +32,83 @@ export function InvestigateDialog({ open, onOpenChange, chargerId, connectorId }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, chargerId, connectorId]);
+
+  const handleAutoHeal = async () => {
+    try {
+      setHealing(true);
+
+      // Check if a multi-vendor error was identified (Alfen, Easee, Zaptec, Peblar, Raedian)
+      const vendorIssue = analysis.find(item => item.vendorInfo || item.raedianInfo);
+      if (vendorIssue) {
+        const vInfo = vendorIssue.vendorInfo;
+        const vendorName = vInfo?.vendor || (vendorIssue.raedianInfo ? "Raedian" : "Generic");
+        const vendorCode = vInfo?.code || vendorIssue.raedianInfo?.code;
+
+        try {
+          const analyzeRes = await api.post("/auto-heal-playbooks/analyze", {
+            chargerId,
+            vendor: vendorName,
+            vendorErrorCode: vendorCode,
+          });
+
+          if (analyzeRes.data?.matchedPlaybook?.id) {
+            await api.post(`/auto-heal-playbooks/${analyzeRes.data.matchedPlaybook.id}/execute`, {
+              chargerId,
+              connectorId,
+              triggerReason: `Investigate Dialog Auto-Heal: [${vendorName} ${vendorCode}] ${vInfo?.name || ""}`,
+            });
+            toast.success(`Dispatched ${analyzeRes.data.matchedPlaybook.name}! Executing recovery sequence...`);
+            setTimeout(() => {
+              runAnalysis();
+            }, 2500);
+            return;
+          }
+        } catch {
+          // fallback to telemetry playbook if vendor search fails
+        }
+      }
+
+      // Check if there is an active telemetry configuration playbook
+      const playbooksRes = await api.get("/auto-heal-playbooks");
+      const playbooks = Array.isArray(playbooksRes.data) ? playbooksRes.data : [];
+      const telemetryPlaybook = playbooks.find((p: any) =>
+        p.isActive && (
+          p.name.includes("MeterValues Telemetry") ||
+          p.name.includes("Missing MeterValueSampleInterval") ||
+          p.errorCodePattern?.includes("MeterValueSampleInterval")
+        )
+      );
+
+      if (telemetryPlaybook) {
+        await api.post(`/auto-heal-playbooks/${telemetryPlaybook.id}/execute`, {
+          chargerId,
+          connectorId,
+          triggerReason: "Investigate Dialog One-Click Auto-Heal",
+        });
+        toast.success(`Dispatched ${telemetryPlaybook.name}! Executing recovery sequence...`);
+      } else {
+        // Fallback: manually update configuration if playbook is not yet seeded
+        await api.post(`/chargers/${chargerId}/config`, {
+          key: "MeterValueSampleInterval",
+          value: "60"
+        });
+        await api.post(`/chargers/${chargerId}/config`, {
+          key: "MeterValuesSampledData",
+          value: "Energy.Active.Import.Register,Power.Active.Import,Current.Import,Voltage,SoC"
+        });
+        toast.success("Applied recommended MeterValues telemetry configurations!");
+      }
+
+      // Re-run analysis after short cooldown
+      setTimeout(() => {
+        runAnalysis();
+      }, 2500);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Failed to execute auto-heal playbook");
+    } finally {
+      setHealing(false);
+    }
+  };
 
   const runAnalysis = async () => {
     setLoading(true);
@@ -39,7 +127,7 @@ export function InvestigateDialog({ open, onOpenChange, chargerId, connectorId }
          // ignore config errors
       }
 
-      const issues = [];
+      const issues: InvestigateIssue[] = [];
 
       const meterValuesSampleInterval = configs.find(c => c.key === "MeterValueSampleInterval")?.value;
       const meterValuesSampledData = configs.find(c => c.key === "MeterValuesSampledData")?.value;
@@ -124,17 +212,51 @@ export function InvestigateDialog({ open, onOpenChange, chargerId, connectorId }
           }
       }
 
-      if (issues.length === 0) {
-          issues.push({
-             title: "No Issues Found",
-             desc: "Configuration and logs look correct. The charger might be in a suspended state or the session just started.",
-             type: "success"
-          });
+      // Check for Multi-Vendor Error Codes in recent logs or status notifications (Alfen, Easee, Zaptec, Peblar, Raedian)
+      let foundVendorError: UnifiedVendorErrorInfo | null = null;
+      for (const log of recentLogs) {
+        try {
+          const parsed = typeof log.message === "string" ? JSON.parse(log.message) : log.message;
+          const msgStr = typeof log.message === "string" ? log.message : JSON.stringify(log.message);
+
+          if (Array.isArray(parsed) && parsed[0] === 2 && parsed[2] === "StatusNotification") {
+            const payload = parsed[3];
+            const vInfo = getUnifiedVendorErrorInfo(payload?.vendorId, payload?.vendorErrorCode || payload?.errorCode, payload?.info);
+            if (vInfo && !vInfo.isHealthy) {
+              foundVendorError = vInfo;
+              break;
+            }
+          }
+          const vText = getUnifiedVendorErrorInfo(undefined, undefined, msgStr);
+          if (vText && !vText.isHealthy) {
+            foundVendorError = vText;
+            break;
+          }
+        } catch {
+          // ignore
+        }
       }
 
-      setAnalysis(issues as any);
+      if (foundVendorError) {
+        issues.unshift({
+          title: `${foundVendorError.vendor} Diagnostic: [${foundVendorError.code}] ${foundVendorError.name}`,
+          desc: `Reason: ${foundVendorError.description} | Action: ${foundVendorError.action}`,
+          type: foundVendorError.severity === "CRITICAL" || foundVendorError.severity === "HIGH" ? "error" : "warning",
+          vendorInfo: foundVendorError,
+        });
+      }
+
+      if (issues.length === 0) {
+        issues.push({
+          title: "All Checks Passed",
+          desc: "No configuration anomalies, missing measurands, or vendor fault codes detected.",
+          type: "success",
+        });
+      }
+
+      setAnalysis(issues);
     } catch {
-       setAnalysis([{ title: "Error", desc: "Failed to run analysis", type: "error" }]);
+      toast.error("Failed to run diagnostics analysis");
     } finally {
       setLoading(false);
     }
@@ -142,7 +264,7 @@ export function InvestigateDialog({ open, onOpenChange, chargerId, connectorId }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[620px]">
         <DialogHeader>
           <DialogTitle>Charging Session Analysis</DialogTitle>
         </DialogHeader>
@@ -155,18 +277,59 @@ export function InvestigateDialog({ open, onOpenChange, chargerId, connectorId }
           ) : (
             <div className="space-y-3">
               {analysis.map((item, i) => (
-                <div key={i} className={`p-3 rounded-md border flex gap-3 ${item.type === 'error' ? 'bg-red-50/50 border-red-200' : item.type === 'warning' ? 'bg-yellow-50/50 border-yellow-200' : 'bg-green-50/50 border-green-200'}`}>
-                  {item.type === 'error' ? <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" /> : item.type === 'warning' ? <Info className="h-5 w-5 text-yellow-500 mt-0.5 shrink-0" /> : <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />}
-                  <div>
-                     <h4 className={`text-sm font-medium ${item.type === 'error' ? 'text-red-800' : item.type === 'warning' ? 'text-yellow-800' : 'text-green-800'}`}>{item.title}</h4>
-                     <p className={`text-xs mt-1 ${item.type === 'error' ? 'text-red-600' : item.type === 'warning' ? 'text-yellow-700' : 'text-green-600'}`}>{item.desc}</p>
+                <div key={i} className={`p-3.5 rounded-xl border flex gap-3 ${item.vendorInfo ? 'bg-orange-50/60 dark:bg-orange-950/20 border-orange-300 dark:border-orange-800' : item.type === 'error' ? 'bg-red-50/50 border-red-200' : item.type === 'warning' ? 'bg-yellow-50/50 border-yellow-200' : 'bg-green-50/50 border-green-200'}`}>
+                  {item.vendorInfo ? (
+                    <ShieldAlert className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5 shrink-0" />
+                  ) : item.type === 'error' ? (
+                    <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
+                  ) : item.type === 'warning' ? (
+                    <Info className="h-5 w-5 text-yellow-500 mt-0.5 shrink-0" />
+                  ) : (
+                    <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
+                  )}
+                  <div className="space-y-1">
+                     <div className="flex items-center gap-2 flex-wrap">
+                       <h4 className={`text-sm font-medium ${item.vendorInfo ? 'text-orange-900 dark:text-orange-200 font-bold' : item.type === 'error' ? 'text-red-800' : item.type === 'warning' ? 'text-yellow-800' : 'text-green-800'}`}>{item.title}</h4>
+                       {item.vendorInfo && (
+                         <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-orange-200 dark:bg-orange-800 text-orange-900 dark:text-orange-100">
+                           {item.vendorInfo.vendor} {item.vendorInfo.code}
+                         </span>
+                       )}
+                     </div>
+                     <p className={`text-xs leading-relaxed ${item.vendorInfo ? 'text-orange-800 dark:text-orange-300' : item.type === 'error' ? 'text-red-600' : item.type === 'warning' ? 'text-yellow-700' : 'text-green-600'}`}>{item.desc}</p>
                   </div>
                 </div>
               ))}
             </div>
           )}
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex items-center justify-between sm:justify-between w-full">
+          {analysis.some(item =>
+            item.vendorInfo ||
+            item.raedianInfo ||
+            item.title.includes("MeterValue") ||
+            item.title.includes("Missing Power") ||
+            item.title.includes("Missing Energy")
+          ) ? (
+            <Button
+              onClick={handleAutoHeal}
+              disabled={healing || loading}
+              className="bg-gradient-to-r from-[#54a8c7] to-[#3f78e0] text-white hover:opacity-90 shadow-sm"
+              size="sm"
+            >
+              {healing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  Auto-Healing...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-1.5" />
+                  Auto-Heal with Playbook
+                </>
+              )}
+            </Button>
+          ) : <div />}
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
