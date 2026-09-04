@@ -151,6 +151,8 @@ export const getLiveSessions = async (req: Request, res: Response) => {
         currentPower: t.currentPower,
         status: t.status,
         type: "basic",
+        pairedChargerId: t.charger.pairedChargerId || null,
+        primaryChargerId: t.charger.isCombined && t.charger.pairedRole === "secondary" && t.charger.pairedChargerId ? t.charger.pairedChargerId : t.charger_id,
         durationMinutes: Math.floor((Date.now() - t.startTime.getTime()) / 60000),
       })),
       ...activeRfidSessions.map((s: any) => ({
@@ -163,6 +165,8 @@ export const getLiveSessions = async (req: Request, res: Response) => {
         currentPower: s.currentPower,
         status: s.status,
         type: "rfid",
+        pairedChargerId: s.charger.pairedChargerId || null,
+        primaryChargerId: s.charger.isCombined && s.charger.pairedRole === "secondary" && s.charger.pairedChargerId ? s.charger.pairedChargerId : s.charger_id,
         durationMinutes: Math.floor((Date.now() - s.startTime.getTime()) / 60000),
         userName: s.rfidUser.name,
         userTag: s.rfidUser.rfid_tag,

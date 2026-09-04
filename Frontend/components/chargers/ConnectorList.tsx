@@ -198,9 +198,29 @@ export function ConnectorList({ connectors: initialConnectors, readOnly = false,
     }
   };
 
+  const findActiveTxn = (conn: Connector) => {
+    return activeTxns.find(t => {
+      if (!t) return false;
+      if (t.connectorName === String(conn.connector_id) || t.connectorName === conn.connector_name) {
+        return true;
+      }
+      const tName = (t.connectorName || "").trim().toLowerCase();
+      const cName = (conn.connector_name || "").trim().toLowerCase();
+      if (tName && cName && tName === cName) {
+        return true;
+      }
+      const tNum = tName.match(/\d+/)?.[0];
+      const cNum = cName.match(/\d+/)?.[0];
+      if (tNum && cNum && tNum === cNum) {
+        return true;
+      }
+      return false;
+    });
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 text-sm">
+      <div className="flex items-center gap-2 text-sm">
         <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
           {availableCount} Available
         </Badge>
@@ -239,8 +259,8 @@ export function ConnectorList({ connectors: initialConnectors, readOnly = false,
         </TableHeader>
         <TableBody>
           {connectors.map((conn) => {
-            const activeTxn = activeTxns.find(t => t.connectorName === String(conn.connector_id) || t.connectorName === conn.connector_name);
-            const isCharging = conn.status?.toLowerCase() === 'charging' || activeTxn;
+            const activeTxn = findActiveTxn(conn);
+            const isCharging = conn.status?.toLowerCase() === 'charging' || !!activeTxn;
             return (
             <React.Fragment key={conn.connector_id}>
               <TableRow
@@ -265,9 +285,6 @@ export function ConnectorList({ connectors: initialConnectors, readOnly = false,
                 </TableCell>
                 <TableCell>{conn.max_power ? `${conn.max_power} kW` : 'N/A'}</TableCell>
                 {(() => {
-                  const activeTxn = activeTxns.find(t => t.connectorName === String(conn.connector_id) || t.connectorName === conn.connector_name);
-                  const isCharging = conn.status?.toLowerCase() === 'charging' || activeTxn;
-
                   if (isCharging && activeTxn) {
                     const power = activeTxn.currentPower ? (activeTxn.currentPower / 1000).toFixed(2) + ' kW' : '0.00 kW';
                     const energy = activeTxn.energyConsumed ? (activeTxn.energyConsumed / 1000).toFixed(2) + ' kWh' : '0.00 kWh';
@@ -301,7 +318,8 @@ export function ConnectorList({ connectors: initialConnectors, readOnly = false,
                         className="h-6 px-2 text-xs"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (conn.charger_id) setInvestigateDialogState({ open: true, chargerId: conn.charger_id, connectorId: conn.connector_id });
+                          const targetChargerId = activeTxn?.charger_id || conn.charger_id;
+                          if (targetChargerId) setInvestigateDialogState({ open: true, chargerId: targetChargerId, connectorId: conn.connector_id });
                         }}
                       >
                         <Search className="mr-1 h-3 w-3" />
@@ -328,7 +346,7 @@ export function ConnectorList({ connectors: initialConnectors, readOnly = false,
                   <TableCell colSpan={!readOnly && (user?.role === "admin" || user?.role === "superadmin") ? 9 : 8} className="p-0 border-b-0 bg-muted/10">
                     <div className="p-4 space-y-4">
                       {!hideLogs && <ChannelLogs
-                        chargerId={conn.charger_id || 0}
+                        chargerId={activeTxn?.charger_id || conn.charger_id || 0}
                         connectorId={conn.connector_id}
                       />}
                     </div>

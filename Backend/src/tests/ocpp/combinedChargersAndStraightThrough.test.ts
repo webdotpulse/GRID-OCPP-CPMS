@@ -4,6 +4,7 @@ import * as v16Handlers from '../../ocpp/handlers/v16Handlers.js';
 import * as v21Handlers from '../../ocpp/handlers/v21Handlers.js';
 import { resolveTargetChargerAndConnector } from '../../ocpp/remoteControl.js';
 import { combineChargers, uncombineChargers, getAllChargers } from '../../api/chargers/chargers.controller.js';
+import { getChargerTransactions } from '../../api/transactions/transactions.controller.js';
 import { loadManagementService } from '../../services/LoadManagementService.js';
 
 describe("Combined Dual-Socket Chargers & Straight-Through Proxy", () => {
@@ -378,6 +379,64 @@ describe("Combined Dual-Socket Chargers & Straight-Through Proxy", () => {
           connector_name: "Channel 2",
         },
       });
+    });
+
+    it("getChargerTransactions for primary combined charger should query transactions for both primary and paired secondary charger", async () => {
+      jest.spyOn(prisma.charger, 'findUnique').mockResolvedValue({
+        charger_id: 501,
+        isCombined: true,
+        pairedRole: "primary",
+        pairedChargerId: 502,
+      } as any);
+
+      const mockTx1 = {
+        id: 1,
+        transactionId: "tx-ch1",
+        charger_id: 501,
+        connectorName: "Channel 1",
+        status: "available",
+      };
+      const mockTx2 = {
+        id: 2,
+        transactionId: "tx-ch2",
+        charger_id: 502,
+        connectorName: "Channel 2",
+        status: "charging",
+        currentPower: 11000,
+        energyConsumed: 4500,
+      };
+
+      const findManySpy = jest.spyOn(prisma.transaction, 'findMany').mockResolvedValue([mockTx2, mockTx1] as any);
+      jest.spyOn(prisma.rfidSession, 'findMany').mockResolvedValue([] as any);
+
+      const req: any = {
+        params: { chargerId: "501" },
+        userRole: "admin",
+        userId: 1,
+      };
+      const res: any = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+
+      await getChargerTransactions(req, res);
+
+      expect(findManySpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            charger_id: { in: [501, 502] },
+          }),
+        })
+      );
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({
+            transactions: [mockTx2, mockTx1],
+            total: 2,
+          }),
+        })
+      );
     });
   });
 });

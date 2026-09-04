@@ -77,7 +77,17 @@ export const getChargerLogs = async (req: Request, res: Response) => {
     // @ts-expect-error userId is attached by authenticateToken middleware
     const userId = req.userId;
 
-    const where: any = { chargerId };
+    const charger = await prisma.charger.findUnique({
+      where: { charger_id: chargerId },
+      select: { isCombined: true, pairedChargerId: true },
+    });
+
+    const chargerIds = [chargerId];
+    if (charger?.isCombined && charger.pairedChargerId) {
+      chargerIds.push(charger.pairedChargerId);
+    }
+
+    const where: any = { chargerId: { in: chargerIds } };
     if (userRole !== "admin" && userRole !== "superadmin") {
       where.charger = { owner_id: userId };
     }
@@ -305,6 +315,18 @@ export const getChargerById = async (req: Request, res: Response) => {
 
     if (charger.owner) {
       charger.owner = sanitizeUser(charger.owner) as any;
+    }
+
+    if (charger.isCombined && charger.pairedChargerId) {
+      const pairedTransactions = await prisma.transaction.findMany({
+        where: { charger_id: charger.pairedChargerId },
+        take: 10,
+        orderBy: { createdAt: "desc" },
+        include: { charger: true, rfidUser: true },
+      });
+      charger.transactions = [...charger.transactions, ...pairedTransactions]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 10);
     }
 
     res.json({ success: true, data: { ...charger, protocol: await getChargerProtocol(chargerId) } });

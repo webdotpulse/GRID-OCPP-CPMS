@@ -21,7 +21,15 @@ export const getAllTransactions = async (req: Request, res: Response) => {
     if (chargerId) {
       const parsedChargerId = parseId(chargerId);
       if (parsedChargerId) {
-        where.charger_id = parsedChargerId;
+        const charger = await prisma.charger.findUnique({
+          where: { charger_id: parsedChargerId },
+          select: { isCombined: true, pairedChargerId: true },
+        });
+        if (charger?.isCombined && charger.pairedChargerId) {
+          where.charger_id = { in: [parsedChargerId, charger.pairedChargerId] };
+        } else {
+          where.charger_id = parsedChargerId;
+        }
       }
     }
     if (search) {
@@ -178,22 +186,39 @@ export const getChargerTransactions = async (req: Request, res: Response) => {
     // @ts-expect-error userId is attached by authenticateToken middleware
     const userId = req.userId;
 
-    const where: any = { charger_id };
+    const charger = await prisma.charger.findUnique({
+      where: { charger_id },
+      select: { isCombined: true, pairedChargerId: true },
+    });
+
+    const chargerIds = [charger_id];
+    if (charger?.isCombined && charger.pairedChargerId) {
+      chargerIds.push(charger.pairedChargerId);
+    }
+
+    const where: any = { charger_id: { in: chargerIds } };
     if (userRole !== "admin" && userRole !== "superadmin") {
       where.charger = { owner_id: userId };
     }
 
-    const transactions = await prisma.transaction.findMany({
-      where,
-      include: { charger: true, rfidUser: true },
-      orderBy: { createdAt: "desc" },
-    });
+    const [transactions, rfidSessions] = await Promise.all([
+      prisma.transaction.findMany({
+        where,
+        include: { charger: true, rfidUser: true },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.rfidSession.findMany({
+        where,
+        include: { charger: true, rfidUser: true },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
 
     res.json({
       success: true,
       data: {
         transactions,
-        rfidSessions: [],
+        rfidSessions,
         total: transactions.length,
       },
     });

@@ -96,7 +96,16 @@ export function ManualSpeedOverridePanel({ chargerId, connectors, activeTxns }: 
       </CardHeader>
       <CardContent className="space-y-6">
         {connectors.map((conn) => {
-          const activeTxn = activeTxns.find(t => t.connectorName === String(conn.connector_id) || t.connectorName === conn.connector_name);
+          const activeTxn = activeTxns.find(t => {
+            if (!t) return false;
+            if (t.connectorName === String(conn.connector_id) || t.connectorName === conn.connector_name) return true;
+            const tName = (t.connectorName || "").trim().toLowerCase();
+            const cName = (conn.connector_name || "").trim().toLowerCase();
+            if (tName && cName && tName === cName) return true;
+            const tNum = tName.match(/\d+/)?.[0];
+            const cNum = cName.match(/\d+/)?.[0];
+            return Boolean(tNum && cNum && tNum === cNum);
+          });
           return (
             <div key={conn.connector_id} className="rounded-md border bg-muted/20 p-4">
               <h4 className="font-medium text-sm mb-4">Channel {conn.connector_id} {conn.connector_name ? `(${conn.connector_name})` : ''}</h4>

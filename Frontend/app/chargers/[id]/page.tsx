@@ -147,7 +147,13 @@ export default function ChargerDetailPage() {
       if (!id) return;
       try {
         const response = await api.get('/dashboard/live-sessions');
-        const sessions = response.data.filter((s: any) => s.chargerId === Number(id));
+        const targetIds = [Number(id)];
+        if (charger?.isCombined && charger?.pairedChargerId) {
+          targetIds.push(charger.pairedChargerId);
+        }
+        const sessions = (response.data || []).filter((s: any) =>
+          targetIds.includes(s.chargerId) || (s.primaryChargerId && targetIds.includes(s.primaryChargerId))
+        );
         setActiveTxns(sessions);
       } catch (err) {
         toast.error("Failed to fetch active transactions");
@@ -156,7 +162,7 @@ export default function ChargerDetailPage() {
     fetchActiveTxns();
     const interval = setInterval(fetchActiveTxns, 30000);
     return () => clearInterval(interval);
-  }, [id]);
+  }, [id, charger?.isCombined, charger?.pairedChargerId]);
 
   const allConnectors = useMemo(() => {
     if (!charger) return [];
