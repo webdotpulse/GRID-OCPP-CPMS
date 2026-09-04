@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { Loader2, User, KeyRound, ShieldAlert, ShieldCheck, Settings, WalletCards, Mail, Globe, Activity, Tv, Sparkles, Shield, Webhook, Cpu, Package, Server, Car, Radio, PlayCircle } from "lucide-react";
+import { Loader2, User, KeyRound, ShieldAlert, ShieldCheck, Settings, WalletCards, Mail, Globe, Activity, Tv, Sparkles, Shield, Webhook, Cpu, Package, Server, Car, Radio, PlayCircle, Landmark } from "lucide-react";
 import Image from "next/image";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -602,6 +602,8 @@ export default function SettingsPage() {
                     { title: 'Quirk Profiles', desc: 'Hardware-specific compatibility fixes for non-compliant chargers.', link: '/quirk-profiles', icon: ShieldAlert, color: 'text-[#e2626b] bg-[#e2626b]/15' },
                     { title: 'Ad Manager', desc: 'Promotional multimedia campaigns for charger LCD screens.', link: '/settings/ad-manager', icon: Tv, color: 'text-[#54a8c7] bg-[#54a8c7]/15' },
                     { title: 'Payment Gateways', desc: 'Stripe and Mollie credit card, digital wallet & iDEAL settlements.', link: '/settings/payments', icon: WalletCards, color: 'text-[#fab758] bg-[#fab758]/15' },
+                    { title: 'Home Reimbursements & SEPA', desc: 'Employee home charging reimbursement contracts and ISO 20022 SEPA payment export.', link: '/reimbursements', icon: Landmark, color: 'text-[#45c4a0] bg-[#45c4a0]/15' },
+                    { title: 'Hardware at Risk Rules', desc: 'Configure offline thresholds, consecutive error limits, and auto-heal alert notifications.', link: '/settings/hardware-at-risk', icon: ShieldAlert, color: 'text-[#e2626b] bg-[#e2626b]/15' },
                   ].map((tile) => {
                     const Icon = tile.icon;
                     return (

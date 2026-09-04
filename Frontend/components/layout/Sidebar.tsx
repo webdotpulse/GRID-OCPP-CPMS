@@ -32,6 +32,7 @@ import {
   CalendarRange,
   Sparkles,
   BookOpen,
+  Landmark,
 } from 'lucide-react';
 
 interface NavItem {
@@ -106,6 +107,7 @@ export function Sidebar({
         { key: 'nav.reservations', path: '/reservations', icon: CalendarClock },
         { key: 'nav.transactions', path: '/transactions', icon: ReceiptText },
         { key: 'nav.invoices', path: '/invoices', icon: FileText },
+        { key: 'nav.reimbursements', path: '/reimbursements', icon: Landmark },
         { key: 'nav.tariffs', path: '/tariffs', icon: WalletCards },
       ],
     },

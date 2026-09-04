@@ -244,6 +244,12 @@ export default function HardwareAtRiskPage() {
               <RefreshCw className="size-3.5" />
               Refresh
             </Button>
+            <Link href="/settings/hardware-at-risk">
+              <Button variant="outline" size="sm" className="text-xs gap-1.5">
+                <Sliders className="size-3.5" />
+                Alert Rules
+              </Button>
+            </Link>
             <Link href="/auto-heal-playbooks">
               <Button className="bg-[#54a8c7] hover:bg-[#54a8c7]/90 text-white text-xs gap-1.5 shadow-md shadow-[#54a8c7]/20 font-semibold">
                 <Sparkles className="size-4" />
