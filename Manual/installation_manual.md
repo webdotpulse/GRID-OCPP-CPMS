@@ -46,7 +46,7 @@ The CPMS is built on a decoupled, micro-service ready architecture that scales f
                                                ▼                                  ▼
                                     ┌────────────────────────────────────────────────────────┐
                                     │               PostgreSQL Database 15+                  │
-                                    │                 Prisma ORM 7.8 Client                  │
+                                    │                 Prisma ORM 7.10 Client                 │
                                     └──────────────────────────┬─────────────────────────────┘
                                                                │
                                                                ▼

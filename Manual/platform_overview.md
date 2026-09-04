@@ -5,7 +5,7 @@
 The **OCPP Central Processing Management System (CPMS)** is an enterprise-grade platform engineered to manage, monitor, and optimize Electric Vehicle (EV) charging infrastructure at scale. Built for high concurrency, multi-protocol interoperability, and operational resilience, the system leverages a modern, decoupled technology stack:
 
 * **Backend Runtime:** Node.js 24+ (ESM) with TypeScript 6+ and Express 5.
-* **Database & ORM:** PostgreSQL 15+ managed with Prisma ORM 7.8.
+* **Database & ORM:** PostgreSQL 15+ managed with Prisma ORM 7.10.
 * **Caching & Broker:** Redis 7 (`ioredis`) for multi-pod WebSocket pub/sub clustering, telemetry caching, and rate limiting.
 * **Asynchronous Workers:** BullMQ queue workers handling decoupled background billing calculations, meter value batch ingestion, and event synchronization.
 * **Frontend Dashboard:** Next.js 16+ App Router (React 19) with TailwindCSS and Radix UI (shadcn/ui).

@@ -10,7 +10,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-16+-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Prisma](https://img.shields.io/badge/Prisma-7.8-2D3748?style=for-the-badge&logo=prisma&logoColor=white)](https://www.prisma.io/)
+[![Prisma](https://img.shields.io/badge/Prisma-7.10-2D3748?style=for-the-badge&logo=prisma&logoColor=white)](https://www.prisma.io/)
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
 [![BullMQ](https://img.shields.io/badge/BullMQ-Workers-FF5722?style=for-the-badge&logo=redis&logoColor=white)](https://bullmq.io/)
 [![OCPP Protocol](https://img.shields.io/badge/OCPP-1.6--J%20%26%202.0.1%20%2F%202.1-FF6F00?style=for-the-badge&logo=socketdotio&logoColor=white)](https://openchargealliance.org/)
@@ -122,7 +122,7 @@ flowchart TD
     end
 
     subgraph STORAGE["🗄️ Persistence & Distributed Cache"]
-        DB[("PostgreSQL 15+\n(Prisma ORM 7.8)")]
+        DB[("PostgreSQL 15+\n(Prisma ORM 7.10)")]
         REDIS[("Redis 7 Cluster\n(Cache & BullMQ)")]
     end
 
@@ -407,7 +407,7 @@ OCPP-CPMS/
 | :--- | :--- | :--- | :--- |
 | **Backend Runtime** | Node.js | v24+ LTS | High-concurrency asynchronous runtime |
 | **Backend Engine** | Express + TypeScript | Express 5 / TS 6+ | Type-safe REST API server |
-| **Database & ORM** | PostgreSQL + Prisma | Postgres 15+ / Prisma 7.8 | Relational SQL schema with strict types |
+| **Database & ORM** | PostgreSQL + Prisma | Postgres 15+ / Prisma 7.10 | Relational SQL schema with strict types |
 | **Distributed Cache** | Redis + `ioredis` | Redis 7+ | Distributed session state & rate limiting |
 | **Background Queues** | BullMQ | v5+ | High-throughput asynchronous job workers |
 | **OCPP WebSocket** | `ws` (RFC 6455) | v8+ | Sub-millisecond JSON-RPC WebSocket server |

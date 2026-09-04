@@ -20,7 +20,7 @@
 
 ## 1. Architecture Overview
 
-The backend is built with modern **ECMAScript Modules (ESM)** on **Node.js 24+ LTS**, using **Express 5** for REST routing, the low-overhead **`ws`** library for the RFC 6455 OCPP WebSocket server, **Prisma ORM 7.8** for PostgreSQL interaction, and **Redis 7** for real-time pub/sub and state caching.
+The backend is built with modern **ECMAScript Modules (ESM)** on **Node.js 24+ LTS**, using **Express 5** for REST routing, the low-overhead **`ws`** library for the RFC 6455 OCPP WebSocket server, **Prisma ORM 7.10** for PostgreSQL interaction, and **Redis 7** for real-time pub/sub and state caching.
 
 ```text
                                   ┌──────────────────────────────┐
@@ -60,7 +60,7 @@ The backend is built with modern **ECMAScript Modules (ESM)** on **Node.js 24+ L
                        ▼                                               ▼
         ┌─────────────────────────────┐                 ┌─────────────────────────────┐
         │     PostgreSQL Database     │                 │       Redis 7 Cluster       │
-        │    (via Prisma ORM 7.8)     │                 │   (Cache, Rate Limits, Bus) │
+        │    (via Prisma ORM 7.10)    │                 │   (Cache, Rate Limits, Bus) │
         └─────────────────────────────┘                 └─────────────────────────────┘
 ```
 
@@ -142,7 +142,7 @@ All REST endpoints are mounted under `/api/` on port `3000`.
 
 ## 4. Database Models & Prisma ORM
 
-The PostgreSQL schema is managed via **Prisma ORM 7.8** in `Backend/prisma/schema.prisma`.
+The PostgreSQL schema is managed via **Prisma ORM 7.10** in `Backend/prisma/schema.prisma`.
 
 ### Key Relational Entities
 - **`User`**: System identity (`superadmin`, `admin`, `user`). Includes `twoFactorSecret` and `twoFactorEnabled`.
