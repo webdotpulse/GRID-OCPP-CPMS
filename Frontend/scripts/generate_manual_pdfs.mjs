@@ -539,7 +539,7 @@ function buildUserManualHtml() {
         </div>
         <div class="cover-meta-item">
           <div class="cover-meta-label">Publisher</div>
-          <div class="cover-meta-value">webdotpulse / Mobility Pulse Network</div>
+          <div class="cover-meta-value">The Charge Grid</div>
         </div>
       </div>
     </div>
@@ -576,7 +576,7 @@ function buildUserManualHtml() {
   <!-- Content Sections -->
   <div class="section-block">
     <h1 class="section-h1">1. Getting Started & Authentication Security</h1>
-    <p>The <strong>OCPP-CPMS</strong> dashboard provides a secure web interface for operating electric vehicle charging infrastructure. Access the platform by navigating to your organization's URL (e.g. <code>https://ui.mobilitypulse.com</code> or <code>http://localhost:3002</code>).</p>
+    <p>The <strong>OCPP-CPMS</strong> dashboard provides a secure web interface for operating electric vehicle charging infrastructure. Access the platform by navigating to your organization's URL (e.g. <code>https://ocpp.thechargegrid.com</code> or <code>http://localhost:3002</code>).</p>
     
     <h2 class="section-h2">1.1 Login & Two-Factor Authentication (2FA TOTP)</h2>
     <ul>
@@ -871,7 +871,7 @@ function buildAdminManualHtml() {
         </div>
         <div class="cover-meta-item">
           <div class="cover-meta-label">Publisher</div>
-          <div class="cover-meta-value">webdotpulse / Mobility Pulse Network</div>
+          <div class="cover-meta-value">The Charge Grid</div>
         </div>
       </div>
     </div>
@@ -1127,7 +1127,7 @@ function buildInstallationManualHtml() {
         </div>
         <div class="cover-meta-item">
           <div class="cover-meta-label">Publisher</div>
-          <div class="cover-meta-value">webdotpulse / Mobility Pulse Network</div>
+          <div class="cover-meta-value">The Charge Grid</div>
         </div>
       </div>
     </div>
@@ -1239,7 +1239,7 @@ cp .env.example .env
 # Edit .env to set DATABASE_URL, REDIS_URL, and JWT_SECRET
 npx prisma generate
 npx prisma db push --accept-data-loss
-npm run create-superadmin -- "admin@mobilitypulse.com" "SuperAdminPass2026!"
+npm run create-superadmin -- "admin@thechargegrid.com" "SuperAdminPass2026!"
 npx tsc</code></pre>
 
     <h2 class="section-h2">3.4 Frontend Next.js Production Build</h2>
@@ -1396,7 +1396,7 @@ async function generateAllPdfs() {
       `,
       footerTemplate: `
         <div style="font-family: 'Inter', sans-serif; font-size: 7.5pt; color: #94a3b8; width: 100%; display: flex; justify-content: space-between; padding: 0 14mm; border-top: 1px solid #e2e8f0; margin-top: 8mm;">
-          <span>Mobility Pulse Network © 2026</span>
+          <span>The Charge Grid © 2026</span>
           <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
         </div>
       `
