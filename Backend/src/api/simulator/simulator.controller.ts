@@ -33,7 +33,12 @@ export async function getSessions(req: Request, res: Response): Promise<void> {
 export async function getSessionById(req: Request, res: Response): Promise<void> {
   try {
     const id = getParamId(req);
-    const instance = simulatorService.getInstance(id);
+    let instance = simulatorService.getInstance(id);
+
+    // If not in memory, attempt auto-rehydration if it belongs to a registered simulated charger
+    if (!instance) {
+      instance = await simulatorService.createOrResumeInstance(id);
+    }
 
     if (!instance) {
       res.status(404).json({ success: false, error: `Simulator session '${id}' not found` });
@@ -550,3 +555,25 @@ export async function getRfidTags(req: Request, res: Response): Promise<void> {
     res.status(500).json({ success: false, error: error.message });
   }
 }
+
+/**
+ * Force stop and reset any active or orphaned charging sessions for a simulated charger
+ */
+export async function forceStopSession(req: Request, res: Response): Promise<void> {
+  try {
+    const id = getParamId(req);
+    const result = await simulatorService.forceStopSession(id);
+    res.json({
+      success: true,
+      message: result.message,
+      data: result,
+    });
+  } catch (error: any) {
+    logger.error(`Error force stopping simulator session ${req.params.id}: ${error.message}`);
+    res.status(error.message?.includes("not found") ? 404 : 500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+}
+

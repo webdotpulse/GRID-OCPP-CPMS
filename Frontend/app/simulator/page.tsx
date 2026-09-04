@@ -97,6 +97,17 @@ export interface SimulatedChargerItem {
       format?: string;
     }>;
   }>;
+  activeTransactions?: Array<{
+    id: number;
+    transactionId: string;
+    connectorName?: string;
+    startTime: string;
+    status: string;
+    initialMeterValue?: number;
+    finalMeterValue?: number;
+    energyConsumed?: number;
+    soc?: number;
+  }>;
   simSession: any | null;
   simStatus: "connected" | "disconnected" | "connecting" | "offline_buffering" | "error";
 }
@@ -189,20 +200,31 @@ export default function SimulatorPage() {
         setSelectedConnectorId(conns[0].id);
       }
     } else {
-      // Check if session can be retrieved by charger_id
+      // Check if session can be retrieved or resumed by charger_id
       api
         .get(`/simulator/sessions/${currentCharger.charger_id}`)
         .then((res) => {
           const session = res.data?.data || res.data;
           if (session) {
             setActiveSession(session);
+            const conns = session.connectors || [];
+            if (conns.length > 0 && !conns.some((c: any) => c.id === selectedConnectorId)) {
+              setSelectedConnectorId(conns[0].id);
+            }
           }
         })
         .catch(() => {
           setActiveSession(null);
         });
     }
-  }, [currentCharger, selectedConnectorId]);
+  }, [selectedChargerId]);
+
+  // Keep activeSession in sync when fleet data refreshes with updated simSession
+  useEffect(() => {
+    if (currentCharger?.simSession) {
+      setActiveSession(currentCharger.simSession);
+    }
+  }, [currentCharger?.simSession]);
 
   // Poll active session state every 1.5s for live telemetry updates
   useEffect(() => {
@@ -222,7 +244,7 @@ export default function SimulatorPage() {
     }, 1500);
 
     return () => clearInterval(interval);
-  }, [activeSession]);
+  }, [activeSession?.id]);
 
   // Handle template selection in Add modal
   const handleSelectTemplate = (tplId: string) => {
@@ -339,6 +361,25 @@ export default function SimulatorPage() {
       await loadFleetData();
     } catch (err: any) {
       toast.error("Failed to stop simulator", {
+        description: err.response?.data?.error || err.message,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Force Stop / Reset Orphaned Charging Session in CPMS
+  const handleForceStopSession = async (charger: SimulatedChargerItem) => {
+    setLoading(true);
+    try {
+      await api.post(`/simulator/chargers/${charger.charger_id}/force-stop`);
+      toast.success("Charge Session Reset", {
+        description: `Cleanly ended all active sessions on ${charger.name} and set connectors to Available.`,
+      });
+      setActiveSession(null);
+      await loadFleetData();
+    } catch (err: any) {
+      toast.error("Failed to reset session", {
         description: err.response?.data?.error || err.message,
       });
     } finally {
@@ -559,6 +600,9 @@ export default function SimulatorPage() {
                   c.simStatus === "connected" ||
                   (activeSession && activeSession.chargerId === c.charger_id && activeSession.status === "connected");
                 const socketCount = c.evses?.reduce((acc, ev) => acc + (ev.connectors?.length || 1), 0) || 1;
+                const hasActiveSessionInCpms =
+                  (c.activeTransactions && c.activeTransactions.length > 0) ||
+                  c.evses?.some((ev) => ev.connectors?.some((conn) => conn.status === "Charging"));
 
                 return (
                   <div
@@ -593,18 +637,30 @@ export default function SimulatorPage() {
                           </Badge>
                         </div>
 
-                        {/* Sockets Count Badge */}
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-[10px] font-mono px-1.5 py-0",
-                            socketCount === 1
-                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                              : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30"
+                        {/* Sockets Count & Charging Badge */}
+                        <div className="flex items-center gap-1">
+                          {hasActiveSessionInCpms && (
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] font-mono px-1 py-0 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 flex items-center gap-0.5 animate-pulse"
+                              title="Active charging transaction in CPMS"
+                            >
+                              <Zap className="size-2.5 fill-current" />
+                              CHARGING
+                            </Badge>
                           )}
-                        >
-                          {socketCount === 1 ? "1 Socket" : "2 Sockets"}
-                        </Badge>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10px] font-mono px-1.5 py-0",
+                              socketCount === 1
+                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                                : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30"
+                            )}
+                          >
+                            {socketCount === 1 ? "1 Socket" : "2 Sockets"}
+                          </Badge>
+                        </div>
                       </div>
 
                       <div>
@@ -639,20 +695,37 @@ export default function SimulatorPage() {
                           Disconnect
                         </Button>
                       ) : (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedChargerId(c.charger_id);
-                            handleStartChargerSession(c);
-                          }}
-                          disabled={loading}
-                          className="h-7 text-[10px] px-2 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10 rounded-lg font-bold"
-                        >
-                          <Play className="size-3 mr-1 fill-emerald-500" />
-                          Connect
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedChargerId(c.charger_id);
+                              handleStartChargerSession(c);
+                            }}
+                            disabled={loading}
+                            className="h-7 text-[10px] px-2 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10 rounded-lg font-bold"
+                          >
+                            <Play className="size-3 mr-1 fill-emerald-500" />
+                            {hasActiveSessionInCpms ? "Resume" : "Connect"}
+                          </Button>
+                          {hasActiveSessionInCpms && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleForceStopSession(c);
+                              }}
+                              disabled={loading}
+                              className="h-7 text-[10px] px-1.5 text-amber-500 hover:text-amber-600 hover:bg-amber-500/10 rounded-lg"
+                              title="Force Stop Active Session in CPMS"
+                            >
+                              <Square className="size-3 fill-current" />
+                            </Button>
+                          )}
+                        </div>
                       )}
 
                       <Button
@@ -713,43 +786,82 @@ export default function SimulatorPage() {
                 />
               </>
             ) : (
-              <div className="p-8 rounded-2xl border border-border bg-card text-center space-y-4 shadow-sm">
-                <div className="size-14 rounded-3xl bg-muted/60 border border-border flex items-center justify-center mx-auto text-muted-foreground">
-                  <Power className="size-7 text-[#54a8c7]" />
-                </div>
-                <div className="max-w-md mx-auto space-y-1.5">
-                  <div className="flex items-center justify-center gap-2">
-                    <h3 className="text-base font-bold text-foreground font-heading">
-                      {currentCharger.name} (Disconnected)
-                    </h3>
-                    <Badge variant="outline" className="text-[10px] font-mono">
-                      {currentCharger.evses?.reduce((acc, ev) => acc + (ev.connectors?.length || 1), 0) || 1} Socket(s)
-                    </Badge>
+              (() => {
+                const hasActiveSessionInCpms =
+                  (currentCharger.activeTransactions && currentCharger.activeTransactions.length > 0) ||
+                  currentCharger.evses?.some((ev) => ev.connectors?.some((conn) => conn.status === "Charging"));
+                const activeTx = currentCharger.activeTransactions?.[0];
+
+                return (
+                  <div className="p-8 rounded-2xl border border-border bg-card text-center space-y-4 shadow-sm">
+                    <div className="size-14 rounded-3xl bg-muted/60 border border-border flex items-center justify-center mx-auto text-muted-foreground">
+                      <Power className="size-7 text-[#54a8c7]" />
+                    </div>
+                    <div className="max-w-md mx-auto space-y-1.5">
+                      <div className="flex items-center justify-center gap-2">
+                        <h3 className="text-base font-bold text-foreground font-heading">
+                          {currentCharger.name} (Disconnected)
+                        </h3>
+                        <Badge variant="outline" className="text-[10px] font-mono">
+                          {currentCharger.evses?.reduce((acc, ev) => acc + (ev.connectors?.length || 1), 0) || 1} Socket(s)
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        This simulated charger is registered in the Virtual Test Lab. Click <strong>Connect Simulator</strong> to establish its live WebSocket link to the CPMS.
+                      </p>
+                    </div>
+
+                    {hasActiveSessionInCpms && (
+                      <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-left flex items-start gap-3 max-w-xl mx-auto">
+                        <AlertTriangle className="size-5 shrink-0 text-amber-500 mt-0.5" />
+                        <div className="space-y-1 flex-1">
+                          <div className="text-xs font-bold text-foreground flex items-center justify-between">
+                            <span>Active Charge Session in CPMS ({activeTx?.transactionId ? `Tx #${activeTx.transactionId}` : "Connector Charging"})</span>
+                            <Badge variant="outline" className="bg-amber-500/20 text-amber-500 border-amber-500/40 text-[10px] font-mono animate-pulse">
+                              CHARGING IN DB
+                            </Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            This charger is reported as <strong>Charging</strong> on the Chargers fleet page, but the simulator connection was dropped or interrupted.
+                            Click <strong>Resume Simulator Session</strong> to reconnect and stream telemetry, or <strong>Force Stop & Reset</strong> to cleanly conclude the session in CPMS and set connectors to Available.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center justify-center gap-3">
+                      <Button
+                        onClick={() => handleStartChargerSession(currentCharger)}
+                        disabled={loading}
+                        className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:brightness-110 text-white text-xs font-bold shadow-md shadow-emerald-500/20"
+                      >
+                        <Play className="size-3.5 mr-1.5 fill-white" />
+                        {hasActiveSessionInCpms ? "Resume Simulator Session" : "Connect Simulator"}
+                      </Button>
+                      {hasActiveSessionInCpms && (
+                        <Button
+                          onClick={() => handleForceStopSession(currentCharger)}
+                          disabled={loading}
+                          variant="outline"
+                          className="rounded-xl border-amber-500/40 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-bold"
+                        >
+                          <Square className="size-3.5 mr-1.5 fill-current" />
+                          Force Stop & Reset Session
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        onClick={() => setChargerToDelete(currentCharger)}
+                        disabled={loading}
+                        className="rounded-xl text-xs text-rose-500 hover:bg-rose-500/10 border-border"
+                      >
+                        <Trash2 className="size-3.5 mr-1.5" />
+                        Remove Charger
+                      </Button>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    This simulated charger is saved in the Virtual Test Lab. Click <strong>Connect Simulator</strong> to establish its live WebSocket link to the CPMS.
-                  </p>
-                </div>
-                <div className="flex items-center justify-center gap-3">
-                  <Button
-                    onClick={() => handleStartChargerSession(currentCharger)}
-                    disabled={loading}
-                    className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:brightness-110 text-white text-xs font-bold shadow-md shadow-emerald-500/20"
-                  >
-                    <Play className="size-3.5 mr-1.5 fill-white" />
-                    Connect Simulator
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setChargerToDelete(currentCharger)}
-                    disabled={loading}
-                    className="rounded-xl text-xs text-rose-500 hover:bg-rose-500/10 border-border"
-                  >
-                    <Trash2 className="size-3.5 mr-1.5" />
-                    Remove Charger
-                  </Button>
-                </div>
-              </div>
+                );
+              })()
             )}
           </div>
         )}

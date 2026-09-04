@@ -401,6 +401,10 @@ export class SimulatedChargerInstance {
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private meterTimers: Map<number, NodeJS.Timeout> = new Map();
   private transitionTimers: Set<NodeJS.Timeout> = new Set();
+  private isExplicitlyDisconnected: boolean = false;
+  private reconnectTimer: NodeJS.Timeout | null = null;
+  private reconnectAttempts: number = 0;
+  private maxReconnectAttempts: number = 10;
   private pendingRequests: Map<string, {
     action: string;
     sentAt: number;
@@ -424,6 +428,17 @@ export class SimulatedChargerInstance {
       maxPowerW?: number;
       type?: string;
       format?: string;
+      status?: ConnectorStatus;
+      isPlugged?: boolean;
+      transactionId?: number | string | null;
+      idTag?: string | null;
+      meterStart?: number;
+      currentMeterWh?: number;
+      currentPowerW?: number;
+      currentAmps?: number;
+      voltage?: number;
+      soc?: number;
+      startedAt?: Date | null;
     }>;
   }) {
     this.id = uuidv4();
@@ -444,25 +459,26 @@ export class SimulatedChargerInstance {
         ];
 
     for (const c of conns) {
+      const isCharging = c.status === "Charging";
       this.connectors.set(c.id, {
         id: c.id,
         evseId: c.id,
         connectorName: c.name || `Connector ${c.id}`,
         format: c.format || "SOCKET",
         type: c.type || (c.id === 1 ? "Type2" : "CCS2"),
-        status: "Available",
-        isPlugged: false,
-        transactionId: null,
-        idTag: null,
-        meterStart: 0,
-        currentMeterWh: 10000 + c.id * 5000,
-        currentPowerW: 0,
+        status: c.status || "Available",
+        isPlugged: c.isPlugged ?? (isCharging || c.status === "Preparing"),
+        transactionId: c.transactionId ?? null,
+        idTag: c.idTag ?? null,
+        meterStart: c.meterStart ?? 0,
+        currentMeterWh: c.currentMeterWh ?? (10000 + c.id * 5000),
+        currentPowerW: c.currentPowerW ?? (isCharging ? 11000 : 0),
         maxPowerW: c.maxPowerW || (c.id === 1 ? 22000 : 150000),
-        voltage: 230.0,
-        currentAmps: 0.0,
-        soc: 20,
+        voltage: c.voltage ?? 230.0,
+        currentAmps: c.currentAmps ?? (isCharging ? 16.0 : 0.0),
+        soc: c.soc ?? (isCharging ? 45 : 20),
         temperature: 24.5,
-        startedAt: null,
+        startedAt: c.startedAt ?? (isCharging ? new Date() : null),
         smartChargingLimitW: null,
         smartChargingLimitAmps: null,
         throttleReason: null,
@@ -483,11 +499,54 @@ export class SimulatedChargerInstance {
   }
 
   /**
+   * Schedule automated background reconnect with exponential backoff
+   */
+  private scheduleReconnect(): void {
+    if (this.isExplicitlyDisconnected || this.status === "offline_buffering") {
+      return;
+    }
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      logger.warn(`[Simulator ${this.chargerName}] Reached max reconnection attempts (${this.maxReconnectAttempts}).`);
+      return;
+    }
+    this.reconnectAttempts++;
+    const delay = Math.min(1500 * Math.pow(1.5, this.reconnectAttempts - 1), 15000);
+    logger.info(`[Simulator ${this.chargerName}] Scheduling auto-reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${Math.round(delay / 1000)}s`);
+    this.reconnectTimer = setTimeout(async () => {
+      if (this.isExplicitlyDisconnected) return;
+      try {
+        await this.connect();
+        logger.info(`[Simulator ${this.chargerName}] Auto-reconnected successfully`);
+        await this.sendBootNotification().catch(() => {});
+        for (const conn of this.connectors.values()) {
+          await this.sendStatusNotification(conn.id, conn.status, conn.errorCode || "NoError").catch(() => {});
+          if (conn.status === "Charging") {
+            this.startMeterLoop(conn.id);
+          }
+        }
+      } catch (e: any) {
+        logger.debug(`[Simulator ${this.chargerName}] Auto-reconnect attempt failed: ${e.message}`);
+        this.scheduleReconnect();
+      }
+    }, delay);
+  }
+
+  /**
    * Connect to CPMS WebSocket Server
    */
   public async connect(): Promise<void> {
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       return;
+    }
+
+    this.isExplicitlyDisconnected = false;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
 
     this.status = "connecting";
@@ -510,6 +569,9 @@ export class SimulatedChargerInstance {
               this.ws.terminate();
               this.ws = null;
             }
+            if (!this.isExplicitlyDisconnected) {
+              this.scheduleReconnect();
+            }
             reject(new Error(this.errorMessage));
           }
         }, 10000);
@@ -518,8 +580,17 @@ export class SimulatedChargerInstance {
           clearTimeout(connectTimeout);
           this.status = "connected";
           this.errorMessage = null;
+          this.reconnectAttempts = 0;
           logger.info(`[Simulator ${this.chargerName}] Connected successfully!`);
           this.startHeartbeatLoop();
+
+          // Resume meter loops for any connectors currently in Charging status
+          for (const conn of this.connectors.values()) {
+            if (conn.status === "Charging") {
+              this.startMeterLoop(conn.id);
+            }
+          }
+
           resolve();
         });
 
@@ -534,6 +605,9 @@ export class SimulatedChargerInstance {
           }
           this.stopHeartbeatLoop();
           this.stopAllMeterLoops();
+          if (!this.isExplicitlyDisconnected && this.status !== "offline_buffering") {
+            this.scheduleReconnect();
+          }
         });
 
         this.ws.on("error", (err) => {
@@ -544,6 +618,9 @@ export class SimulatedChargerInstance {
       } catch (err: any) {
         this.status = "error";
         this.errorMessage = err.message;
+        if (!this.isExplicitlyDisconnected) {
+          this.scheduleReconnect();
+        }
         reject(err);
       }
     });
@@ -553,6 +630,12 @@ export class SimulatedChargerInstance {
    * Disconnect from CPMS WebSocket Server
    */
   public disconnect(): void {
+    this.isExplicitlyDisconnected = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.reconnectAttempts = 0;
     this.status = "disconnected";
     this.stopHeartbeatLoop();
     this.stopAllMeterLoops();
@@ -1607,7 +1690,7 @@ export class SimulatedChargerInstance {
     }
   }
 
-  private startMeterLoop(connectorId: number): void {
+  public startMeterLoop(connectorId: number): void {
     this.stopMeterLoop(connectorId);
     const timer = setInterval(async () => {
       const conn = this.connectors.get(connectorId);
@@ -1623,7 +1706,7 @@ export class SimulatedChargerInstance {
     this.meterTimers.set(connectorId, timer);
   }
 
-  private stopMeterLoop(connectorId: number): void {
+  public stopMeterLoop(connectorId: number): void {
     const timer = this.meterTimers.get(connectorId);
     if (timer) {
       clearInterval(timer);
@@ -1925,7 +2008,13 @@ export class SimulatorServiceManager {
     const chargeGroup = await this.ensureVirtualTestLabChargeGroup();
     const dbCharger = await prisma.charger.findUnique({
       where: { charger_id: options.chargerId },
-      include: { evses: { include: { connectors: true } } },
+      include: {
+        evses: { include: { connectors: true } },
+        transactions: {
+          where: { endTime: null },
+          orderBy: { startTime: "desc" },
+        },
+      },
     });
 
     if (dbCharger && dbCharger.chargeGroupId !== chargeGroup.id) {
@@ -1936,15 +2025,9 @@ export class SimulatorServiceManager {
     }
 
     // If options.connectors not explicitly passed, extract from dbCharger!
-    let resolvedConnectors = options.connectors;
-    if ((!resolvedConnectors || resolvedConnectors.length === 0) && dbCharger?.evses && dbCharger.evses.length > 0) {
-      const dbConns: Array<{
-        id: number;
-        name?: string;
-        maxPowerW?: number;
-        type?: string;
-        format?: string;
-      }> = [];
+    let resolvedConnectors: any[] = options.connectors ? [...options.connectors] : [];
+    if (resolvedConnectors.length === 0 && dbCharger?.evses && dbCharger.evses.length > 0) {
+      const dbConns: any[] = [];
 
       for (const evse of dbCharger.evses) {
         for (const c of evse.connectors) {
@@ -1954,11 +2037,39 @@ export class SimulatorServiceManager {
             maxPowerW: c.max_power ? c.max_power * 1000 : 22000,
             type: c.current_type === "DC" ? "CCS2" : "Type2",
             format: c.format || "SOCKET",
+            status: c.status,
           });
         }
       }
       if (dbConns.length > 0) {
         resolvedConnectors = dbConns;
+      }
+    }
+
+    // Check for active transactions in DB to re-bind charging state!
+    const activeTxs = dbCharger?.transactions || [];
+    for (const c of resolvedConnectors) {
+      const activeTx = activeTxs.find((t) =>
+        t.connectorName?.includes(String(c.id)) || (activeTxs.length === 1 && resolvedConnectors.length === 1)
+      );
+      if (activeTx) {
+        c.status = "Charging";
+        c.isPlugged = true;
+        c.transactionId = activeTx.transactionId;
+        c.idTag = activeTx.idTag || "SIM-RFID-PASS-01";
+        c.meterStart = activeTx.initialMeterValue || 0;
+        c.currentMeterWh = (activeTx.finalMeterValue || activeTx.initialMeterValue || 12000) + 1500;
+        c.currentPowerW = 11000;
+        c.currentAmps = 16.0;
+        c.voltage = 230.0;
+        c.soc = activeTx.soc || 45;
+        c.startedAt = activeTx.startTime;
+      } else if (c.status === "Charging") {
+        c.isPlugged = true;
+        c.currentPowerW = 11000;
+        c.currentAmps = 16.0;
+      } else {
+        c.status = c.status || "Available";
       }
     }
 
@@ -1972,13 +2083,157 @@ export class SimulatorServiceManager {
       await instance.connect();
       await instance.sendBootNotification();
       for (const conn of instance.connectors.values()) {
-        await instance.sendStatusNotification(conn.id, "Available", "NoError");
+        await instance.sendStatusNotification(conn.id, conn.status, "NoError");
+        if (conn.status === "Charging") {
+          instance.startMeterLoop(conn.id);
+        }
       }
     } catch (err) {
       logger.warn(`Failed initial auto-boot for simulator ${options.chargerName}: ${err}`);
     }
 
     return instance;
+  }
+
+  /**
+   * Find or rehydrate / resume an instance from the database if not currently active in memory
+   */
+  public async createOrResumeInstance(idOrName: string | number): Promise<SimulatedChargerInstance | undefined> {
+    const existing = this.getInstance(idOrName);
+    if (existing) {
+      if (existing.status !== "connected") {
+        await existing.connect().catch((e) => logger.warn(`Error reconnecting existing instance: ${e.message}`));
+      }
+      return existing;
+    }
+
+    try {
+      const isNum = typeof idOrName === "number" || (!isNaN(Number(idOrName)) && !String(idOrName).includes("-"));
+      const charger = await prisma.charger.findFirst({
+        where: isNum
+          ? { OR: [{ charger_id: Number(idOrName) }, { name: String(idOrName) }] }
+          : { name: String(idOrName) },
+        include: {
+          evses: { include: { connectors: true } },
+          chargeGroup: true,
+          chargingStation: true,
+        },
+      });
+
+      if (!charger) return undefined;
+
+      // Verify it's a simulated charger (SIM- prefix, Virtual Test Lab group or station)
+      const isSimulated =
+        charger.name.startsWith("SIM-") ||
+        charger.chargeGroup?.name?.includes("Virtual Test Lab") ||
+        charger.chargingStation?.station_name?.includes("Virtual Test Lab");
+
+      if (!isSimulated) return undefined;
+
+      return await this.startInstance({
+        chargerId: charger.charger_id,
+        chargerName: charger.name,
+        protocol: (charger.model?.includes("2.0") || charger.model?.includes("2.1")) ? "ocpp2.0.1" : "ocpp1.6",
+        vendor: charger.manufacturer,
+        model: charger.model,
+        firmwareVersion: charger.firmware_version,
+      });
+    } catch (err: any) {
+      logger.debug(`Could not create or resume instance for ${idOrName}: ${err.message}`);
+      return undefined;
+    }
+  }
+
+  /**
+   * Force stop and reset any active or orphaned charging sessions for a simulated charger
+   */
+  public async forceStopSession(idOrName: string | number): Promise<{ success: boolean; message: string; stoppedTransactions: number }> {
+    const isNum = typeof idOrName === "number" || (!isNaN(Number(idOrName)) && !String(idOrName).includes("-"));
+    const charger = await prisma.charger.findFirst({
+      where: isNum
+        ? { OR: [{ charger_id: Number(idOrName) }, { name: String(idOrName) }] }
+        : { name: String(idOrName) },
+      include: { evses: { include: { connectors: true } } },
+    });
+
+    if (!charger) {
+      throw new Error(`Charger '${idOrName}' not found`);
+    }
+
+    const chargerId = charger.charger_id;
+
+    // 1. Reset in-memory instance if active
+    const inst = this.getInstance(chargerId) || this.getInstance(charger.name);
+    if (inst) {
+      for (const conn of inst.connectors.values()) {
+        inst.stopMeterLoop(conn.id);
+        conn.status = "Available";
+        conn.isPlugged = false;
+        conn.transactionId = null;
+        conn.currentPowerW = 0;
+        conn.currentAmps = 0;
+      }
+      if (inst.status === "connected") {
+        for (const conn of inst.connectors.values()) {
+          await inst.sendStatusNotification(conn.id, "Available", "NoError").catch(() => {});
+        }
+      }
+    }
+
+    // 2. Cleanly end all active transactions in PostgreSQL
+    const activeTxs = await prisma.transaction.findMany({
+      where: { charger_id: chargerId, endTime: null },
+    });
+
+    const now = new Date();
+    for (const tx of activeTxs) {
+      const finalMeter = (tx.initialMeterValue || 0) + (tx.energyConsumed ? tx.energyConsumed * 1000 : 5000);
+      const consumedKwh = tx.energyConsumed > 0 ? tx.energyConsumed : Math.max(0.1, (finalMeter - (tx.initialMeterValue || 0)) / 1000);
+      await prisma.transaction.update({
+        where: { id: tx.id },
+        data: {
+          endTime: now,
+          status: "Completed",
+          stopReason: "ManualSimulatorReset",
+          finalMeterValue: finalMeter,
+          energyConsumed: consumedKwh,
+        },
+      });
+    }
+
+    // 3. Reset all connectors to Available in DB
+    for (const evse of charger.evses) {
+      for (const conn of evse.connectors) {
+        await prisma.connector.update({
+          where: { connector_id: conn.connector_id },
+          data: { status: "Available", updatedAt: now },
+        });
+      }
+    }
+
+    // 4. Reset charger status
+    await prisma.charger.update({
+      where: { charger_id: chargerId },
+      data: { status: inst?.status === "connected" ? "online" : "Available" },
+    });
+
+    // 5. Broadcast realtime updates
+    try {
+      const { getIO } = await import("../ocpp/realtime.socket.js");
+      const io = getIO();
+      if (io) {
+        io.emit("charger_status_changed", { chargerId, status: "Available" });
+        io.emit("charger_updated", { chargerId });
+      }
+    } catch {
+      // Broadcast is optional if Socket.IO isn't active
+    }
+
+    return {
+      success: true,
+      message: `Force stopped and reset ${activeTxs.length} session(s) on charger '${charger.name}'`,
+      stoppedTransactions: activeTxs.length,
+    };
   }
 
   public stopInstance(idOrName: string | number): boolean {
@@ -2308,6 +2563,10 @@ export class SimulatorServiceManager {
             connectors: true,
           },
         },
+        transactions: {
+          where: { endTime: null },
+          orderBy: { startTime: "desc" },
+        },
         chargeGroup: true,
         chargingStation: true,
       },
@@ -2319,6 +2578,7 @@ export class SimulatorServiceManager {
       return {
         ...charger,
         isSimulated: true,
+        activeTransactions: charger.transactions || [],
         simSession: liveInstance ? liveInstance.toJSON() : null,
         simStatus: liveInstance ? liveInstance.status : "disconnected",
       };

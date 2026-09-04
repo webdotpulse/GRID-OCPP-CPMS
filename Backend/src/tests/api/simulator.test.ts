@@ -310,5 +310,25 @@ describe("Simulator Controller Unit Tests (/api/simulator)", () => {
       });
     });
   });
+
+  describe("forceStopSession", () => {
+    it("should force stop session and return 200", async () => {
+      mockReq.params = { id: "33" };
+      jest.spyOn(simulatorService, "forceStopSession").mockResolvedValue({
+        success: true,
+        message: "Force stopped and reset 1 session(s)",
+        stoppedTransactions: 1,
+      });
+
+      await simulatorController.forceStopSession(mockReq, mockRes);
+
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          message: "Force stopped and reset 1 session(s)",
+        })
+      );
+    });
+  });
 });
 
