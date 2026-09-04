@@ -15,6 +15,8 @@ import {
   Layers,
   ArrowDownUp,
   AlertTriangle,
+  CheckCircle2,
+  Info,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,6 +54,7 @@ export interface SimulatedConnectorState {
   startedAt: string | null;
   smartChargingLimitW: number | null;
   smartChargingLimitAmps: number | null;
+  throttleReason?: string | null;
 }
 
 interface SimulatorDigitalTwinProps {
@@ -62,6 +65,7 @@ interface SimulatorDigitalTwinProps {
   firmwareVersion: string;
   status: string;
   chargeGroupName?: string;
+  chargeGroupMaxKw?: number | null;
   connectors: SimulatedConnectorState[];
   selectedConnectorId: number;
   onSelectConnector: (id: number) => void;
@@ -77,6 +81,7 @@ export function SimulatorDigitalTwin({
   firmwareVersion,
   status,
   chargeGroupName = "Virtual Test Lab",
+  chargeGroupMaxKw,
   connectors,
   selectedConnectorId,
   onSelectConnector,
@@ -404,10 +409,16 @@ export function SimulatorDigitalTwin({
                 <Gauge className="size-4 text-[#54a8c7]" />
                 Active Power Flow
               </span>
-              {activeConn?.smartChargingLimitW && (
-                <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 font-mono font-medium">
-                  Throttled Limit:{" "}
-                  {(activeConn.smartChargingLimitW / 1000).toFixed(1)} kW
+              {activeConn?.smartChargingLimitW && activeConn.smartChargingLimitW < (activeConn.maxPowerW || 22000) ? (
+                <span className="text-[10px] px-2.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 font-mono font-bold flex items-center gap-1 animate-pulse">
+                  <AlertTriangle className="size-3 text-amber-500" />
+                  Throttled: {(activeConn.smartChargingLimitW / 1000).toFixed(1)} kW (
+                  {Math.round(((activeConn.smartChargingLimitW / (activeConn.maxPowerW || 22000)) * 100))}% Capacity)
+                </span>
+              ) : (
+                <span className="text-[10px] px-2.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-mono font-medium flex items-center gap-1">
+                  <CheckCircle2 className="size-3 text-emerald-500" />
+                  Unthrottled: 100% Full Power
                 </span>
               )}
             </div>
@@ -437,6 +448,167 @@ export function SimulatorDigitalTwin({
               />
             </div>
           </div>
+
+          {/* Dedicated Smart Charging & Load Management Explanation Panel */}
+          {(() => {
+            const isThrottled = Boolean(
+              activeConn?.smartChargingLimitW &&
+              activeConn.smartChargingLimitW < (activeConn.maxPowerW || 22000)
+            );
+            const throttledKw = activeConn?.smartChargingLimitW
+              ? activeConn.smartChargingLimitW / 1000
+              : null;
+            const throttlePercent = throttledKw
+              ? Math.round((throttledKw / maxKw) * 100)
+              : 100;
+
+            return (
+              <div className="col-span-2 sm:col-span-3 p-4 rounded-xl bg-card border border-border/80 shadow-xs space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={cn(
+                        "size-7 rounded-lg flex items-center justify-center shrink-0",
+                        isThrottled
+                          ? "bg-amber-500/20 text-amber-500"
+                          : "bg-emerald-500/20 text-emerald-500"
+                      )}
+                    >
+                      {isThrottled ? (
+                        <AlertTriangle className="size-4" />
+                      ) : (
+                        <Zap className="size-4" />
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-foreground font-heading flex items-center gap-1.5">
+                        {isThrottled
+                          ? "Smart Charging Active: Power Output Throttled"
+                          : "Smart Charging Status: Operating Unthrottled"}
+                      </h4>
+                      <p className="text-[11px] text-muted-foreground">
+                        Cluster:{" "}
+                        <span className="font-semibold text-foreground">
+                          {chargeGroupName}
+                        </span>
+                        {chargeGroupMaxKw
+                          ? ` (${chargeGroupMaxKw} kW capacity ceiling)`
+                          : ""}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Badge
+                    className={cn(
+                      "text-[10px] font-mono uppercase tracking-wider font-semibold",
+                      isThrottled
+                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30"
+                        : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30"
+                    )}
+                  >
+                    {isThrottled
+                      ? `${throttledKw?.toFixed(1)} kW Ceiling (${throttlePercent}%)`
+                      : "Full 100% Power"}
+                  </Badge>
+                </div>
+
+                {/* Explanatory Narrative Box */}
+                <div
+                  className={cn(
+                    "p-3 rounded-lg text-xs leading-relaxed border",
+                    isThrottled
+                      ? "bg-amber-500/5 border-amber-500/25 text-amber-900 dark:text-amber-200"
+                      : "bg-emerald-500/5 border-emerald-500/25 text-emerald-900 dark:text-emerald-200"
+                  )}
+                >
+                  {isThrottled ? (
+                    <div className="space-y-1.5">
+                      <div className="font-semibold flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
+                        <span>⚠️ Throttling Root Cause:</span>
+                        <span className="font-mono">
+                          {activeConn?.throttleReason ||
+                            "Dynamic Group Load Balancing (Cluster capacity limit reached)"}
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground dark:text-amber-300/80">
+                        The CPMS Dynamic Load Management service dispatched an OCPP{" "}
+                        <code className="font-mono bg-amber-500/15 px-1 py-0.5 rounded text-[11px]">
+                          SetChargingProfile
+                        </code>{" "}
+                        capping maximum draw to{" "}
+                        <strong className="text-foreground font-mono">
+                          {throttledKw?.toFixed(1)} kW
+                        </strong>{" "}
+                        (
+                        {activeConn?.smartChargingLimitAmps
+                          ? `${activeConn.smartChargingLimitAmps.toFixed(1)}A`
+                          : `${(
+                              activeConn!.smartChargingLimitW! /
+                              (230 * (activeConn?.type === "Type2" ? 3 : 1))
+                            ).toFixed(1)}A`}{" "}
+                        per phase). This prevents exceeding site main breakers
+                        and protects grid infrastructure.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="font-semibold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300">
+                        <span>✅ Why This Connector Is Not Throttled:</span>
+                      </div>
+                      <p className="text-muted-foreground dark:text-emerald-300/80">
+                        Operating at full{" "}
+                        <strong className="text-foreground font-mono">
+                          {maxKw.toFixed(1)} kW
+                        </strong>{" "}
+                        rated hardware capacity. Total active cluster load is
+                        safely below the 95% capacity threshold, electrical
+                        phases (L1, L2, L3) are balanced within safe tolerances
+                        (±16.0 A), and no curtailment profiles or local EMS derates
+                        are active.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Key Electrical Thresholds Breakdown */}
+                <div className="grid grid-cols-3 gap-2 pt-0.5 text-[11px] font-mono">
+                  <div className="p-2 rounded-md bg-muted/40 border border-border/50">
+                    <span className="text-[10px] text-muted-foreground block">
+                      Active Power
+                    </span>
+                    <span className="font-bold text-cyan-600 dark:text-cyan-400">
+                      {powerKw.toFixed(2)} kW
+                    </span>
+                  </div>
+                  <div className="p-2 rounded-md bg-muted/40 border border-border/50">
+                    <span className="text-[10px] text-muted-foreground block">
+                      Allowed Ceiling
+                    </span>
+                    <span
+                      className={cn(
+                        "font-bold",
+                        isThrottled
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-emerald-600 dark:text-emerald-400"
+                      )}
+                    >
+                      {isThrottled
+                        ? `${throttledKw?.toFixed(2)} kW`
+                        : `${maxKw.toFixed(2)} kW`}
+                    </span>
+                  </div>
+                  <div className="p-2 rounded-md bg-muted/40 border border-border/50">
+                    <span className="text-[10px] text-muted-foreground block">
+                      Hardware Rating
+                    </span>
+                    <span className="font-bold text-foreground">
+                      {maxKw.toFixed(2)} kW
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Voltage Dial */}
           <div className="p-3.5 rounded-xl bg-muted/30 dark:bg-black/40 border border-border flex flex-col justify-between">

@@ -41,6 +41,7 @@ export interface SimulatedConnector {
   startedAt: Date | null;
   smartChargingLimitW: number | null;
   smartChargingLimitAmps: number | null;
+  throttleReason: string | null;
 }
 
 export interface SimulatorLogEntry {
@@ -464,6 +465,7 @@ export class SimulatedChargerInstance {
         startedAt: null,
         smartChargingLimitW: null,
         smartChargingLimitAmps: null,
+        throttleReason: null,
       });
     }
   }
@@ -750,6 +752,18 @@ export class SimulatedChargerInstance {
           const csProfile = payload.csChargingProfiles || payload.chargingProfile;
           const limit = csProfile?.chargingSchedule?.chargingSchedulePeriod?.[0]?.limit;
           const unit = csProfile?.chargingSchedule?.chargingRateUnit || "W";
+          const profileId = csProfile?.chargingProfileId;
+
+          let reason = "Dynamic Smart Charging Profile";
+          if (profileId === 100) {
+            reason = "Dynamic Group Load Balancing (Cluster capacity limit)";
+          } else if (profileId === 101) {
+            reason = "Charge Group Amperage Ceiling (Main fuse protection)";
+          } else if (profileId === 102) {
+            reason = "3-Phase Phase Unbalance Mitigation (Grid overload protection)";
+          } else if (profileId === 110) {
+            reason = "Station Physical Safety Ceiling (Site limit)";
+          }
 
           if (limit !== undefined) {
             const applyLimit = (conn: SimulatedConnector, targetLimit: number) => {
@@ -760,6 +774,7 @@ export class SimulatedChargerInstance {
                 conn.smartChargingLimitW = targetLimit;
                 conn.smartChargingLimitAmps = targetLimit / (230 * (conn.type === "Type2" ? 3 : 1));
               }
+              conn.throttleReason = reason;
 
               // Adjust current power in real time if charging
               if (conn.status === "Charging") {
@@ -774,10 +789,18 @@ export class SimulatedChargerInstance {
 
             // connectorId 0 = whole Charge Point / ChargePointMaxProfile
             if (rawConnectorId === 0 || rawConnectorId === undefined || rawConnectorId === null) {
-              const numConnectors = this.connectors.size || 1;
-              const perConnLimit = limit / numConnectors;
-              for (const conn of this.connectors.values()) {
-                applyLimit(conn, perConnLimit);
+              const chargingConns = Array.from(this.connectors.values()).filter((c) => c.status === "Charging");
+              if (chargingConns.length <= 1) {
+                // If 0 or 1 connector is active, assign the full profile limit (up to physical capacity)
+                for (const conn of this.connectors.values()) {
+                  applyLimit(conn, limit);
+                }
+              } else {
+                // Multiple connectors concurrently charging: share the station limit evenly across active connectors
+                const perConnLimit = limit / chargingConns.length;
+                for (const conn of this.connectors.values()) {
+                  applyLimit(conn, perConnLimit);
+                }
               }
             } else {
               const conn = this.connectors.get(rawConnectorId);
@@ -795,6 +818,7 @@ export class SimulatedChargerInstance {
           const clearLimit = (conn: SimulatedConnector) => {
             conn.smartChargingLimitW = null;
             conn.smartChargingLimitAmps = null;
+            conn.throttleReason = null;
             if (conn.status === "Charging") {
               conn.currentPowerW = conn.maxPowerW;
               conn.currentAmps = conn.currentPowerW / (conn.voltage * (conn.type === "Type2" ? 3 : 1));
@@ -1113,6 +1137,30 @@ export class SimulatedChargerInstance {
     conn.meterStart = meterStart ?? conn.currentMeterWh;
     conn.startedAt = new Date();
     conn.isPlugged = true;
+
+    // Pre-check for existing group/site charging profiles to avoid startup overshoots
+    if (!conn.smartChargingLimitW && this.chargerId) {
+      try {
+        const existingProfile = await prisma.chargingProfile.findFirst({
+          where: { chargerId: this.chargerId, chargingProfileId: { in: [100, 101, 102, 110] } },
+          orderBy: { stackLevel: "desc" },
+        });
+        if (existingProfile) {
+          const sched = existingProfile.chargingSchedule as any;
+          const limit = sched?.chargingSchedulePeriod?.[0]?.limit;
+          if (limit && sched?.chargingRateUnit === "W") {
+            conn.smartChargingLimitW = limit;
+            conn.throttleReason = "Dynamic Group Load Balancing (Pre-throttled to active ceiling)";
+          } else if (limit && sched?.chargingRateUnit === "A") {
+            conn.smartChargingLimitAmps = limit;
+            conn.smartChargingLimitW = limit * 230 * (conn.type === "Type2" ? 3 : 1);
+            conn.throttleReason = "Dynamic Group Amperage Limit (Pre-throttled to active ceiling)";
+          }
+        }
+      } catch (err) {
+        logger.debug(`Could not pre-fetch profile for simulator charger ${this.chargerId}: ${err}`);
+      }
+    }
 
     // Apply smart charging or max capacity limit
     const powerLimit = conn.smartChargingLimitW ? Math.min(conn.maxPowerW, conn.smartChargingLimitW) : conn.maxPowerW;
@@ -1466,6 +1514,9 @@ export class SimulatedChargerInstance {
     const conn = this.connectors.get(connectorId);
     if (!conn) throw new Error(`Connector ${connectorId} not found`);
 
+    conn.smartChargingLimitW = targetPowerKw * 1000;
+    conn.smartChargingLimitAmps = (targetPowerKw * 1000) / (conn.voltage * (conn.type === "Type2" ? 3 : 1));
+    conn.throttleReason = "Manual Grid Power Curtailment (Anomaly Scenario)";
     conn.currentPowerW = targetPowerKw * 1000;
     conn.currentAmps = conn.currentPowerW / (conn.voltage * (conn.type === "Type2" ? 3 : 1));
     await this.sendMeterValues(connectorId, { powerW: conn.currentPowerW });

@@ -213,10 +213,22 @@ export async function setChargingProfile(
   const { chargerId, connectorId, csChargingProfiles } = request;
   try {
     const { targetChargerId, targetConnectorId } = await resolveTargetChargerAndConnector(chargerId, connectorId);
+    const protocol = await getChargerProtocol(targetChargerId);
+
+    // Provide both OCPP 1.6 and 2.0.1/2.1 fields for maximum compatibility
+    const payload: any = {
+      connectorId: targetConnectorId,
+      csChargingProfiles,
+    };
+    if (protocol === "ocpp2.0.1" || protocol === "ocpp2.1") {
+      payload.evseId = targetConnectorId;
+      payload.chargingProfile = csChargingProfiles;
+    }
+
     const result = await sendDistributedOcppCall(
       targetChargerId,
       "SetChargingProfile",
-      { connectorId: targetConnectorId, csChargingProfiles },
+      payload,
       10000
     );
 
@@ -247,9 +259,17 @@ export async function clearChargingProfile(
   const { chargerId, id, connectorId, chargingProfilePurpose, stackLevel } = request;
   try {
     const { targetChargerId, targetConnectorId } = await resolveTargetChargerAndConnector(chargerId, connectorId);
+    const protocol = await getChargerProtocol(targetChargerId);
+
     const payload: any = {};
-    if (id !== undefined) payload.id = id;
-    if (connectorId !== undefined) payload.connectorId = targetConnectorId;
+    if (id !== undefined) {
+      payload.id = id;
+      payload.chargingProfileId = id;
+    }
+    if (connectorId !== undefined) {
+      payload.connectorId = targetConnectorId;
+      payload.evseId = targetConnectorId;
+    }
     if (chargingProfilePurpose !== undefined) payload.chargingProfilePurpose = chargingProfilePurpose;
     if (stackLevel !== undefined) payload.stackLevel = stackLevel;
 

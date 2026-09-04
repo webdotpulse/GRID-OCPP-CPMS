@@ -3,6 +3,7 @@ import { getBullMqRedisConnection, MeterValueJobData } from "../queues/queueMana
 import { prisma } from "../config/database.js";
 import { logger } from "../utils/logger.js";
 import { TelemetryAnomalyService } from "../services/TelemetryAnomalyService.js";
+import { loadManagementService } from "../services/LoadManagementService.js";
 
 export const METER_VALUES_QUEUE_NAME = "meter-values-queue";
 
@@ -89,6 +90,21 @@ export async function processMeterValueJob(job: Job<MeterValueJobData>): Promise
       data: txUpdateData,
     }),
   ]);
+
+  // Real-time Dynamic Load Management rebalance check on significant power updates
+  if (p.powerValue !== undefined && p.powerValue !== null && p.chargerId) {
+    try {
+      const charger = await prisma.charger.findUnique({
+        where: { charger_id: p.chargerId },
+        select: { chargeGroupId: true },
+      });
+      if (charger?.chargeGroupId) {
+        loadManagementService.rebalanceGroupIfOverloaded(charger.chargeGroupId).catch(() => {});
+      }
+    } catch {
+      // Non-blocking
+    }
+  }
 }
 
 /**
@@ -203,6 +219,20 @@ export async function processMeterValuesBatch(payloads: MeterValueJobData[]): Pr
       where: { transactionId, status: { not: "completed" } },
       data: txUpdateData,
     });
+
+    if (latest.powerValue !== undefined && latest.powerValue !== null && latest.chargerId) {
+      try {
+        const charger = await prisma.charger.findUnique({
+          where: { charger_id: latest.chargerId },
+          select: { chargeGroupId: true },
+        });
+        if (charger?.chargeGroupId) {
+          loadManagementService.rebalanceGroupIfOverloaded(charger.chargeGroupId).catch(() => {});
+        }
+      } catch {
+        // Non-blocking
+      }
+    }
   }
 }
 

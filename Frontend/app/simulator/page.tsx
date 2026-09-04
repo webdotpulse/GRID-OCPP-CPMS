@@ -688,7 +688,8 @@ export default function SimulatorPage() {
                   protocol={activeSession.protocol || "ocpp1.6"}
                   firmwareVersion={currentCharger.firmware_version || activeSession.firmwareVersion}
                   status={activeSession.status}
-                  chargeGroupName="Virtual Test Lab"
+                  chargeGroupName={currentCharger.chargeGroup?.name || "Virtual Test Lab"}
+                  chargeGroupMaxKw={currentCharger.chargeGroup?.maxPower}
                   connectors={activeSession.connectors || []}
                   selectedConnectorId={selectedConnectorId}
                   onSelectConnector={setSelectedConnectorId}

@@ -144,11 +144,9 @@ export class LoadManagementService {
       let totalActiveLoadKw = (aggregateLoad._sum.currentPower || 0) / 1000;
 
       // 2) Find THEORETICAL max load (what the chargers COULD draw if unbounded).
-      // We use theoretical load to decide when it's safe to CLEAR limits.
-      // If we used actual load to clear limits, we'd clear them as soon as throttling
-      // took effect, causing an oscillation (limit on -> load drops -> limit off -> load spikes -> limit on).
+      // We use theoretical load with hysteresis to decide when it's safe to CLEAR limits.
       let theoreticalMaxLoadKw = activeTransactions.reduce(
-        (sum, tx) => sum + (tx.charger.power_capacity || 0),
+        (sum, tx) => sum + (tx.charger?.power_capacity && tx.charger.power_capacity > 0 ? tx.charger.power_capacity : 22.0),
         0
       );
 
@@ -156,8 +154,8 @@ export class LoadManagementService {
       const effectiveLimitKw = Math.min(station.maxPower, maxPowerFromAmps);
       const safeLimitKw = effectiveLimitKw * 0.95;
 
-      // If THEORETICAL max load is safely under limits, clear limits.
-      if (theoreticalMaxLoadKw <= safeLimitKw) {
+      // If THEORETICAL max load is safely under limits (10% hysteresis), clear limits.
+      if (theoreticalMaxLoadKw <= safeLimitKw * 0.90) {
         logger.debug(`Station ${stationId} theoretical load (${theoreticalMaxLoadKw.toFixed(1)}kW) within safe limit (${safeLimitKw.toFixed(1)}kW). Clearing any existing load management profiles.`);
         const clearPromises = activeTransactions.map(tx => this.clearLoadManagementProfile(tx.charger_id, 110));
         const clearResults = await Promise.allSettled(clearPromises);
@@ -191,14 +189,15 @@ export class LoadManagementService {
       const txsWithPromises: typeof activeTransactions = [];
 
       for (const tx of activeTransactions) {
-        // Skip dispatch if profile already exists with exact limit AND charger is adhering to it
+        // Skip dispatch only if profile already exists with exact limit AND charger is actively adhering
         const existingProfile = existingProfilesMap.get(tx.charger_id);
 
         const existingSchedule = existingProfile?.chargingSchedule as any;
         const currentLimitW = existingSchedule?.chargingSchedulePeriod?.[0]?.limit;
 
         if (existingProfile && currentLimitW === limitW) {
-          if ((tx.currentPower || 0) <= limitW * 1.05) {
+          const currentPowerW = tx.currentPower || 0;
+          if (currentPowerW > 0 && currentPowerW <= limitW * 1.05) {
             continue; // Limit already applied and adhering, skip redundant dispatch
           }
         }
@@ -272,157 +271,161 @@ export class LoadManagementService {
       const groupId = group.id;
       if (activeTransactions.length === 0) return;
 
-      // Calculate theoretical max power capacity of the chargers to prevent oscillation when clearing
-      let theoreticalMaxLoadKw = activeTransactions.reduce(
-        (sum, tx) => sum + (tx.charger.power_capacity || 0),
+      // 1. Determine effective cluster capacity ceiling
+      const groupPowerLimitKw = group.maxPower && group.maxPower > 0 ? group.maxPower : null;
+      const groupAmpsLimitKw = group.maxAmperage && group.maxAmperage > 0 ? (group.maxAmperage * 3 * 230) / 1000 : null;
+
+      let effectiveLimitKw: number | null = null;
+      if (groupPowerLimitKw !== null && groupAmpsLimitKw !== null) {
+        effectiveLimitKw = Math.min(groupPowerLimitKw, groupAmpsLimitKw);
+      } else if (groupPowerLimitKw !== null) {
+        effectiveLimitKw = groupPowerLimitKw;
+      } else if (groupAmpsLimitKw !== null) {
+        effectiveLimitKw = groupAmpsLimitKw;
+      }
+
+      // If no power or amperage limit is defined on the group, nothing to constrain
+      if (effectiveLimitKw === null || effectiveLimitKw <= 0) return;
+
+      const safeLimitKw = effectiveLimitKw * 0.95;
+
+      // 2. Calculate theoretical max load (assume 22kW fallback if power_capacity is missing/0)
+      const theoreticalMaxLoadKw = activeTransactions.reduce((sum, tx) => {
+        const cap = tx.charger?.power_capacity && tx.charger.power_capacity > 0 ? tx.charger.power_capacity : 22.0;
+        return sum + cap;
+      }, 0);
+
+      // Find ACTUAL active load currently drawn across the cluster
+      const totalActiveLoadKw = activeTransactions.reduce(
+        (sum, tx) => sum + ((tx.currentPower || 0) / 1000),
         0
       );
 
-      // --- 1. AMPERAGE BALANCING ---
-      if (group.maxAmperage) {
-        // Find ACTUAL active current from in-memory array
-        let totalActiveCurrent = activeTransactions.reduce((sum, tx) => sum + (tx.current || 0), 0);
+      // 3. CLEAR limits based on THEORETICAL max load with 10% hysteresis to prevent oscillation
+      if (theoreticalMaxLoadKw <= safeLimitKw * 0.90) {
+        logger.debug(
+          `Charge Group ${groupId} theoretical load (${theoreticalMaxLoadKw.toFixed(1)}kW) safely below limit (${safeLimitKw.toFixed(1)}kW). Clearing load management profiles.`
+        );
+        const clearPromises = activeTransactions.map((tx) =>
+          Promise.all([
+            this.clearLoadManagementProfile(tx.charger_id, 100),
+            this.clearLoadManagementProfile(tx.charger_id, 101),
+          ])
+        );
+        await Promise.allSettled(clearPromises);
+        return;
+      }
 
-        const safeLimitAmps = group.maxAmperage * 0.95;
+      logger.info(
+        `Charge Group ${groupId} load (Active: ${totalActiveLoadKw.toFixed(1)}kW, Theoretical: ${theoreticalMaxLoadKw.toFixed(1)}kW) requires smart allocation (Safe Limit: ${safeLimitKw.toFixed(1)}kW).`
+      );
 
-        // Calculate theoretical max current based on power capacity (assuming 230V per phase, or just a rough max estimate).
-        // A safer way is estimating max amperage from the power capacity. E.g. 22kW -> ~32A (3-phase)
-        let theoreticalMaxCurrentAmps = activeTransactions.reduce((sum, tx) => {
-          // If power capacity exists, estimate max amps. Using a conservative estimate of 32A max per typical AC charger.
-          // Or just using total active transactions * 32A.
-          const estimatedMaxTxAmps = tx.charger.power_capacity ? Math.ceil((tx.charger.power_capacity * 1000) / (230 * 3)) : 32;
-          return sum + Math.max(32, estimatedMaxTxAmps); // Default to at least 32A assumption per charger
-        }, 0);
+      // 4. DEMAND-AWARE PROPORTIONAL ALLOCATION (Water-Filling)
+      // Calculate realistic demand for each active transaction
+      const txDemands = activeTransactions.map((tx) => {
+        const physicalMaxKw = tx.charger?.power_capacity && tx.charger.power_capacity > 0 ? tx.charger.power_capacity : 22.0;
+        const currentKw = (tx.currentPower || 0) / 1000;
 
-        if (theoreticalMaxCurrentAmps <= safeLimitAmps) {
-          logger.debug(`Charge Group ${groupId} theoretical current (${theoreticalMaxCurrentAmps.toFixed(1)}A) within safe limit (${safeLimitAmps.toFixed(1)}A). Clearing any existing amp load management profiles.`);
-          const clearPromises = activeTransactions.map(tx => this.clearLoadManagementProfile(tx.charger_id, 101));
-          const clearResults = await Promise.allSettled(clearPromises);
-          clearResults.forEach((result, index) => {
-            if (result.status === "rejected") {
-              logger.error(`Failed to clear amp load management profile for charger ${activeTransactions[index].charger_id}: ${result.reason}`);
-            }
-          });
+        let desiredKw: number;
+        if (currentKw > 0) {
+          // If vehicle is already charging below capacity (e.g. PHEV, tapering battery), respect its demand + 15% ramp headroom
+          desiredKw = Math.min(physicalMaxKw, Math.max(1.4, currentKw * 1.15));
         } else {
-          logger.info(`Charge Group ${groupId} active current (${totalActiveCurrent.toFixed(1)}A, Theoretical: ${theoreticalMaxCurrentAmps.toFixed(1)}A) requires load balancing (Safe Limit: ${safeLimitAmps.toFixed(1)}A).`);
+          // Newly started transaction: requests up to charger's physical rating
+          desiredKw = physicalMaxKw;
+        }
 
-          // Prioritize older transactions; suspend others if safe limit drops below 6A per active transaction
-          const sortedTransactions = [...activeTransactions].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-          const maxActiveChargers = Math.max(1, Math.floor(safeLimitAmps / 6)); // At least 1 to avoid divide-by-zero
-          const activeCount = Math.min(sortedTransactions.length, maxActiveChargers);
-          const limitPerTransactionAmps = Math.floor(safeLimitAmps / activeCount);
+        return {
+          tx,
+          physicalMaxKw,
+          currentKw,
+          desiredKw,
+        };
+      });
 
-          const chargerIds = activeTransactions.map(tx => tx.charger_id);
-          const existingAmpProfilesList = await prisma.chargingProfile.findMany({
-            where: { chargerId: { in: chargerIds }, chargingProfileId: 101 }
-          });
-          const existingAmpProfilesMap = new Map(existingAmpProfilesList.map(p => [p.chargerId, p]));
+      const totalDesiredKw = txDemands.reduce((sum, d) => sum + d.desiredKw, 0);
+      const allocatedLimitsKw = new Map<number, number>();
 
-          const dispatchPromises: Promise<void>[] = [];
-          const txsWithPromises: typeof activeTransactions = [];
+      if (totalDesiredKw <= safeLimitKw) {
+        // All vehicles can be granted their desired power. Distribute any surplus to chargers that have headroom.
+        const surplusKw = safeLimitKw - totalDesiredKw;
+        const chargersWithHeadroom = txDemands.filter((d) => d.physicalMaxKw > d.desiredKw);
+        const extraPerCharger = chargersWithHeadroom.length > 0 ? surplusKw / chargersWithHeadroom.length : 0;
 
-          for (let i = 0; i < sortedTransactions.length; i++) {
-            const tx = sortedTransactions[i];
-            const currentTxLimitAmps = i < activeCount ? limitPerTransactionAmps : 0;
+        for (const d of txDemands) {
+          const extra = d.physicalMaxKw > d.desiredKw ? extraPerCharger : 0;
+          const finalKw = Math.min(d.physicalMaxKw, d.desiredKw + extra);
+          allocatedLimitsKw.set(d.tx.id, Math.max(1.4, finalKw));
+        }
+      } else {
+        // Constrained: scale allocations proportionally
+        const sortedDemands = [...txDemands].sort(
+          (a, b) => new Date(a.tx.startTime).getTime() - new Date(b.tx.startTime).getTime()
+        );
 
-            const existingProfile = existingAmpProfilesMap.get(tx.charger_id);
+        const minPerTxKw = 1.4; // 6A @ 230V 1-phase
+        const maxActiveAllowed = Math.max(1, Math.floor(safeLimitKw / minPerTxKw));
+        const activeCount = Math.min(sortedDemands.length, maxActiveAllowed);
 
-            const existingSchedule = existingProfile?.chargingSchedule as any;
-            const currentLimitAmps = existingSchedule?.chargingSchedulePeriod?.[0]?.limit;
+        // Calculate proportional scale for active sessions
+        const activeSlice = sortedDemands.slice(0, activeCount);
+        const activeDesiredKw = activeSlice.reduce((sum, d) => sum + d.desiredKw, 0);
+        const scale = safeLimitKw / Math.max(1.0, activeDesiredKw);
 
-            if (existingProfile && currentLimitAmps === currentTxLimitAmps) {
-              if ((tx.current || 0) <= currentTxLimitAmps * 1.05) {
-                continue; // Limit already applied and adhering, skip redundant dispatch
-              }
-            }
-
-            const profileRequest: SetChargingProfileRequest = {
-              chargerId: tx.charger_id,
-              connectorId: 0,
-              csChargingProfiles: {
-                chargingProfileId: 101, // ID representing Smart Load Management (Amps)
-                stackLevel: 2, // Higher priority
-                chargingProfilePurpose: "TxDefaultProfile", // Throttling charging speeds for tx
-                chargingProfileKind: "Absolute",
-                chargingSchedule: {
-                  chargingRateUnit: "A", // Using Amps
-                  chargingSchedulePeriod: [
-                    {
-                      startPeriod: 0,
-                      limit: currentTxLimitAmps
-                    }
-                  ]
-                }
-              }
-            };
-
-            // Dispatch profile to throttle
-            dispatchPromises.push(this.dispatchChargingProfiles(profileRequest));
-            txsWithPromises.push(tx);
-          }
-
-          if (dispatchPromises.length > 0) {
-            const dispatchResults = await Promise.allSettled(dispatchPromises);
-            dispatchResults.forEach((result, index) => {
-              if (result.status === "rejected") {
-                logger.error(`Failed to dispatch amp throttle profile for tx ${txsWithPromises[index].id}: ${result.reason}`);
-              }
-            });
+        for (let i = 0; i < sortedDemands.length; i++) {
+          const item = sortedDemands[i];
+          if (i < activeCount) {
+            const rawAllocated = item.desiredKw * scale;
+            const clamped = Math.max(minPerTxKw, Math.min(item.physicalMaxKw, rawAllocated));
+            allocatedLimitsKw.set(item.tx.id, clamped);
+          } else {
+            // Queue / Suspend newer sessions when total safe capacity is exhausted
+            allocatedLimitsKw.set(item.tx.id, 0);
           }
         }
       }
 
-      // --- 2. POWER BALANCING ---
-      if (!group.maxPower) return;
-
-      const safeLimitKw = group.maxPower * 0.95;
-
-      // Find ACTUAL active load from in-memory array
-      let totalActiveLoadKw = activeTransactions.reduce((sum, tx) => sum + ((tx.currentPower || 0) / 1000), 0);
-
-      // CLEAR limits based on THEORETICAL max load to prevent oscillation
-      if (theoreticalMaxLoadKw <= safeLimitKw) {
-        logger.debug(`Charge Group ${groupId} theoretical load (${theoreticalMaxLoadKw.toFixed(1)}kW) within safe limit (${safeLimitKw.toFixed(1)}kW). Clearing any existing load management profiles.`);
-        const clearPromises = activeTransactions.map(tx => this.clearLoadManagementProfile(tx.charger_id, 100));
-        const clearResults = await Promise.allSettled(clearPromises);
-        clearResults.forEach((result, index) => {
-          if (result.status === "rejected") {
-            logger.error(`Failed to clear power load management profile for charger ${activeTransactions[index].charger_id}: ${result.reason}`);
-          }
-        });
-        return;
+      // Mathematical Hard-Cap Verification: Ensure sum(allocated) NEVER exceeds safeLimitKw
+      let totalAllocatedKw = 0;
+      for (const val of allocatedLimitsKw.values()) {
+        totalAllocatedKw += val;
       }
 
-      // APPLY limits based on ACTUAL load or if theoretical limit enforces it
-      logger.info(`Charge Group ${groupId} load (Active: ${totalActiveLoadKw.toFixed(1)}kW, Theoretical: ${theoreticalMaxLoadKw.toFixed(1)}kW) requires load balancing (Safe Limit: ${safeLimitKw.toFixed(1)}kW).`);
+      if (totalAllocatedKw > safeLimitKw) {
+        const excess = totalAllocatedKw - safeLimitKw;
+        // Trim excess from the largest allocation that is above minPerTxKw
+        for (const [txId, kw] of allocatedLimitsKw.entries()) {
+          if (kw > 1.4) {
+            const trim = Math.min(excess, kw - 1.4);
+            allocatedLimitsKw.set(txId, kw - trim);
+            break;
+          }
+        }
+      }
 
-      // Prioritize older transactions; suspend others if safe limit drops below 1.4kW per active transaction
-      const sortedTransactionsKw = [...activeTransactions].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-      const maxActiveChargersKw = Math.max(1, Math.floor(safeLimitKw / 1.4));
-      const activeCountKw = Math.min(sortedTransactionsKw.length, maxActiveChargersKw);
-      const limitPerTransactionKw = safeLimitKw / activeCountKw;
-
-      const chargerIdsKw = activeTransactions.map(tx => tx.charger_id);
-      const existingPowerProfilesList = await prisma.chargingProfile.findMany({
-        where: { chargerId: { in: chargerIdsKw }, chargingProfileId: 100 }
+      // 5. UNIFIED PROFILE DISPATCH (Profile 100 - ChargePointMaxProfile)
+      const chargerIds = activeTransactions.map((tx) => tx.charger_id);
+      const existingProfilesList = await prisma.chargingProfile.findMany({
+        where: { chargerId: { in: chargerIds }, chargingProfileId: 100 },
       });
-      const existingPowerProfilesMap = new Map(existingPowerProfilesList.map(p => [p.chargerId, p]));
+      const existingProfilesMap = new Map(existingProfilesList.map((p) => [p.chargerId, p]));
 
       const dispatchPromises: Promise<void>[] = [];
       const txsWithPromises: typeof activeTransactions = [];
 
-      for (let i = 0; i < sortedTransactionsKw.length; i++) {
-        const tx = sortedTransactionsKw[i];
-        const limitW = i < activeCountKw ? Math.floor(limitPerTransactionKw * 1000) : 0;
+      for (const tx of activeTransactions) {
+        const allocatedKw = allocatedLimitsKw.get(tx.id) ?? 1.4;
+        const limitW = Math.floor(allocatedKw * 1000);
 
-        const existingProfile = existingPowerProfilesMap.get(tx.charger_id);
-
+        const existingProfile = existingProfilesMap.get(tx.charger_id);
         const existingSchedule = existingProfile?.chargingSchedule as any;
         const currentLimitW = existingSchedule?.chargingSchedulePeriod?.[0]?.limit;
 
+        // Skip dispatch only if profile already matches AND charger is actively adhering (currentPower > 0)
         if (existingProfile && currentLimitW === limitW) {
-          if ((tx.currentPower || 0) <= limitW * 1.05) {
-            continue; // Limit already applied and adhering, skip redundant dispatch
+          const currentPowerW = tx.currentPower || 0;
+          if (currentPowerW > 0 && currentPowerW <= limitW * 1.05) {
+            continue; // Limit already applied and vehicle is adhering
           }
         }
 
@@ -430,7 +433,7 @@ export class LoadManagementService {
           chargerId: tx.charger_id,
           connectorId: 0,
           csChargingProfiles: {
-            chargingProfileId: 100, // Static ID representing Load Management
+            chargingProfileId: 100, // ID 100: Charge Group Dynamic Load Balancing
             stackLevel: 1,
             chargingProfilePurpose: "ChargePointMaxProfile",
             chargingProfileKind: "Absolute",
@@ -439,11 +442,11 @@ export class LoadManagementService {
               chargingSchedulePeriod: [
                 {
                   startPeriod: 0,
-                  limit: limitW
-                }
-              ]
-            }
-          }
+                  limit: limitW,
+                },
+              ],
+            },
+          },
         };
 
         dispatchPromises.push(this.dispatchChargingProfiles(profileRequest));
@@ -454,7 +457,9 @@ export class LoadManagementService {
         const dispatchResults = await Promise.allSettled(dispatchPromises);
         dispatchResults.forEach((result, index) => {
           if (result.status === "rejected") {
-            logger.error(`Failed to dispatch power throttle profile for charger ${txsWithPromises[index].charger_id}: ${result.reason}`);
+            logger.error(
+              `Failed to dispatch power throttle profile for charger ${txsWithPromises[index].charger_id}: ${result.reason}`
+            );
           }
         });
       }
@@ -830,6 +835,26 @@ export class LoadManagementService {
     } catch (error: any) {
       logger.error(`Error in balancePhasesForGroup for group ${groupId}: ${error}`);
       return { balanced: false, groupId, error: error.message || "Phase balancing failure" };
+    }
+  }
+
+  /**
+   * Fast real-time check triggered by MeterValues ingestion:
+   * If group load exceeds safe limit or if headroom is critical, trigger rebalance immediately.
+   */
+  private lastRebalanceTimestamps = new Map<number, number>();
+
+  public async rebalanceGroupIfOverloaded(groupId: number): Promise<void> {
+    const now = Date.now();
+    const lastRun = this.lastRebalanceTimestamps.get(groupId) || 0;
+    // Debounce to at most once per 3 seconds per group
+    if (now - lastRun < 3000) return;
+    this.lastRebalanceTimestamps.set(groupId, now);
+
+    try {
+      await this.balanceChargeGroupLoad(groupId);
+    } catch (err) {
+      logger.error(`Error in rebalanceGroupIfOverloaded for group ${groupId}: ${err}`);
     }
   }
 }
