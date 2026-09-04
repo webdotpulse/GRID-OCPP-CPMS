@@ -850,7 +850,11 @@ export default function ChargerDetailPage() {
         <TabsContent value="configuration">
           {/* Configuration Panel */}
           <div className="mb-6">
-            <ChargerConfigurationPanel chargerId={charger.charger_id} />
+            <ChargerConfigurationPanel
+              chargerId={charger.charger_id}
+              chargerName={charger.name}
+              isOnline={charger.status !== "offline"}
+            />
           </div>
         </TabsContent>
 

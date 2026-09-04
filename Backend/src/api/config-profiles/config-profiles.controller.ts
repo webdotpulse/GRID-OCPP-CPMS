@@ -35,23 +35,37 @@ export const getConfigProfile = async (req: Request, res: Response) => {
 
 export const createConfigProfile = async (req: Request, res: Response) => {
   const { name, description, items } = req.body;
+  if (!name || typeof name !== "string" || !name.trim()) {
+    return res.status(400).json({ success: false, error: "Profile name is required" });
+  }
+
   try {
+    const safeItems = Array.isArray(items) ? items : [];
+    // Deduplicate by key to avoid unique constraint violation on (profileId, key)
+    const uniqueItemsMap = new Map<string, string>();
+    for (const item of safeItems) {
+      if (item && item.key) {
+        uniqueItemsMap.set(String(item.key).trim(), String(item.value ?? ""));
+      }
+    }
+    const itemsToCreate = Array.from(uniqueItemsMap.entries()).map(([key, value]) => ({ key, value }));
+
     const profile = await prisma.configurationProfile.create({
       data: {
-        name,
-        description,
+        name: name.trim(),
+        description: description ? String(description).trim() : null,
         items: {
-          create: items.map((item: any) => ({
-            key: item.key,
-            value: item.value,
-          })),
+          create: itemsToCreate,
         },
       },
       include: { items: true },
     });
     res.status(201).json({ success: true, data: profile });
-  } catch (error) {
+  } catch (error: any) {
     logger.error("Failed to create configuration profile", error);
+    if (error?.code === "P2002") {
+      return res.status(400).json({ success: false, error: "A configuration profile with this name already exists" });
+    }
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
@@ -59,7 +73,20 @@ export const createConfigProfile = async (req: Request, res: Response) => {
 export const updateConfigProfile = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { name, description, items } = req.body;
+  if (!name || typeof name !== "string" || !name.trim()) {
+    return res.status(400).json({ success: false, error: "Profile name is required" });
+  }
+
   try {
+    const safeItems = Array.isArray(items) ? items : [];
+    const uniqueItemsMap = new Map<string, string>();
+    for (const item of safeItems) {
+      if (item && item.key) {
+        uniqueItemsMap.set(String(item.key).trim(), String(item.value ?? ""));
+      }
+    }
+    const itemsToCreate = Array.from(uniqueItemsMap.entries()).map(([key, value]) => ({ key, value }));
+
     // We update name/description, and for simplicity, we delete all items and recreate them
     const profile = await prisma.$transaction(async (tx) => {
       await tx.configurationProfileItem.deleteMany({
@@ -69,13 +96,10 @@ export const updateConfigProfile = async (req: Request, res: Response) => {
       return await tx.configurationProfile.update({
         where: { id: Number(id) },
         data: {
-          name,
-          description,
+          name: name.trim(),
+          description: description ? String(description).trim() : null,
           items: {
-            create: items.map((item: any) => ({
-              key: item.key,
-              value: item.value,
-            })),
+            create: itemsToCreate,
           },
         },
         include: { items: true },
@@ -83,8 +107,11 @@ export const updateConfigProfile = async (req: Request, res: Response) => {
     });
 
     res.json({ success: true, data: profile });
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Failed to update configuration profile ${id}`, error);
+    if (error?.code === "P2002") {
+      return res.status(400).json({ success: false, error: "A configuration profile with this name already exists" });
+    }
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
