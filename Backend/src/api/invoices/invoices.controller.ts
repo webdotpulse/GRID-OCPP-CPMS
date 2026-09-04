@@ -170,3 +170,60 @@ export const updateInvoiceStatus = async (req: AuthRequest, res: Response) => {
     res.status(statusCode).json({ success: false, error: error.message || "Failed to update invoice status" });
   }
 };
+
+/**
+ * DELETE /api/invoices/:id - Remove an invoice (Admin/Superadmin only)
+ */
+export const deleteInvoice = async (req: AuthRequest, res: Response) => {
+  try {
+    if (req.userRole !== "admin" && req.userRole !== "superadmin") {
+      return res.status(403).json({ success: false, error: "Only administrators can delete invoices" });
+    }
+
+    const id = parseId(req.params.id);
+    if (!id) {
+      return res.status(400).json({ success: false, error: "Invalid invoice ID" });
+    }
+
+    const result = await InvoiceService.deleteInvoice(id, req.userRole, req.userId);
+    res.json(result);
+  } catch (error: any) {
+    logger.error(`Error deleting invoice #${req.params.id}:`, error);
+    const statusCode = error.message?.includes("Permission denied")
+      ? 403
+      : error.message?.includes("not found")
+      ? 404
+      : 500;
+    res.status(statusCode).json({ success: false, error: error.message || "Failed to delete invoice" });
+  }
+};
+
+/**
+ * POST /api/invoices/reset-numbering - Reset invoice numbering counter & optionally renumber existing invoices (Admin/Superadmin only)
+ */
+export const resetInvoiceNumbering = async (req: AuthRequest, res: Response) => {
+  try {
+    if (req.userRole !== "admin" && req.userRole !== "superadmin") {
+      return res.status(403).json({ success: false, error: "Only administrators can reset invoice numbering" });
+    }
+
+    const { startSequence, renumberExisting, year, month, prefix } = req.body;
+    const result = await InvoiceService.resetInvoiceNumbering(
+      {
+        startSequence: startSequence !== undefined ? Number(startSequence) : 1,
+        renumberExisting: renumberExisting !== false,
+        year: year ? Number(year) : undefined,
+        month: month ? Number(month) : undefined,
+        prefix: prefix ? String(prefix) : undefined,
+      },
+      req.userRole,
+      req.userId
+    );
+
+    res.json(result);
+  } catch (error: any) {
+    logger.error("Error resetting invoice numbering:", error);
+    const statusCode = error.message?.includes("Permission denied") ? 403 : 500;
+    res.status(statusCode).json({ success: false, error: error.message || "Failed to reset invoice numbering" });
+  }
+};

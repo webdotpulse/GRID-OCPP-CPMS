@@ -30,6 +30,14 @@ export interface InvoiceFilters {
   limit?: number;
 }
 
+export interface ResetInvoiceNumberingOptions {
+  startSequence?: number;
+  renumberExisting?: boolean;
+  year?: number;
+  month?: number;
+  prefix?: string;
+}
+
 // Standard VAT rates across key EU/international countries
 const VAT_RATES: Record<string, number> = {
   NL: 21.0,
@@ -77,6 +85,23 @@ export class InvoiceService {
     const monthStr = String(month).padStart(2, "0");
     const prefix = `INV-${year}${monthStr}-`;
 
+    let nextSequence = 1;
+
+    // Check if an explicit sequence override was configured
+    try {
+      const setting = await prisma.systemSetting.findUnique({
+        where: { key: "INVOICE_NEXT_SEQUENCE" },
+      });
+      if (setting?.value) {
+        const parsed = parseInt(setting.value, 10);
+        if (!isNaN(parsed) && parsed > 0) {
+          nextSequence = parsed;
+        }
+      }
+    } catch {
+      // Non-blocking fallback
+    }
+
     const lastInvoice = await prisma.invoice.findFirst({
       where: {
         invoiceNumber: {
@@ -88,18 +113,39 @@ export class InvoiceService {
       },
     });
 
-    let nextSequence = 1;
     if (lastInvoice && lastInvoice.invoiceNumber) {
       const parts = lastInvoice.invoiceNumber.split("-");
       if (parts.length >= 3) {
         const parsed = parseInt(parts[2], 10);
-        if (!isNaN(parsed)) {
+        if (!isNaN(parsed) && parsed >= nextSequence) {
           nextSequence = parsed + 1;
         }
       }
     }
 
-    return `${prefix}${String(nextSequence).padStart(4, "0")}`;
+    // Ensure candidate number is unique
+    let candidate = `${prefix}${String(nextSequence).padStart(4, "0")}`;
+    try {
+      while (await prisma.invoice.findUnique({ where: { invoiceNumber: candidate } })) {
+        nextSequence++;
+        candidate = `${prefix}${String(nextSequence).padStart(4, "0")}`;
+      }
+    } catch {
+      // Non-blocking
+    }
+
+    // Persist next sequence counter
+    try {
+      await prisma.systemSetting.upsert({
+        where: { key: "INVOICE_NEXT_SEQUENCE" },
+        update: { value: String(nextSequence + 1) },
+        create: { key: "INVOICE_NEXT_SEQUENCE", value: String(nextSequence + 1) },
+      });
+    } catch {
+      // Non-blocking
+    }
+
+    return candidate;
   }
 
   /**
@@ -898,6 +944,150 @@ export class InvoiceService {
     return {
       success: true,
       message: `Invoice ${invoice.invoiceNumber} successfully emailed to ${recipientEmail}`,
+    };
+  }
+
+  /**
+   * Deletes an invoice and unlinks associated charging transactions back to unbilled status.
+   */
+  static async deleteInvoice(
+    id: number,
+    userRole?: string,
+    userId?: number
+  ): Promise<{ success: boolean; message: string }> {
+    const isAdmin = userRole === "admin" || userRole === "superadmin";
+    if (!isAdmin) {
+      throw new Error("Permission denied: Only administrators can delete invoices.");
+    }
+
+    const existing = await prisma.invoice.findUnique({
+      where: { id },
+      include: { transactions: true },
+    });
+    if (!existing) {
+      throw new Error("Invoice not found");
+    }
+
+    if (userRole !== "superadmin" && userId) {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      if (!user?.companyId || user.companyId !== existing.companyId) {
+        throw new Error("Permission denied: You do not have permission to delete this invoice.");
+      }
+    }
+
+    // Unlink any transactions associated with this invoice so they can be re-billed
+    await prisma.transaction.updateMany({
+      where: { invoiceId: id },
+      data: { invoiceId: null },
+    });
+
+    // Delete invoice (InvoiceItem records cascade delete)
+    await prisma.invoice.delete({
+      where: { id },
+    });
+
+    logger.info(`Deleted invoice #${id} (${existing.invoiceNumber}) by user #${userId || "system"}`);
+    return {
+      success: true,
+      message: `Invoice ${existing.invoiceNumber} successfully deleted.`,
+    };
+  }
+
+  /**
+   * Resets invoice numbering counter and optionally renumbers existing invoices sequentially.
+   */
+  static async resetInvoiceNumbering(
+    options: ResetInvoiceNumberingOptions = {},
+    userRole?: string,
+    userId?: number
+  ): Promise<{ success: boolean; message: string; renumberedCount: number; nextSequence: number }> {
+    const isAdmin = userRole === "admin" || userRole === "superadmin";
+    if (!isAdmin) {
+      throw new Error("Permission denied: Only administrators can reset invoice numbering.");
+    }
+
+    const startSeq = Math.max(Number(options.startSequence) || 1, 1);
+    const renumberExisting = options.renumberExisting !== false;
+
+    let companyId: number | undefined;
+    if (userRole !== "superadmin" && userId) {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } });
+      if (user?.companyId) {
+        companyId = user.companyId;
+      }
+    }
+
+    let renumberedCount = 0;
+
+    if (renumberExisting) {
+      const where: any = {};
+      if (companyId) {
+        where.companyId = companyId;
+      }
+      if (options.year) {
+        const startOfYear = new Date(Date.UTC(Number(options.year), 0, 1));
+        const endOfYear = new Date(Date.UTC(Number(options.year) + 1, 0, 1));
+        where.createdAt = { gte: startOfYear, lt: endOfYear };
+      }
+      if (options.year && options.month) {
+        const startOfMonth = new Date(Date.UTC(Number(options.year), Number(options.month) - 1, 1));
+        const endOfMonth = new Date(Date.UTC(Number(options.year), Number(options.month), 1));
+        where.createdAt = { gte: startOfMonth, lt: endOfMonth };
+      }
+
+      const existingInvoices = await prisma.invoice.findMany({
+        where,
+        orderBy: { createdAt: "asc" },
+      });
+
+      // 1. Assign temporary invoice numbers first to prevent unique constraint collisions
+      for (const inv of existingInvoices) {
+        await prisma.invoice.update({
+          where: { id: inv.id },
+          data: { invoiceNumber: `TEMP-RESET-${inv.id}-${Date.now()}` },
+        });
+      }
+
+      // 2. Assign clean sequential numbers
+      let currentSeq = startSeq;
+      for (const inv of existingInvoices) {
+        const invDate = inv.createdAt ? new Date(inv.createdAt) : new Date();
+        const y = invDate.getFullYear();
+        const m = String(invDate.getMonth() + 1).padStart(2, "0");
+        const prefix = options.prefix || `INV-${y}${m}-`;
+        const newInvoiceNumber = `${prefix}${String(currentSeq).padStart(4, "0")}`;
+
+        await prisma.invoice.update({
+          where: { id: inv.id },
+          data: { invoiceNumber: newInvoiceNumber },
+        });
+        currentSeq++;
+        renumberedCount++;
+      }
+    }
+
+    const nextSeq = renumberExisting ? startSeq + renumberedCount : startSeq;
+    try {
+      await prisma.systemSetting.upsert({
+        where: { key: "INVOICE_NEXT_SEQUENCE" },
+        update: { value: String(nextSeq) },
+        create: { key: "INVOICE_NEXT_SEQUENCE", value: String(nextSeq) },
+      });
+    } catch {
+      // Non-blocking
+    }
+
+    logger.info(
+      `Reset invoice numbering by user #${userId || "system"}: startSeq=${startSeq}, renumbered=${renumberedCount}, nextSeq=${nextSeq}`
+    );
+
+    return {
+      success: true,
+      message: renumberExisting
+        ? `Successfully reset invoice numbering and renumbered ${renumberedCount} invoice(s) sequentially starting from #${String(startSeq).padStart(4, "0")}.`
+        : `Successfully set next invoice sequence number to #${String(startSeq).padStart(4, "0")}.`,
+      renumberedCount,
+      nextSequence: nextSeq,
     };
   }
 }

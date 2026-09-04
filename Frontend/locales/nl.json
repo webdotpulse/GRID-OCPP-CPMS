@@ -255,7 +255,11 @@
       "statusIssued": "Verzonden",
       "statusDraft": "Concept",
       "statusVoid": "Nietig",
-      "noInvoices": "Geen facturen gevonden die overeenkomen met de filters."
+      "noInvoices": "Geen facturen gevonden die overeenkomen met de filters.",
+      "deleteInvoice": "Factuur Verwijderen",
+      "confirmDelete": "Weet u zeker dat u factuur {{number}} wilt verwijderen? Gekoppelde laadsessies worden weer vrijgegeven als niet-gefactureerd.",
+      "resetNumbering": "Nummering Resetten",
+      "resetNumberingDesc": "Reset de volgnummerteller van facturen of hernummer bestaande facturen opeenvolgend zonder gaten."
     },
     "reimbursements": {
       "title": "Vergoedingen",

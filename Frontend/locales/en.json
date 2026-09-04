@@ -255,7 +255,11 @@
       "statusIssued": "Issued",
       "statusDraft": "Draft",
       "statusVoid": "Void",
-      "noInvoices": "No invoices found matching current filters."
+      "noInvoices": "No invoices found matching current filters.",
+      "deleteInvoice": "Delete Invoice",
+      "confirmDelete": "Are you sure you want to delete invoice {{number}}? Associated charging transactions will be released back to unbilled status.",
+      "resetNumbering": "Reset Numbering",
+      "resetNumberingDesc": "Reset the invoice sequence counter or renumber existing invoices sequentially without gaps."
     },
     "reimbursements": {
       "title": "Reimbursements",

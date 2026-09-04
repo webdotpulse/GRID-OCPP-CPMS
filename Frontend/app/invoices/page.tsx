@@ -13,6 +13,8 @@ import {
   generateInvoices,
   sendInvoiceEmail,
   updateInvoiceStatus,
+  deleteInvoice,
+  resetInvoiceNumbering,
 } from "@/lib/invoices";
 import {
   SepaMandate,
@@ -69,6 +71,7 @@ import {
   ShieldCheck,
   Trash2,
   FileCode2,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -132,6 +135,16 @@ export default function InvoicesPage() {
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [emailingId, setEmailingId] = useState<number | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [confirmDeleteInvoice, setConfirmDeleteInvoice] = useState<Invoice | null>(null);
+
+  // Reset Invoice Numbering state
+  const [isResetNumberingOpen, setIsResetNumberingOpen] = useState<boolean>(false);
+  const [resetStartSequence, setResetStartSequence] = useState<string>("1");
+  const [resetRenumberExisting, setResetRenumberExisting] = useState<boolean>(true);
+  const [resetYear, setResetYear] = useState<string>("all");
+  const [resetMonth, setResetMonth] = useState<string>("all");
+  const [resettingNumbering, setResettingNumbering] = useState<boolean>(false);
 
   useEffect(() => {
     fetchInvoices();
@@ -251,6 +264,48 @@ export default function InvoicesPage() {
       toast.error(err.response?.data?.error || "Failed to generate monthly invoices");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleDeleteInvoice = async () => {
+    if (!confirmDeleteInvoice) return;
+    const inv = confirmDeleteInvoice;
+    setDeletingId(inv.id);
+    try {
+      const res = await deleteInvoice(inv.id);
+      toast.success(res.message || `Invoice ${inv.invoiceNumber} deleted`);
+      setConfirmDeleteInvoice(null);
+      if (selectedInvoice && selectedInvoice.id === inv.id) {
+        setIsDetailOpen(false);
+        setSelectedInvoice(null);
+      }
+      fetchInvoices();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.error || "Failed to delete invoice");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleResetNumbering = async () => {
+    setResettingNumbering(true);
+    try {
+      const res = await resetInvoiceNumbering({
+        startSequence: Number(resetStartSequence) || 1,
+        renumberExisting: resetRenumberExisting,
+        year: resetYear !== "all" ? Number(resetYear) : undefined,
+        month: resetMonth !== "all" ? Number(resetMonth) : undefined,
+      });
+
+      toast.success(res.message || "Invoice numbering reset successfully");
+      setIsResetNumberingOpen(false);
+      fetchInvoices();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.error || "Failed to reset invoice numbering");
+    } finally {
+      setResettingNumbering(false);
     }
   };
 
@@ -390,6 +445,16 @@ export default function InvoicesPage() {
                 >
                   <FileCode2 className="size-4 mr-1.5 text-emerald-500 dark:text-emerald-400" />
                   SEPA Direct Debit (pain.008)
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsResetNumberingOpen(true)}
+                  className="border-border/70 hover:bg-muted text-foreground"
+                >
+                  <RotateCcw className="size-4 mr-1.5 text-amber-500" />
+                  Reset Numbering
                 </Button>
 
                 <Button
@@ -663,6 +728,21 @@ export default function InvoicesPage() {
                                   )}
                                 </Button>
                               )}
+
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title="Delete Invoice"
+                                disabled={deletingId === inv.id}
+                                onClick={() => setConfirmDeleteInvoice(inv)}
+                                className="size-8 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                              >
+                                {deletingId === inv.id ? (
+                                  <RefreshCw className="size-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="size-4" />
+                                )}
+                              </Button>
                             </>
                           )}
                         </div>
@@ -706,7 +786,7 @@ export default function InvoicesPage() {
 
         {/* Invoice Detail Dialog */}
         <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-          <DialogContent className="max-w-3xl bg-card border-border text-foreground max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-4xl lg:max-w-5xl w-full max-w-[95vw] bg-card border-border text-foreground max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <DialogHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -760,22 +840,22 @@ export default function InvoicesPage() {
                     <Table>
                       <TableHeader className="bg-muted/40">
                         <TableRow className="border-border/70">
-                          <TableHead className="text-xs text-muted-foreground">Description</TableHead>
-                          <TableHead className="text-xs text-muted-foreground text-right">Quantity (kWh)</TableHead>
-                          <TableHead className="text-xs text-muted-foreground text-right">Rate (€)</TableHead>
-                          <TableHead className="text-xs text-muted-foreground text-right">VAT %</TableHead>
-                          <TableHead className="text-xs text-muted-foreground text-right">Total (€)</TableHead>
+                          <TableHead className="text-xs text-muted-foreground w-auto">Description</TableHead>
+                          <TableHead className="text-xs text-muted-foreground text-right w-32">Quantity (kWh)</TableHead>
+                          <TableHead className="text-xs text-muted-foreground text-right w-28">Rate (€)</TableHead>
+                          <TableHead className="text-xs text-muted-foreground text-right w-20">VAT %</TableHead>
+                          <TableHead className="text-xs text-muted-foreground text-right w-28">Total (€)</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {selectedInvoice.items && selectedInvoice.items.length > 0 ? (
                           selectedInvoice.items.map((item) => (
                             <TableRow key={item.id} className="border-border/40 text-xs">
-                              <TableCell className="font-medium text-foreground">{item.description}</TableCell>
-                              <TableCell className="text-right text-muted-foreground">{item.quantity.toFixed(2)}</TableCell>
-                              <TableCell className="text-right text-muted-foreground">€{item.unitPrice.toFixed(4)}</TableCell>
-                              <TableCell className="text-right text-muted-foreground">{item.vatRate.toFixed(0)}%</TableCell>
-                              <TableCell className="text-right font-semibold text-foreground">€{item.amount.toFixed(2)}</TableCell>
+                              <TableCell className="font-medium text-foreground whitespace-normal break-words max-w-md">{item.description}</TableCell>
+                              <TableCell className="text-right text-muted-foreground whitespace-nowrap">{item.quantity.toFixed(2)}</TableCell>
+                              <TableCell className="text-right text-muted-foreground whitespace-nowrap">€{item.unitPrice.toFixed(4)}</TableCell>
+                              <TableCell className="text-right text-muted-foreground whitespace-nowrap">{item.vatRate.toFixed(0)}%</TableCell>
+                              <TableCell className="text-right font-semibold text-foreground whitespace-nowrap">€{item.amount.toFixed(2)}</TableCell>
                             </TableRow>
                           ))
                         ) : (
@@ -835,6 +915,17 @@ export default function InvoicesPage() {
                       <Button
                         variant="outline"
                         size="sm"
+                        disabled={deletingId === selectedInvoice.id}
+                        onClick={() => setConfirmDeleteInvoice(selectedInvoice)}
+                        className="bg-rose-500/10 border-rose-500/25 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20"
+                      >
+                        <Trash2 className="size-4 mr-1.5" />
+                        Delete
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
                         disabled={emailingId === selectedInvoice.id}
                         onClick={() => handleEmail(selectedInvoice)}
                         className="border-border/70 text-foreground hover:bg-muted"
@@ -869,6 +960,175 @@ export default function InvoicesPage() {
                   </Button>
                 </div>
               )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Confirm Delete Invoice Dialog */}
+        <Dialog open={!!confirmDeleteInvoice} onOpenChange={(open) => !open && setConfirmDeleteInvoice(null)}>
+          <DialogContent className="sm:max-w-md bg-card border-border text-foreground">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                <AlertCircle className="size-5" />
+                Delete Invoice {confirmDeleteInvoice?.invoiceNumber}?
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground text-xs pt-2">
+                Are you sure you want to delete invoice <strong className="text-foreground">{confirmDeleteInvoice?.invoiceNumber}</strong>?
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="p-3.5 rounded-lg border border-border/70 bg-muted/20 space-y-2 text-xs text-foreground/90">
+              <p>
+                Any associated completed charging transactions will be unlinked and returned to <strong className="text-emerald-600 dark:text-emerald-400">unbilled status</strong> so they can be re-invoiced in future billing cycles.
+              </p>
+              {confirmDeleteInvoice && (
+                <div className="pt-2 border-t border-border/50 text-muted-foreground space-y-1 text-[11px]">
+                  <div>Customer: <span className="text-foreground font-medium">{confirmDeleteInvoice.recipientName || "Customer"}</span></div>
+                  <div>Total Amount: <span className="text-foreground font-medium">€{confirmDeleteInvoice.totalAmount.toFixed(2)} {confirmDeleteInvoice.currency}</span></div>
+                  <div>Status: <span className="text-foreground font-medium capitalize">{confirmDeleteInvoice.status}</span></div>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0 mt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmDeleteInvoice(null)}
+                disabled={deletingId !== null}
+                className="border-border/70 text-foreground hover:bg-muted"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleDeleteInvoice}
+                disabled={deletingId !== null}
+                className="bg-rose-600 hover:bg-rose-700 text-white"
+              >
+                {deletingId !== null ? (
+                  <RefreshCw className="size-4 animate-spin mr-1.5" />
+                ) : (
+                  <Trash2 className="size-4 mr-1.5" />
+                )}
+                Confirm Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Reset Invoice Numbering Dialog */}
+        <Dialog open={isResetNumberingOpen} onOpenChange={setIsResetNumberingOpen}>
+          <DialogContent className="sm:max-w-lg bg-card border-border text-foreground">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-foreground">
+                <RotateCcw className="size-5 text-amber-500" />
+                Reset Invoice Numbering
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground text-xs pt-1">
+                Configure sequential fiscal invoice numbering. You can reset the sequence counter and optionally renumber existing invoices sequentially without gaps.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2 text-xs">
+              <div className="space-y-1.5">
+                <label className="font-semibold uppercase tracking-wider text-muted-foreground text-[10px]">
+                  Starting Sequence Number
+                </label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={resetStartSequence}
+                  onChange={(e) => setResetStartSequence(e.target.value)}
+                  className="border-border/70 text-sm"
+                  placeholder="1"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  The sequence counter will start from this number (e.g. 1 will format as 0001).
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="font-semibold uppercase tracking-wider text-muted-foreground text-[10px]">
+                    Year Filter
+                  </label>
+                  <Select value={resetYear} onValueChange={setResetYear}>
+                    <SelectTrigger className="border-border/70 text-xs">
+                      <SelectValue placeholder="All Years" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Years</SelectItem>
+                      <SelectItem value="2025">2025</SelectItem>
+                      <SelectItem value="2026">2026</SelectItem>
+                      <SelectItem value="2027">2027</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-semibold uppercase tracking-wider text-muted-foreground text-[10px]">
+                    Month Filter
+                  </label>
+                  <Select value={resetMonth} onValueChange={setResetMonth}>
+                    <SelectTrigger className="border-border/70 text-xs">
+                      <SelectValue placeholder="All Months" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Months</SelectItem>
+                      {Array.from({ length: 12 }, (_, i) => (
+                        <SelectItem key={i + 1} value={(i + 1).toString()}>
+                          {new Date(2026, i, 1).toLocaleString("default", { month: "long" })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-lg border border-border/70 bg-muted/20 space-y-3">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={resetRenumberExisting}
+                    onChange={(e) => setResetRenumberExisting(e.target.checked)}
+                    className="mt-0.5 rounded border-border text-[#54a8c7] focus:ring-[#54a8c7]"
+                  />
+                  <div className="space-y-0.5">
+                    <span className="font-semibold text-foreground text-xs">
+                      Renumber existing invoices sequentially
+                    </span>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Orders all existing matching invoices chronologically and assigns contiguous consecutive numbers (e.g. INV-202608-0001, INV-202608-0002...), eliminating any numbering gaps caused by deleted invoices.
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0 mt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsResetNumberingOpen(false)}
+                disabled={resettingNumbering}
+                className="border-border/70 text-foreground hover:bg-muted"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleResetNumbering}
+                disabled={resettingNumbering}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                {resettingNumbering ? (
+                  <RefreshCw className="size-4 animate-spin mr-1.5" />
+                ) : (
+                  <RotateCcw className="size-4 mr-1.5" />
+                )}
+                Confirm Reset
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

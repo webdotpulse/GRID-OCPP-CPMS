@@ -263,4 +263,118 @@ describe("InvoiceService & Multi-Tax Invoicing Engine (FIN-01)", () => {
       aggSpy.mockRestore();
     });
   });
+
+  describe("Invoice Deletion & Unlinking Transactions", () => {
+    it("should delete invoice and unlink any associated transactions back to unbilled status", async () => {
+      const mockInvoice = {
+        id: 42,
+        invoiceNumber: "INV-202608-0042",
+        companyId: 1,
+        transactions: [{ id: 101, invoiceId: 42 }],
+      };
+
+      const findUserSpy = jest.spyOn(prisma.user, "findUnique").mockResolvedValue({ id: 1, companyId: 1 } as any);
+      const findUniqueSpy = jest.spyOn(prisma.invoice, "findUnique").mockResolvedValue(mockInvoice as any);
+      const updateManyTxSpy = jest.spyOn(prisma.transaction, "updateMany").mockResolvedValue({ count: 1 });
+      const deleteInvoiceSpy = jest.spyOn(prisma.invoice, "delete").mockResolvedValue(mockInvoice as any);
+
+      const result = await InvoiceService.deleteInvoice(42, "admin", 1);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("INV-202608-0042");
+      expect(updateManyTxSpy).toHaveBeenCalledWith({
+        where: { invoiceId: 42 },
+        data: { invoiceId: null },
+      });
+      expect(deleteInvoiceSpy).toHaveBeenCalledWith({
+        where: { id: 42 },
+      });
+
+      findUserSpy.mockRestore();
+      findUniqueSpy.mockRestore();
+      updateManyTxSpy.mockRestore();
+      deleteInvoiceSpy.mockRestore();
+    });
+
+    it("should reject non-admin users attempting to delete invoices", async () => {
+      await expect(InvoiceService.deleteInvoice(42, "user", 10)).rejects.toThrow(
+        "Permission denied: Only administrators can delete invoices."
+      );
+    });
+
+    it("should throw error if invoice does not exist", async () => {
+      const findUniqueSpy = jest.spyOn(prisma.invoice, "findUnique").mockResolvedValue(null);
+
+      await expect(InvoiceService.deleteInvoice(999, "superadmin", 1)).rejects.toThrow("Invoice not found");
+
+      findUniqueSpy.mockRestore();
+    });
+  });
+
+  describe("Reset Invoice Numbering", () => {
+    it("should renumber existing invoices sequentially and update sequence counter", async () => {
+      const mockInvoices = [
+        { id: 1, invoiceNumber: "INV-202608-0001", createdAt: new Date("2026-08-01") },
+        { id: 3, invoiceNumber: "INV-202608-0005", createdAt: new Date("2026-08-03") },
+      ];
+
+      const findUserSpy = jest.spyOn(prisma.user, "findUnique").mockResolvedValue({ id: 1, companyId: 1 } as any);
+      const findManySpy = jest.spyOn(prisma.invoice, "findMany").mockResolvedValue(mockInvoices as any);
+      const updateSpy = jest.spyOn(prisma.invoice, "update").mockResolvedValue({} as any);
+      const upsertSettingSpy = jest.spyOn(prisma.systemSetting, "upsert").mockResolvedValue({} as any);
+
+      const result = await InvoiceService.resetInvoiceNumbering(
+        { startSequence: 1, renumberExisting: true, year: 2026, month: 8 },
+        "admin",
+        1
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.renumberedCount).toBe(2);
+      expect(result.nextSequence).toBe(3);
+
+      // Temporary update + clean sequential update for each invoice = 4 updates
+      expect(updateSpy).toHaveBeenCalledTimes(4);
+      expect(upsertSettingSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { key: "INVOICE_NEXT_SEQUENCE" },
+          update: { value: "3" },
+        })
+      );
+
+      findUserSpy.mockRestore();
+      findManySpy.mockRestore();
+      updateSpy.mockRestore();
+      upsertSettingSpy.mockRestore();
+    });
+
+    it("should set next sequence counter without renumbering when renumberExisting is false", async () => {
+      const upsertSettingSpy = jest.spyOn(prisma.systemSetting, "upsert").mockResolvedValue({} as any);
+
+      const result = await InvoiceService.resetInvoiceNumbering(
+        { startSequence: 100, renumberExisting: false },
+        "superadmin",
+        1
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.renumberedCount).toBe(0);
+      expect(result.nextSequence).toBe(100);
+      expect(upsertSettingSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { key: "INVOICE_NEXT_SEQUENCE" },
+          update: { value: "100" },
+        })
+      );
+
+      upsertSettingSpy.mockRestore();
+    });
+
+    it("should reject non-admin users from resetting invoice numbering", async () => {
+      await expect(
+        InvoiceService.resetInvoiceNumbering({ startSequence: 1 }, "user", 10)
+      ).rejects.toThrow("Permission denied: Only administrators can reset invoice numbering.");
+    });
+  });
 });
+

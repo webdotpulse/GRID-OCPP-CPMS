@@ -151,3 +151,27 @@ export async function updateInvoiceStatus(id: number, status: string, notes?: st
   const response = await api.patch(`/invoices/${id}/status`, { status, notes });
   return response.data;
 }
+
+export async function deleteInvoice(id: number): Promise<{ success: boolean; message: string }> {
+  const response = await api.delete(`/invoices/${id}`);
+  return response.data;
+}
+
+export interface ResetNumberingParams {
+  startSequence?: number;
+  renumberExisting?: boolean;
+  year?: number;
+  month?: number;
+  prefix?: string;
+}
+
+export async function resetInvoiceNumbering(params?: ResetNumberingParams): Promise<{
+  success: boolean;
+  message: string;
+  renumberedCount: number;
+  nextSequence: number;
+}> {
+  const response = await api.post('/invoices/reset-numbering', params || {});
+  return response.data;
+}
+

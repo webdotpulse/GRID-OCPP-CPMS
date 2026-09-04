@@ -255,7 +255,11 @@
       "statusIssued": "Émise",
       "statusDraft": "Brouillon",
       "statusVoid": "Annulée",
-      "noInvoices": "Aucune facture trouvée correspondant aux critères."
+      "noInvoices": "Aucune facture trouvée correspondant aux critères.",
+      "deleteInvoice": "Supprimer la Facture",
+      "confirmDelete": "Êtes-vous sûr de vouloir supprimer la facture {{number}} ? Les sessions de charge associées redeviendront non facturées.",
+      "resetNumbering": "Réinitialiser la Numérotation",
+      "resetNumberingDesc": "Réinitialisez le compteur de séquence de factures ou renumérotez les factures existantes de manière séquentielle sans lacunes."
     },
     "reimbursements": {
       "title": "Remboursements",
